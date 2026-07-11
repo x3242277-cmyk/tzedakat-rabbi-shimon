@@ -1,0 +1,976 @@
+<!doctype html>
+<html dir="rtl" lang="he">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101014">
+  <meta name="description" content="מערכת ניהול גבייה, זכאות ומענקים — צדקת רבי שמעון">
+  <title>צדקת רבי שמעון | מערכת ניהול</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+  <script>
+    try {
+      var s = sessionStorage.getItem("ezer_active_session");
+      if (s && JSON.parse(s).username) {
+        document.documentElement.style.setProperty('--login-init-display','none');
+      }
+    } catch(e) {}
+  </script>
+  <div id="login-screen" class="login-overlay" style="display:var(--login-init-display,flex)">
+    <div class="login-card">
+      <img src="https://i.ibb.co/35GFFgB9/1-optimized.png" alt="לוגו צדקת רבי שמעון" id="login-logo" style="display: block; margin: 0 auto 20px auto; width: 120px; height: auto;">
+      <h2 style="color: var(--gold-main); margin-bottom: 5px; font-weight: 800; font-size: 24px;">צדקת רבי שמעון</h2>
+      
+      <div id="login-loader-area" style="padding: 30px 0;">
+         <div class="sleek-spinner"></div>
+         <p style="color: var(--text-secondary); margin-top: 15px; font-weight: 600; font-size: 14px;">מסנכרן נתונים מאובטחים...</p>
+      </div>
+
+      <div id="login-form-area" style="display: none; opacity: 0; transition: opacity 0.6s ease-in-out;">
+          <p style="color: var(--text-secondary); margin-bottom: 30px; font-size: 14px;">הזן פרטי זיהוי לכניסה למערכת</p>
+          
+          <div class="form-group" style="text-align: right; margin-bottom: 20px;">
+            <label>שם משתמש</label>
+            <select id="login-username" class="ui-select"></select>
+          </div>
+          <div class="form-group" style="text-align: right; margin-bottom: 30px;">
+            <label>סיסמה</label>
+            <input type="password" id="login-password" class="ui-input" placeholder="הקלידו סיסמה...">
+          </div>
+          
+          <button id="btn-login" class="btn btn-solid-blue" style="width: 100%; font-size: 16px; padding: 14px;">היכנס למערכת</button>
+          <div id="login-error" style="color: var(--danger); margin-top: 15px; font-weight: bold; display: none;">סיסמה שגויה, נסה שוב.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="screen active-screen app-layout hidden-layout" id="main-screen">
+    
+    <aside class="sidebar">
+      <div class="sidebar-header" style="display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px; margin-bottom: 24px; padding-top: 10px;">
+        <img src="https://i.ibb.co/35GFFgB9/1-optimized.png" alt="לוגו צדקת רבי שמעון" id="sidebar-logo" style="width: 126px; height: auto; cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
+        <div>
+          <h2 style="font-size: 22px; color: var(--gold-main); margin: 0; font-weight: 800;">צדקת רבי שמעון</h2>
+          <div class="brand-subtitle" style="font-size: 12px; color: var(--text-sidebar);">ניהול גבייה, זכאות ומענקים</div>
+          <div id="user-role-indicator" style="margin-top: 8px; display: inline-block; font-size: 11px; font-weight: bold; background: rgba(212, 175, 55, 0.15); color: var(--gold-light); padding: 4px 10px; border-radius: 12px; border: 1px solid rgba(212, 175, 55, 0.3);">
+          </div>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button class="nav-item" data-screen="dashboard-screen">לוח בקרה</button>
+        <button class="nav-item" data-screen="members-screen">בחורים</button>
+        <button class="nav-item" data-screen="daily-report-screen">דו"ח תנועות מרוכז</button>
+        <button class="nav-item" data-screen="expenses-summary-screen">סיכום הוצאות</button>
+        <button class="nav-item" data-screen="purim-registration-screen">כתובות פורים</button>
+        <button class="nav-item" data-screen="rules-screen">תקנון</button>
+        <button class="nav-item" data-screen="grants-screen">מענקים</button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <button class="nav-item" data-screen="settings-screen" style="margin-bottom: 12px; width: 100%; justify-content: flex-start;" id="nav-settings">הגדרות מערכת</button>
+        
+      </div>
+    </aside>
+
+    <main class="main-content">
+      
+      <header class="content-header" id="main-content-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
+        <div>
+          <h1 class="page-title" id="page-title">לוח בקרה</h1>
+          <div class="page-subtitle" id="page-subtitle">שליטה על גבייה, עמידה ביעדים וזכאות למענק</div>
+        </div>
+        <div id="header-top-actions" style="display: flex; gap: 8px;">
+          <button id="btn-refresh-data" class="header-icon-btn" title="רענן נתונים מהשרת">
+            <span class="material-icons-regular" id="refresh-icon" style="font-size: 19px;">refresh</span>
+          </button>
+          <button id="btn-logout-top" class="header-icon-btn header-icon-btn--danger" title="התנתקות ונעילה">
+            <span class="material-icons-regular" style="font-size: 19px;">logout</span>
+          </button>
+        </div>
+      </header>
+
+      <section id="dashboard-screen" class="content-screen active-content-screen">
+
+        <div class="dashboard-command-center">
+          <div class="dashboard-hero-panel">
+            <div class="dashboard-hero-copy">
+              <span class="dashboard-eyebrow">חדר מצב</span>
+              <h1>לוח בקרה</h1>
+              <p>תמונת מצב שנתית, טיפול מיידי ופעולות ניהול במקום אחד.</p>
+            </div>
+            <div class="dashboard-hero-controls">
+              <div class="dashboard-year-card">
+                <label for="dashboard-year-filter">שנת פעילות</label>
+                <select id="dashboard-year-filter" onchange="renderDashboard()" class="dashboard-year-select">
+                  <option value='תשפ"ז'>תשפ"ז</option>
+                  <option value='תשפ"ו' selected>תשפ"ו</option>
+                  <option value='תשפ"ה'>תשפ"ה</option>
+                  <option value='תשפ"ד'>תשפ"ד</option>
+                  <option value='תשפ"ג'>תשפ"ג</option>
+                  <option value='תשפ"ב'>תשפ"ב</option>
+                  <option value='תשפ"א'>תשפ"א</option>
+                  <option value='תש"פ'>תש"פ</option>
+                </select>
+              </div>
+              <div class="dashboard-session-tools">
+                <button id="dashboard-refresh-data" class="dashboard-session-btn" type="button" title="רענן נתונים">
+                  <span class="material-icons-regular" id="dashboard-refresh-icon">refresh</span>
+                </button>
+                <button id="dashboard-logout" class="dashboard-session-btn dashboard-session-btn--danger" type="button" title="יציאה ונעילה">
+                  <span class="material-icons-regular">logout</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="dashboard-kpi-grid">
+            <button class="dashboard-kpi-card" onclick="openDashboardDrill('collected')" type="button">
+              <span class="material-icons-regular">account_balance_wallet</span>
+              <div>
+                <div class="dashboard-kpi-label">נגבה השנה</div>
+                <div class="dashboard-kpi-value" id="dashboard-kpi-collected">₪0</div>
+              </div>
+            </button>
+            <button class="dashboard-kpi-card" onclick="openDashboardDrill('target')" type="button">
+              <span class="material-icons-regular">flag</span>
+              <div>
+                <div class="dashboard-kpi-label">יעד כולל</div>
+                <div class="dashboard-kpi-value" id="dashboard-kpi-target">₪0</div>
+              </div>
+            </button>
+            <button class="dashboard-kpi-card dashboard-kpi-card--urgent" onclick="openDashboardDrill('missing')" type="button">
+              <span class="material-icons-regular">priority_high</span>
+              <div>
+                <div class="dashboard-kpi-label">חסר להשלמה</div>
+                <div class="dashboard-kpi-value" id="dashboard-kpi-missing">₪0</div>
+              </div>
+            </button>
+            <button class="dashboard-kpi-card" onclick="openDashboardDrill('eligible')" type="button">
+              <span class="material-icons-regular">workspace_premium</span>
+              <div>
+                <div class="dashboard-kpi-label">עמדו ביעד השנתי</div>
+                <div class="dashboard-kpi-value" id="dashboard-kpi-eligible">0</div>
+              </div>
+            </button>
+            <button class="dashboard-kpi-card dashboard-kpi-card--warning" onclick="openDashboardDrill('debt')" type="button">
+              <span class="material-icons-regular">report</span>
+              <div>
+                <div class="dashboard-kpi-label">חובות עד שנה קודמת</div>
+                <div class="dashboard-kpi-value" id="dashboard-kpi-debt">0</div>
+              </div>
+            </button>
+            <button class="dashboard-kpi-card dashboard-progress-card" onclick="openDashboardDrill('progress')" type="button">
+              <span class="material-icons-regular">trending_up</span>
+              <div>
+                <div class="dashboard-kpi-label">התקדמות כללית</div>
+                <div class="dashboard-kpi-value" id="dashboard-kpi-progress">0%</div>
+                <div class="dashboard-progress-track"><div id="dashboard-yearly-progress-bar"></div></div>
+              </div>
+            </button>
+          </div>
+
+          <div class="dashboard-main-grid">
+            <section class="dashboard-panel dashboard-panel--attention">
+              <div class="dashboard-panel-head">
+                <div>
+                  <h2>דורש טיפול</h2>
+                  <p>הנקודות החשובות ביותר לפתיחה עכשיו</p>
+                </div>
+                <span class="material-icons-regular">bolt</span>
+              </div>
+              <div id="dashboard-attention-list" class="dashboard-attention-list"></div>
+            </section>
+
+            <section class="dashboard-panel dashboard-panel--chart">
+              <div class="dashboard-panel-head">
+                <div>
+                  <h2>גבייה מול הוצאות</h2>
+                  <p>כל השנים: בחורים, פורים, הוצאות ומענקים</p>
+                </div>
+                <span class="material-icons-regular">area_chart</span>
+              </div>
+              <div id="dashboard-month-bars" class="dashboard-month-bars"></div>
+            </section>
+
+            <section class="dashboard-panel dashboard-panel--actions">
+              <div class="dashboard-panel-head">
+                <div>
+                  <h2>פעולות מהירות</h2>
+                  <p>התחלות עבודה נפוצות</p>
+                </div>
+                <span class="material-icons-regular">apps</span>
+              </div>
+              <div class="dashboard-action-grid">
+                <button class="dashboard-action-btn" id="quick-add-donation" type="button"><span class="qa-icon-badge"><span class="material-icons-regular">payments</span></span><strong>רישום הפקדה</strong></button>
+                <button class="dashboard-action-btn" id="quick-add-member" type="button"><span class="qa-icon-badge"><span class="material-icons-regular">person_add</span></span><strong>הוספת בחור</strong></button>
+                <button class="dashboard-action-btn" id="quick-add-expense" type="button"><span class="qa-icon-badge"><span class="material-icons-regular">receipt_long</span></span><strong>הוספת הוצאה</strong></button>
+                <button class="dashboard-action-btn" onclick="openNedarimModal()" type="button"><span class="qa-icon-badge"><span class="material-icons-regular">credit_card</span></span><strong>סליקת אשראי</strong></button>
+                <button class="dashboard-action-btn drill-down-card" data-drill="daily-report-screen" type="button"><span class="qa-icon-badge"><span class="material-icons-regular">summarize</span></span><strong>דוח יומי</strong></button>
+                <button class="dashboard-action-btn drill-down-card" data-drill="grants-screen" type="button"><span class="qa-icon-badge"><span class="material-icons-regular">redeem</span></span><strong>מענקים</strong></button>
+              </div>
+            </section>
+
+            <section class="dashboard-panel dashboard-panel--activity">
+              <div class="dashboard-panel-head">
+                <div>
+                  <h2>פעילות אחרונה</h2>
+                  <p>הפקדות והוצאות אחרונות</p>
+                </div>
+                <span class="material-icons-regular">history</span>
+              </div>
+              <div id="dashboard-recent-activity" class="dashboard-activity-list"></div>
+            </section>
+
+            <section class="dashboard-panel dashboard-panel--segments">
+              <div class="dashboard-panel-head">
+                <div>
+                  <h2>מסגרות</h2>
+                  <p>התקדמות לפי סוג מסגרת</p>
+                </div>
+                <span class="material-icons-regular">donut_large</span>
+              </div>
+              <div id="dashboard-segments" class="dashboard-segment-list"></div>
+            </section>
+          </div>
+        </div>
+
+        <div class="dashboard-legacy-hidden">
+
+        <div class="dashboard-topbar">
+          <div class="dashboard-topbar-title">
+            <span class="material-icons-regular" style="font-size:20px; color: var(--gold-main); vertical-align: middle; margin-left: 6px;">home</span>
+            לוח בקרה
+          </div>
+          <div class="dashboard-year-wrap">
+            <label for="dashboard-year-filter-legacy" class="dashboard-year-label">שנת פעילות:</label>
+            <select id="dashboard-year-filter-legacy" class="dashboard-year-select">
+              <option value='תשפ"ז'>תשפ"ז</option>
+              <option value='תשפ"ו' selected>תשפ"ו</option>
+              <option value='תשפ"ה'>תשפ"ה</option>
+              <option value='תשפ"ד'>תשפ"ד</option>
+              <option value='תשפ"ג'>תשפ"ג</option>
+              <option value='תשפ"ב'>תשפ"ב</option>
+              <option value='תשפ"א'>תשפ"א</option>
+              <option value='תש"פ'>תש"פ</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="metrics-row">
+          <div class="metric-card drill-down-card" id="box-purim-groups" data-drill="purim-registration-screen">
+            <div class="metric-label">הכנסות פורים</div>
+            <div id="display-purim-groups" class="metric-value">₪0</div>
+            <div class="metric-hint">לחץ לפירוט <span class="material-icons-regular" style="font-size:13px; vertical-align:middle;">arrow_outward</span></div>
+          </div>
+          <div class="metric-card drill-down-card" id="box-members-collection" data-drill="daily-report-screen">
+            <div class="metric-label">הכנסות איסוף בחורים</div>
+            <div id="display-members-collection" class="metric-value">₪0</div>
+            <div class="metric-hint">לחץ לפירוט <span class="material-icons-regular" style="font-size:13px; vertical-align:middle;">arrow_outward</span></div>
+          </div>
+          <div class="metric-card drill-down-card" id="box-expenses" data-drill="daily-report-screen">
+            <div class="metric-label">הוצאות קמפיין</div>
+            <div id="display-expenses" class="metric-value metric-danger">₪0</div>
+            <div class="metric-hint">לחץ לפירוט <span class="material-icons-regular" style="font-size:13px; vertical-align:middle;">arrow_outward</span></div>
+          </div>
+        </div>
+
+        <div class="dashboard-body">
+          <div class="card-panel quick-actions-panel">
+            <div class="quick-actions-title">פעולות מהירות</div>
+            <div class="quick-actions-list">
+              <button class="quick-action-item" id="quick-add-donation-legacy">
+                <span class="material-icons-regular qa-icon">payments</span>
+                <div class="qa-text"><span class="qa-main">רישום תרומה</span><span class="qa-sub">הכנסת קמפיין</span></div>
+                <span class="material-icons-regular qa-arrow">chevron_left</span>
+              </button>
+              <button class="quick-action-item" id="quick-add-expense-legacy">
+                <span class="material-icons-regular qa-icon">receipt_long</span>
+                <div class="qa-text"><span class="qa-main">רישום הוצאה</span><span class="qa-sub">תשלום לספק</span></div>
+                <span class="material-icons-regular qa-arrow">chevron_left</span>
+              </button>
+              <button class="quick-action-item" id="quick-add-member-legacy">
+                <span class="material-icons-regular qa-icon">person_add</span>
+                <div class="qa-text"><span class="qa-main">הוספת בחור</span><span class="qa-sub">יצירת פרופיל</span></div>
+                <span class="material-icons-regular qa-arrow">chevron_left</span>
+              </button>
+              <button class="quick-action-item" id="quick-open-nedarim-legacy" onclick="openNedarimModal()">
+                <span class="material-icons-regular qa-icon">credit_card</span>
+                <div class="qa-text"><span class="qa-main">סליקת אשראי</span><span class="qa-sub">נדרים פלוס</span></div>
+                <span class="material-icons-regular qa-arrow">chevron_left</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        </div>
+      </section>
+
+      <section id="members-screen" class="content-screen">
+        <div class="card-panel" id="members-list-section">
+          
+          <div class="app-toolbar" style="flex-wrap:nowrap; align-items:center;">
+            <div class="toolbar-filters" style="flex-wrap:nowrap; align-items:center; gap:10px;">
+              <div class="filter-group" style="min-width:160px;">
+                <label>חיפוש חופשי (שם, טלפון...)</label>
+                <input type="text" id="search-members-list" class="ui-input search-input" placeholder="הקלד לחיפוש...">
+              </div>
+              <div class="filter-group" style="min-width:130px;">
+                <label>סינון ישיבה</label>
+                <select id="filter-members-yeshiva" class="ui-select"><option value="">הכל</option></select>
+              </div>
+              <div class="filter-group" style="min-width:110px;">
+                <label>סינון עיר</label>
+                <select id="filter-members-city" class="ui-select"><option value="">הכל</option></select>
+              </div>
+              <div class="members-inline-checks">
+                <label class="members-radio-label">
+                  <input type="checkbox" id="filter-type-small" onchange="updateTypeFilter()"> ישי"ק
+                </label>
+                <label class="members-radio-label">
+                  <input type="checkbox" id="filter-type-big" onchange="updateTypeFilter()"> ישי"ג
+                </label>
+                <label class="members-radio-label" style="border-right:1px solid var(--border-color); padding-right:10px; margin-right:4px;">
+                  <input type="checkbox" id="filter-show-married"> נשואים
+                </label>
+              </div>
+            </div>
+            <div class="toolbar-actions" style="flex-shrink:0;">
+              <button class="members-toolbar-btn" id="btn-members-edit-cancel" title="בטל עריכה" style="display:none; border-color:#dc2626; color:#dc2626;" onclick="cancelMembersEdit()"><span class="material-icons-regular">close</span></button>
+              <button class="members-toolbar-btn" id="btn-members-edit-mode" title="מצב עריכה" onclick="handleMembersEditButton()"><span class="material-icons-regular">edit</span></button>
+              <button class="members-toolbar-btn" id="btn-clear-members-filters" title="נקה סינונים"><span class="material-icons-regular">filter_alt_off</span></button>
+              <button class="members-toolbar-btn" title="צפוף/רווח" onclick="document.querySelector('#members-screen .data-table').classList.toggle('compact-view')"><span class="material-icons-regular">density_small</span></button>
+              <button class="members-toolbar-btn" onclick="window.print()" title="הדפסה"><span class="material-icons-regular">print</span></button>
+              <button class="members-toolbar-btn" id="btn-export-members" title="הורדה לאקסל">
+                <svg width="18" height="18" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="4" fill="#217346"/><path d="M13 6h6v2h-6V6zm0 4h6v2h-6v-2zm0 4h6v2h-6v-2z" fill="#fff" opacity=".6"/><path d="M5 6l3 5-3 5h2.5l1.8-3.2L11 16h2.5l-3-5 3-5H11L9.3 9.2 7.5 6H5z" fill="#fff"/></svg>
+              </button>
+              <button class="members-toolbar-btn members-toolbar-btn--primary" id="btn-inner-add-member" title="בחור חדש"><span class="material-icons-regular">person_add</span></button>
+            </div>
+          </div>
+
+          <div class="table-container table-sticky">
+            <table class="data-table compact-view">
+              <thead id="members-table-head">
+                <tr>
+                  <th data-sort="firstName" class="sortable-header">שם פרטי</th>
+                  <th data-sort="lastName" class="sortable-header">שם משפחה</th>
+                  <th data-sort="fatherName" class="sortable-header">שם האב</th>
+                  <th data-sort="yeshiva" class="sortable-header">ישיבה</th>
+                  <th data-sort="shiur" class="sortable-header">שיעור</th>
+                  <th data-sort="address" class="sortable-header">עיר</th>
+                  <th data-sort="collectedThisYear" class="sortable-header">נאסף השנה</th>
+                </tr>
+              </thead>              
+              <tbody id="members-table-body">
+                <tr><td colspan="7"><div class="empty-state"><span class="material-icons-regular">groups</span><p>אין נתונים להצגה</p></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card-panel hidden" id="member-profile-section">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div style="text-align: center; flex: 1;">
+              <h2 id="profile-full-name" style="font-size: 28px; margin-bottom: 5px;">שם הבחור</h2>
+              <div id="profile-yeshiva-details" style="color: var(--text-secondary); font-size: 16px; margin-bottom: 5px;">ישיבה | שיעור</div>
+              <div id="profile-contact-details" style="color: var(--text-secondary); font-size: 15px; margin-bottom: 16px;">טלפון | כתובת</div>
+              <div id="profile-eligibility-icons" style="display: flex; justify-content: center; gap: 12px; margin-bottom: 16px; min-height: 32px;"></div>
+              <div id="profile-total-amount" style="font-size: 48px; font-weight: bold; color: var(--gold-main);">₪0</div>
+              <div style="font-size: 14px; color: var(--text-secondary);">סך הכל נאסף השנה</div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 10px; width: 200px;">
+              <button class="btn btn-outline" id="btn-profile-deposit" style="text-align: right;">₪ הפקדת כספים</button>
+              <button class="btn btn-outline" id="btn-profile-edit" style="text-align: right;">✏️ עדכון פרטים</button>
+              <button class="btn btn-outline" id="btn-profile-grant" style="text-align: right; background: rgba(212, 175, 55, 0.1);">🏆 היסטוריית זכאות</button>
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; background: var(--bg-main); border: 1px solid var(--border-color); border-radius: 10px; padding: 20px; margin-top: 30px;">
+            <div style="display: flex; justify-content: space-between; text-align: center; margin-bottom: 15px;">
+              <div style="flex: 1; border-left: 1px solid var(--border-color);">
+                <div style="font-size: 14px; color: var(--text-secondary);">יעד בסיס (השנה)</div>
+                <div id="profile-bar-target" style="font-size: 22px; font-weight: bold; color: var(--text-main);">₪0</div>
+              </div>
+              <div style="flex: 1; border-left: 1px solid var(--border-color);">
+                <div style="font-size: 14px; color: var(--text-secondary);">חובות עבר (קנס)</div>
+                <div id="profile-bar-debt" style="font-size: 22px; font-weight: bold; color: var(--danger);">₪0</div>
+              </div>
+              <div style="flex: 1; border-left: 1px solid var(--border-color);">
+                <div style="font-size: 14px; color: var(--text-secondary);">סה״כ נדרש</div>
+                <div id="profile-bar-required" style="font-size: 22px; font-weight: bold; color: var(--text-main);">₪0</div>
+              </div>
+              <div style="flex: 1;">
+                <div style="font-size: 14px; color: var(--text-secondary);">פער להשלמה</div>
+                <div id="profile-bar-missing" style="font-size: 22px; font-weight: bold; color: var(--warning);">₪0</div>
+              </div>
+            </div>
+            
+            <div style="width: 100%;">
+              <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; color: var(--text-secondary); font-weight: bold;">
+                <span>התקדמות יעד</span>
+                <span id="profile-progress-text">0%</span>
+              </div>
+              <div style="width: 100%; height: 10px; background: #e2e8f0; border-radius: 5px; overflow: hidden;">
+                <div id="profile-progress-bar" style="width: 0%; height: 100%; background: var(--success); transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);"></div>
+              </div>
+            </div>
+          </div>
+          
+          <div style="margin-top: 24px; text-align: right;">
+            <button class="btn btn-danger-outline" id="btn-back-to-search">חזור לרשימה</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="daily-report-screen" class="content-screen">
+        <div class="card-panel">
+          <div class="app-toolbar">
+            <div class="toolbar-filters" style="align-items: flex-end;">
+              <div class="filter-group">
+                <label>סנן לפי תקופה</label>
+                <select id="report-time-filter" class="ui-select" style="min-width: 150px;">
+                  <option value="today" selected>היום</option>
+                  <option value="yesterday">אתמול</option>
+                  <option value="week">השבוע</option>
+                  <option value="year">השנה</option>
+                  <option value="custom">תאריך ספציפי...</option>
+                </select>
+              </div>
+              <div class="filter-group" id="report-custom-date-group" style="display: none;">
+                <label>בחר תאריך</label>
+                <input type="date" id="report-custom-date" class="ui-input">
+              </div>
+            </div>
+            <div class="toolbar-actions">
+              <button class="btn btn-outline" style="padding: 8px 12px;" onclick="window.print()"><span class="material-icons-regular" style="font-size: 18px;">print</span></button>
+              <button class="btn btn-solid-blue" id="btn-report-add-donation">＋ רישום תרומה</button>
+              <button class="btn btn-danger-outline" id="btn-report-add-expense" style="border: 1px solid var(--danger); background: transparent;">− רישום הוצאה</button>
+            </div>
+          </div>
+
+          <div class="card-panel" id="box-chart" style="margin-bottom: 20px; padding: 16px;">
+            <div style="font-size: 13px; font-weight: 700; color: var(--text-secondary); margin-bottom: 12px;">גרף פריסת הכנסות שנתי</div>
+            <canvas id="incomeChart" style="max-height: 220px;"></canvas>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; margin-top: 20px;">
+            <div style="border: 1px solid var(--success); border-radius: 8px; overflow: hidden;">
+              <div style="background: rgba(22, 163, 74, 0.1); padding: 15px; border-bottom: 1px solid var(--success); display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="color: var(--success); margin: 0; font-size: 18px;">הכנסות (איסוף)</h3>
+                <strong id="report-total-income" style="font-size: 20px; color: var(--success);">₪0</strong>
+              </div>
+              <div class="table-container table-sticky" style="border: none; border-radius: 0; max-height: 50vh;">
+                <table class="data-table compact-view">
+                  <thead><tr><th>תאריך</th><th>בחור מזוכה</th><th>סכום</th></tr></thead>
+                  <tbody id="report-income-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div style="border: 1px solid var(--danger); border-radius: 8px; overflow: hidden;">
+              <div style="background: rgba(220, 38, 38, 0.1); padding: 15px; border-bottom: 1px solid var(--danger); display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="color: var(--danger); margin: 0; font-size: 18px;">הוצאות קמפיין</h3>
+                <strong id="report-total-expense" style="font-size: 20px; color: var(--danger);">₪0</strong>
+              </div>
+              <div class="table-container table-sticky" style="border: none; border-radius: 0; max-height: 50vh;">
+                <table class="data-table compact-view">
+                  <thead><tr><th>תאריך</th><th>תיאור</th><th>סכום</th></tr></thead>
+                  <tbody id="report-expense-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          
+        </div>
+      </section>
+
+      <section id="expenses-summary-screen" class="content-screen">
+        <div class="exp-year-bar">
+          <label for="expenses-year-filter" style="font-size:13px; font-weight:700; color:var(--text-secondary);">שנת ניתוח:</label>
+          <select id="expenses-year-filter" class="ui-select" style="min-width:130px;" onchange="onExpensesYearChange()"></select>
+        </div>
+        <div class="metrics-row metrics-row-4">
+          <div class="metric-card no-click">
+            <div class="metric-label">סה"כ הוצאות השנה</div>
+            <div class="metric-value" id="exp-kpi-total">₪0</div>
+            <div class="metric-hint" id="exp-kpi-change">—</div>
+          </div>
+          <div class="metric-card no-click">
+            <div class="metric-label">הקטגוריה הגדולה</div>
+            <div class="metric-value" id="exp-kpi-top-cat" style="font-size:20px;">—</div>
+            <div class="metric-hint" id="exp-kpi-top-cat-amount">—</div>
+          </div>
+          <div class="metric-card no-click">
+            <div class="metric-label">ממוצע חודשי</div>
+            <div class="metric-value" id="exp-kpi-avg">₪0</div>
+            <div class="metric-hint" id="exp-kpi-count">0 תנועות</div>
+          </div>
+          <div class="metric-card no-click metric-card-accent">
+            <div class="metric-label">יחס מההכנסות</div>
+            <div class="metric-value" id="exp-kpi-ratio">0%</div>
+            <div class="metric-hint" id="exp-kpi-ratio-hint">—</div>
+          </div>
+        </div>
+
+        <div class="exp-charts-row">
+          <div class="card-panel">
+            <h3 class="page-title small" style="margin-bottom:14px;">התפלגות לפי קטגוריה (שנה נוכחית)</h3>
+            <div style="position:relative; height:240px;"><canvas id="expenseCategoryChart"></canvas></div>
+          </div>
+          <div class="card-panel">
+            <h3 class="page-title small" style="margin-bottom:14px;">מגמה רב-שנתית</h3>
+            <div style="position:relative; height:240px;"><canvas id="expenseTrendChart"></canvas></div>
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:space-between;align-items:center;margin:20px 0 12px;">
+          <h3 class="page-title small">פירוט לפי קטגוריה ושנה</h3>
+          <button class="btn btn-outline" style="font-size:12px;padding:5px 12px;" onclick="toggleExpenseYears()">
+            <span id="exp-years-btn-text">הצג כל השנים</span>
+          </button>
+        </div>
+        <div id="expenses-cats-container" class="expenses-cats-grid">
+          <div style="grid-column:1/-1;padding:40px;text-align:center;color:var(--text-secondary);">טוען נתונים...</div>
+        </div>
+      </section>
+
+      <section id="purim-registration-screen" class="content-screen">
+        <div class="card-panel">
+          <div id="purim-tabs-container"></div>
+        </div>
+      </section>
+
+      <section id="grants-screen" class="content-screen">
+        <div class="app-toolbar grants-toolbar" style="margin-bottom: 20px;">
+          <div class="toolbar-filters">
+            <h3 class="page-title small" style="margin: 0; color: var(--gold-dark);">מענקים</h3>
+          </div>
+          <div class="toolbar-actions">
+            <button class="members-toolbar-btn members-toolbar-btn--excel" onclick="exportGrantsToExcel()" title="הורדה לאקסל"><span class="material-icons-regular">download</span> ייצוא</button>
+            <button class="members-toolbar-btn" onclick="window.print()" title="הדפסה"><span class="material-icons-regular">print</span> הדפס</button>
+          </div>
+        </div>
+
+        <div class="grants-view-toggle" id="grants-view-toggle">
+          <button type="button" class="grants-view-btn active" data-view="grant" onclick="switchGrantsView('grant')"><span class="material-icons-regular">redeem</span> נתינת המענק</button>
+          <button type="button" class="grants-view-btn" data-view="payments" onclick="switchGrantsView('payments')"><span class="material-icons-regular">payments</span> תשלומים לחנויות</button>
+        </div>
+
+        <div class="grants-archive-years" id="grants-archive-years"></div>
+        <div class="grants-archive-stats" id="grants-archive-stats"></div>
+
+        <div id="grants-grant-view" class="grants-page-view">
+          <div class="grants-giving-grid">
+            <div class="card-panel grants-archive-recipients">
+              <div class="grants-archive-panel-head">
+                <h3 class="page-title small" style="margin:0;">מקבלי המענק <span id="grants-archive-year-label"></span></h3>
+                <div class="grants-archive-head-actions">
+                  <button class="members-toolbar-btn members-toolbar-btn--gold" onclick="toggleGrantsAddForm()" id="grants-archive-add-btn" title="הוספת חתן"><span class="material-icons-regular">person_add</span> הוסף חתן</button>
+                  <button class="members-toolbar-btn members-toolbar-btn--excel" onclick="exportGrantsArchiveRecipients()" title="הורדה לאקסל"><span class="material-icons-regular">download</span> אקסל</button>
+                </div>
+              </div>
+              <div id="grants-archive-add-form" class="grants-archive-add-form hidden">
+                <input type="text" id="grants-add-name" class="ui-input" placeholder="שם ומשפחה">
+                <input type="text" id="grants-add-id" class="ui-input" placeholder="תעודת זהות" inputmode="numeric">
+                <input type="text" id="grants-add-phone" class="ui-input" placeholder="טלפון" inputmode="numeric">
+                <input type="date" id="grants-add-date" class="ui-input">
+                <button class="btn btn-solid-blue" onclick="submitGrantsAddRecipient()"><span class="material-icons-regular" style="font-size:15px;vertical-align:middle;">check</span> הוסף</button>
+                <button class="btn btn-outline" onclick="toggleGrantsAddForm(false)">ביטול</button>
+              </div>
+              <div id="grants-archive-recipients-note" class="grants-archive-note"></div>
+              <div class="table-container table-sticky grants-recipients-table">
+                <table class="data-table compact-view">
+                  <thead>
+                    <tr><th>#</th><th>שם ומשפחה</th><th>תעודת זהות</th><th>טלפון</th><th>תאריך</th><th class="no-export"></th></tr>
+                  </thead>
+                  <tbody id="grants-archive-recipients-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="card-panel grants-package-panel">
+              <h3 class="page-title small" style="margin:0 0 4px;">מה מקבלים <span id="grants-package-year-label"></span></h3>
+              <p class="settings-card-sub" style="margin:0 0 12px;">שווי חבילה לחתן <strong id="grants-archive-pkg-total"></strong></p>
+              <div id="grants-archive-package"></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="grants-payments-view" class="grants-page-view hidden">
+          <div class="grants-payments-grid">
+            <div class="card-panel">
+              <h3 class="page-title small" style="margin:0 0 4px;">תשלומים לחנויות <span id="grants-payment-year-label"></span></h3>
+              <p class="settings-card-sub" style="margin:0 0 12px;">תשלומים בפועל לפי כרטיסיות האקסל</p>
+              <div class="grants-payment-add-form">
+                <input type="text" id="grants-payment-store" class="ui-input" placeholder="חנות / ספק">
+                <input type="text" id="grants-payment-date" class="ui-input" placeholder="תאריך">
+                <input type="text" id="grants-payment-description" class="ui-input" placeholder="הוצאה / חשבונית">
+                <input type="text" id="grants-payment-method" class="ui-input" placeholder="אמצעי תשלום">
+                <input type="number" id="grants-payment-amount" class="ui-input" placeholder="סכום" min="0" step="0.01">
+                <button class="btn btn-solid-blue" onclick="submitGrantPayment()"><span class="material-icons-regular" style="font-size:15px;vertical-align:middle;">add</span> הוסף</button>
+              </div>
+              <div class="table-container table-sticky grants-actual-payments-table">
+                <table class="data-table compact-view">
+                  <thead>
+                    <tr>
+                      <th>חנות / ספק</th>
+                      <th>תאריך</th>
+                      <th>הוצאה / חשבונית</th>
+                      <th>אמצעי</th>
+                      <th>סכום ששולם</th>
+                    </tr>
+                  </thead>
+                  <tbody id="grants-payments-tbody"></tbody>
+                  <tfoot>
+                    <tr style="background: var(--text-main);">
+                      <td colspan="4" style="font-weight:bold; color:#fff;">סה"כ שולם בפועל</td>
+                      <td id="grants-payments-total" style="font-weight:bold; color: var(--gold-main);">₪0</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+
+            <div class="card-panel grants-products-panel">
+              <h3 class="page-title small" style="margin:0 0 12px;">מחירון מוצרים</h3>
+              <div class="table-container table-sticky grants-products-table">
+                <table class="data-table compact-view">
+                  <thead>
+                    <tr>
+                      <th>חנות</th>
+                      <th>מוצר</th>
+                      <th>כמות לחתן</th>
+                      <th>מחיר בחנות</th>
+                      <th>מחיר לארגון</th>
+                    </tr>
+                  </thead>
+                  <tbody id="grants-payment-products-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="rules-screen" class="content-screen">
+        <div id="takanon-content" class="takanon-wrapper"></div>
+      </section>
+
+      <section id="settings-screen" class="content-screen">
+
+        <nav class="settings-subnav" id="settings-subnav">
+          <button class="settings-tab active" data-tab="targets"><span class="material-icons-regular">flag</span> יעדים ושנה</button>
+          <button class="settings-tab" data-tab="categories"><span class="material-icons-regular">sell</span> קטגוריות הוצאות</button>
+          <button class="settings-tab" data-tab="health"><span class="material-icons-regular">monitor_heart</span> תקינות נתונים</button>
+          <button class="settings-tab" data-tab="backup"><span class="material-icons-regular">cloud_sync</span> גיבוי וסנכרון</button>
+          <button class="settings-tab" data-tab="users"><span class="material-icons-regular">manage_accounts</span> משתמשים</button>
+          <button class="settings-tab" data-tab="purim-sums"><span class="material-icons-regular">redeem</span> סכומי פורים</button>
+        </nav>
+
+        <div class="settings-pane active" data-pane="targets">
+          <div class="card-panel">
+            <div class="settings-card-head"><span class="material-icons-regular">flag</span><div><h3 class="page-title small">יעדים ושנת פעילות</h3><p class="settings-card-sub">הסכומים שכל בחור צריך להגיע אליהם לפי שלב הלימוד</p></div></div>
+
+            <div class="form-group" style="max-width: 320px; margin-bottom: 22px;"><label>שנת קמפיין נוכחית</label><input type="text" id="current-campaign-year" class="ui-input" placeholder='לדוגמה: תשפ"ו'></div>
+
+            <label class="targets-section-label">יעד לפי שלב לימוד</label>
+            <div class="targets-grid">
+              <div class="target-edit-card"><div class="target-edit-name">חיידר</div><div class="target-edit-field"><input type="number" id="target-chaider" class="target-edit-input"><span class="target-edit-cur">₪</span></div></div>
+              <div class="target-edit-card is-primary"><div class="target-edit-name">ישי"ק</div><div class="target-edit-field"><input type="number" id="target-ktana" class="target-edit-input"><span class="target-edit-cur">₪</span></div></div>
+              <div class="target-edit-card is-primary"><div class="target-edit-name">ישי"ג</div><div class="target-edit-field"><input type="number" id="target-gedola" class="target-edit-input"><span class="target-edit-cur">₪</span></div></div>
+              <div class="target-edit-card"><div class="target-edit-name">קיבוץ</div><div class="target-edit-field"><input type="number" id="target-kibbutz" class="target-edit-input"><span class="target-edit-cur">₪</span></div></div>
+            </div>
+
+            <label class="targets-section-label" style="margin-top: 24px;">מתנות ותוספות <span style="font-weight:500; color:var(--text-muted); font-size:12px;">(הפעל/כבה לפי הצורך)</span></label>
+            <div class="gifts-grid">
+              <div class="gift-card" id="gift1-card">
+                <div class="gift-card-head">
+                  <input type="text" id="gift1-name" class="gift-name-input" placeholder="שם המתנה">
+                  <label class="switch"><input type="checkbox" id="gift1-enabled"><span class="switch-slider"></span></label>
+                </div>
+                <div class="target-edit-field"><input type="number" id="target-tiyul" class="target-edit-input"><span class="target-edit-cur">₪</span></div>
+                <div style="margin-top:10px;"><label style="font-size:11px;color:var(--text-secondary);font-weight:600;">קישור לתמונה (URL)</label><input type="url" id="gift1-image" class="ui-input" style="margin-top:4px;font-size:12px;" placeholder="https://..."></div>
+              </div>
+              <div class="gift-card" id="gift2-card">
+                <div class="gift-card-head">
+                  <input type="text" id="gift2-name" class="gift-name-input" placeholder="שם המתנה">
+                  <label class="switch"><input type="checkbox" id="gift2-enabled"><span class="switch-slider"></span></label>
+                </div>
+                <div class="target-edit-field"><input type="number" id="target-shay" class="target-edit-input"><span class="target-edit-cur">₪</span></div>
+                <div style="margin-top:10px;"><label style="font-size:11px;color:var(--text-secondary);font-weight:600;">קישור לתמונה (URL)</label><input type="url" id="gift2-image" class="ui-input" style="margin-top:4px;font-size:12px;" placeholder="https://..."></div>
+              </div>
+            </div>
+
+            <label class="targets-section-label" style="margin-top: 24px;">כללים נוספים לתקנון <span style="font-weight:500; color:var(--text-muted); font-size:12px;">(יופיע בתחתית מסך התקנון)</span></label>
+            <textarea id="additional-rules" class="ui-input" rows="5" placeholder="כתוב כאן כללים נוספים שיופיעו בתחתית התקנון..." style="resize: vertical; min-height: 110px; font-family: inherit; line-height: 1.7;"></textarea>
+
+            <div class="form-actions-row" style="margin-top: 24px;"><button class="btn btn-solid-blue" id="btn-save-settings"><span class="material-icons-regular" style="font-size:16px;vertical-align:middle;">save</span> שמור יעדים</button></div>
+          </div>
+        </div>
+
+        <div class="settings-pane" data-pane="categories">
+          <div class="card-panel">
+            <div class="settings-card-head"><span class="material-icons-regular">sell</span><div><h3 class="page-title small">קטגוריות הוצאות</h3><p class="settings-card-sub">הקטגוריות שיופיעו בעת רישום הוצאה חדשה</p></div></div>
+            <div id="expense-categories-list" class="cat-chips"></div>
+            <div style="display:flex; gap:8px; margin-top:14px; max-width:420px;">
+              <input type="text" id="new-expense-category" class="ui-input" placeholder="שם קטגוריה חדשה..." style="flex:1;">
+              <button class="btn btn-solid-blue" id="btn-add-category"><span class="material-icons-regular" style="font-size:16px;vertical-align:middle;">add</span> הוסף</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-pane" data-pane="health">
+          <div class="card-panel">
+            <div class="settings-card-head"><span class="material-icons-regular">monitor_heart</span><div><h3 class="page-title small">תקינות נתונים</h3><p class="settings-card-sub">בחורים עם נתונים חסרים שעלולים לפגוע בדוחות ובזכאות</p></div></div>
+            <div id="data-health-list" class="health-list"></div>
+          </div>
+        </div>
+
+        <div class="settings-pane" data-pane="backup">
+          <div class="card-panel">
+            <div class="settings-card-head"><span class="material-icons-regular">cloud_sync</span><div><h3 class="page-title small">גיבוי וסנכרון</h3><p class="settings-card-sub">סנכרון מול הענן, ייצוא וייבוא של גיבוי מלא</p></div></div>
+            <div id="record-counts" class="record-counts"></div>
+            <div class="backup-actions">
+              <div class="backup-sync-status">
+                <span class="material-icons-regular" style="color:var(--success);">cloud_done</span>
+                <div><div style="font-size:12px;color:var(--text-secondary);">סנכרון אחרון</div><div id="last-sync-time" style="font-weight:700;">—</div></div>
+              </div>
+              <button class="btn btn-outline" id="btn-sync-now"><span class="material-icons-regular" style="font-size:16px;vertical-align:middle;">sync</span> סנכרן עכשיו</button>
+              <button class="btn btn-outline" id="btn-export-backup"><span class="material-icons-regular" style="font-size:16px;vertical-align:middle;">download</span> ייצוא גיבוי</button>
+              <button class="btn btn-outline" id="btn-import-backup"><span class="material-icons-regular" style="font-size:16px;vertical-align:middle;">upload</span> ייבוא גיבוי</button>
+              <input type="file" id="import-backup-file" accept="application/json" style="display:none;">
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-pane" data-pane="purim-sums">
+          <div class="card-panel">
+            <div class="settings-card-head"><span class="material-icons-regular">redeem</span><div><h3 class="page-title small">סכומים סופיים לקבוצות פורים</h3><p class="settings-card-sub">הסכום הסופי שנאסף לכל קבוצה, לפי שנה - מוצג לצפייה בלבד במסך כתובות פורים</p></div></div>
+            <div id="purim-sums-settings-list"></div>
+          </div>
+        </div>
+
+        <div class="settings-pane" data-pane="users">
+          <div class="card-panel">
+            <div class="settings-card-head"><span class="material-icons-regular">manage_accounts</span><div><h3 class="page-title small">משתמשים והרשאות</h3><p class="settings-card-sub">לחיצה על שורה טוענת את המשתמש לעריכה</p></div></div>
+            <div class="table-container" style="margin-bottom: 20px;"><table class="data-table compact-view"><thead><tr><th>שם משתמש</th><th>הרשאות</th><th>פעולה</th></tr></thead><tbody id="users-table-body"></tbody></table></div>
+            <div class="form-grid" style="background: var(--surface-light); padding: 20px; border-radius: 8px;">
+              <div class="form-group"><label>שם משתמש</label><input type="text" id="new-username" class="ui-input" placeholder="חדש או קיים לעריכה"></div>
+              <div class="form-group"><label>סיסמה</label><input type="text" id="new-password" class="ui-input"></div>
+              <div class="form-group" style="grid-column: 1 / -1;">
+                <label style="font-weight: 800; color: var(--gold-dark); margin-bottom: 12px; display: block;">הרשאות גישה:</label>
+                <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                  <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;"><input type="checkbox" id="perm-edit" checked> הוספה ועריכת נתונים</label>
+                  <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;"><input type="checkbox" id="perm-income" checked> צפייה בהכנסות כלליות</label>
+                  <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;"><input type="checkbox" id="perm-expenses" checked> צפייה בהוצאות</label>
+                  <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;"><input type="checkbox" id="perm-grants" checked> צפייה במענקים</label>
+                  <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;"><input type="checkbox" id="perm-history" checked> צפייה בהיסטוריה</label>
+                </div>
+              </div>
+              <div class="form-group" style="display: flex; align-items: flex-end; grid-column: 1 / -1;"><button class="btn btn-solid-blue" id="btn-add-user" style="width: 100%;">הוסף / עדכן משתמש</button></div>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+    </main>
+
+    <div id="data-health-modal" class="modal-overlay">
+      <div class="modal-content app-modal" style="max-width: 640px; max-height: 85vh; display: flex; flex-direction: column;">
+        <div style="padding: 18px 24px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+          <h3 id="data-health-modal-title" style="margin: 0; font-size: 18px; font-weight: 800; color: var(--text-main);">תיקון נתונים</h3>
+          <button onclick="document.getElementById('data-health-modal').classList.remove('open')" style="background: none; border: none; cursor: pointer; display: flex; width: 34px; height: 34px; border-radius: 50%; align-items: center; justify-content: center; color: var(--text-secondary);"><span class="material-icons-regular">close</span></button>
+        </div>
+        <div id="data-health-modal-body" style="padding: 16px 24px; overflow-y: auto; flex: 1;"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="add-donation-modal" class="modal-overlay">
+    <div class="modal-content app-modal" style="max-width: 550px;">
+      <button class="modal-close" id="close-add-donation-modal">✖</button>
+      <div class="modal-inner">
+        <h3 class="page-title small" style="margin-bottom: 24px;">רישום הפקדה חדשה</h3>
+        <div class="form-grid" style="grid-template-columns: 1fr;">
+          <div class="form-group"><label>תאריך</label><input type="date" id="donation-date" class="ui-input"></div>
+          
+          <div class="form-group">
+            <label>בחור מזוכה (הקלד לחיפוש)</label>
+            <input type="text" id="donation-member-input" list="members-datalist" class="ui-input" placeholder="הקלד שם או ישיבה...">
+          </div>
+
+          <div class="form-group">
+            <label>אמצעי תשלום</label>
+            <div style="display: flex; gap: 20px; margin-top: 8px;">
+              <label style="cursor: pointer; color: var(--text-main);"><input type="radio" name="donation_payment_method" value="cash" checked> מזומן</label>
+              <label style="cursor: pointer; color: var(--text-main);"><input type="radio" name="donation_payment_method" value="credit"> אשראי</label>
+            </div>
+          </div>
+          <div class="form-group"><label>סכום הפקדה</label><input type="number" id="donation-amount" class="ui-input" placeholder="0"></div>
+          <div class="form-group"><label>הערות</label><input type="text" id="donation-notes" class="ui-input" placeholder="לדוגמה: שם תורם"></div>
+        </div>
+        <div class="form-actions-row" style="margin-top: 20px;">
+          <button class="btn btn-outline" id="cancel-add-donation">ביטול</button>
+          <button class="btn btn-solid-blue" id="save-donation-btn">שמור הפקדה</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="add-expense-modal" class="modal-overlay">
+    <div class="modal-content app-modal" style="max-width: 550px;">
+      <button class="modal-close" id="close-add-expense-modal">✖</button>
+      <div class="modal-inner">
+        <h3 class="page-title small" style="margin-bottom: 24px;">הוספת הוצאה</h3>
+        <div class="form-grid" style="grid-template-columns: 1fr;">
+          <div class="form-group"><label>תאריך</label><input type="date" id="expense-date" class="ui-input"></div>
+          <div class="form-group"><label>שם הקטגוריה</label><select id="expense-category" class="ui-select"><option value="הדפסות">הדפסות</option><option value="כנסים">כנסים ואירועים</option><option value="סעודות">סעודות ואוכל</option><option value="מתנות">מתנות ופרסים</option><option value="תפעול">תפעול ופרסום</option><option value="שונות">שונות</option></select></div>
+          <div class="form-group"><label>שם הפירוט</label><input type="text" id="expense-description" class="ui-input" placeholder="לדוגמה: דפוס איכות"></div>
+          <div class="form-group"><label>סכום ההוצאה</label><input type="number" id="expense-amount" class="ui-input" placeholder="0"></div>
+        </div>
+        <div class="form-actions-row" style="margin-top: 20px;">
+          <button class="btn btn-outline" id="cancel-add-expense">ביטול</button>
+          <button class="btn btn-solid-blue" id="save-expense-btn">הוסף הוצאה</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="add-member-modal" class="modal-overlay">
+    <div class="modal-content app-modal">
+      <button class="modal-close" id="close-add-member-modal">✖</button>
+      <div class="modal-inner">
+        <h3 class="page-title small" id="member-modal-title" style="margin-bottom: 24px;">הוספת בחור חדש</h3>
+        <div class="form-grid">
+          <input type="hidden" id="edit-member-id" value="">
+          <div class="form-group"><label>שם פרטי</label><input type="text" id="member-first-name" class="ui-input"></div>
+          <div class="form-group"><label>שם משפחה</label><input type="text" id="member-last-name" class="ui-input"></div>
+          <div class="form-group"><label>שם האב</label><input type="text" id="member-father-name" class="ui-input"></div>
+          <div class="form-group"><label>טלפון</label><input type="text" id="member-phone" class="ui-input"></div>
+          <div class="form-group"><label>ישיבה</label><input type="text" id="member-yeshiva" class="ui-input"></div>
+          <div class="form-group"><label>סוג מסגרת</label><select id="member-yeshiva-type" class="ui-select"><option value="ישיבה קטנה">ישיבה קטנה</option><option value="ישיבה גדולה">ישיבה גדולה</option><option value="חיידר">חיידר</option><option value="קיבוץ">קיבוץ</option></select></div>
+          <div class="form-group"><label>שיעור</label>
+            <select id="member-shiur" class="ui-select">
+              <option value="א">א'</option>
+              <option value="ב">ב'</option>
+              <option value="ג">ג'</option>
+              <option value="ד">ד'</option>
+              <option value="ה">ה'</option>
+              <option value="ו">ו'</option>
+              <option value="ז">ז'</option>
+              <option value="ח">ח'</option>
+              <option value="ט">ט'</option>
+            </select>
+          </div>
+          <div class="form-group"><label>סטטוס משפחתי</label><select id="member-marital-status" class="ui-select"><option value="רווק">רווק</option><option value="נשוי">נשוי</option></select></div>
+          <div class="form-group" style="grid-column: 1 / -1;"><label>כתובת (למשל: רחוב, עיר)</label><input type="text" id="member-address" class="ui-input"></div>
+          <div class="form-group" style="grid-column: 1 / -1;"><label>הערות</label><input type="text" id="member-notes" class="ui-input"></div>
+        </div>
+        <div class="form-actions-row" style="margin-top: 20px;">
+          <button class="btn btn-outline" id="cancel-add-member">ביטול</button>
+          <button class="btn btn-solid-blue" id="save-member-btn">שמור בחור</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="grant-status-modal" class="modal-overlay">
+    <div class="modal-content app-modal" style="max-width: 900px; width: 94vw; max-height: 88vh; display:flex; flex-direction:column;">
+      <button class="modal-close" id="close-grant-status-modal">✖</button>
+      <div class="modal-inner" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;">
+        <h3 class="page-title small" id="grant-status-name" style="flex-shrink:0;">סטטוס זכאות</h3>
+        <div style="flex:1;overflow-y:auto;min-height:0;margin-top:16px;">
+          <div id="grant-debt-banner" style="display:none;"></div>
+          <table class="data-table" style="width:100%;">
+            <thead>
+                <tr><th>שנה</th><th>מסגרת</th><th>יעד</th><th>נדרש בפועל</th><th>נאסף</th><th>סטטוס</th></tr>
+            </thead>
+            <tbody id="grant-status-tbody"></tbody>
+          </table>
+        </div>
+        <div class="form-actions-row" style="justify-content: flex-end; margin-top: 16px; flex-shrink:0;">
+          <button class="btn btn-solid-blue" id="btn-close-grant-status">סגור חלון</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="nedarim-modal" class="modal-overlay">
+    <div class="modal-content app-modal" style="max-width: 600px; height: 85vh; display: flex; flex-direction: column; overflow: hidden; background: #fff; padding: 0; position: relative;">
+      
+      <div style="padding: 16px 24px; background: rgba(212, 175, 55, 0.05); border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="margin: 0; font-size: 18px; font-weight: 800; color: var(--gold-dark);">סליקת אשראי - צדקת רבי שמעון</h3>
+        <button id="btn-close-nedarim" title="סגור / סיימתי תשלום" style="background: none; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 50%; color: var(--text-secondary); transition: background 0.15s;" onmouseover="this.style.background='rgba(0,0,0,0.06)'" onmouseout="this.style.background='none'">
+          <span class="material-icons-regular" style="font-size: 26px;">close</span>
+        </button>
+      </div>
+
+      <div id="nedarim-step-iframe" style="display: flex; flex: 1; flex-direction: column; position: relative;">
+        <iframe id="nedarim-iframe" src="" style="width: 100%; flex: 1; border: none;"></iframe>
+      </div>
+
+      <div id="nedarim-step-question" style="display: none; flex: 1; flex-direction: column; align-items: center; justify-content: center; padding: 30px; text-align: center; background: #fff;">
+        <span class="material-icons-regular" style="font-size: 64px; color: var(--gold-main); margin-bottom: 20px;">help_outline</span>
+        <h2 style="margin-bottom: 10px; color: var(--text-main); font-weight: 800;">האם התשלום עבר בהצלחה?</h2>
+        <p style="color: var(--text-secondary); margin-bottom: 30px; font-size: 16px;">
+           בחר האם העסקה בנדרים פלוס אושרה, כדי להמשיך לרישום התרומה במערכת.
+        </p>
+        <div style="display: flex; gap: 15px; width: 100%; max-width: 450px;">
+           <button class="btn btn-outline" id="btn-nedarim-failed" style="flex: 1; color: var(--danger); border-color: var(--danger); font-size: 16px; padding: 12px;">לא / ביטלתי יציאה</button>
+           <button class="btn btn-solid-blue" id="btn-nedarim-success" style="flex: 1; background: var(--success); font-size: 16px; padding: 12px;">כן, התשלום עבר</button>
+        </div>
+      </div>
+
+      <div id="nedarim-step-details" style="display: none; padding: 30px; overflow-y: auto; flex: 1;">
+        <h4 style="margin-top: 0; margin-bottom: 24px; color: var(--text-main); font-weight: 800;">רישום התרומה ששולמה</h4>
+        
+        <div class="form-group" style="margin-bottom: 20px;">
+          <label>שיוך התרומה לזכות הבחור (הקלד לחיפוש) *</label>
+          <input type="text" id="nedarim-member-input" list="members-datalist" class="ui-input" placeholder="הקלד שם או ישיבה לחיפוש..." style="font-size: 16px; padding: 12px;">
+        </div>
+        
+        <div class="form-group" style="margin-bottom: 20px;">
+          <label>סכום (₪) ששולם *</label>
+          <input type="number" id="nedarim-amount" class="ui-input" placeholder="הזן את הסכום שהועבר" style="font-size: 16px; padding: 12px;">
+        </div>
+
+        <div class="form-group" style="margin-bottom: 30px;">
+          <label>הערות / שם התורם</label>
+          <input type="text" id="nedarim-notes" class="ui-input" value="אשראי - נדרים פלוס">
+        </div>
+
+        <div style="display: flex; gap: 15px;">
+            <button class="btn btn-outline" id="btn-cancel-nedarim-details" style="flex: 1;">ביטול רישום</button>
+            <button class="btn btn-solid-blue" id="btn-save-nedarim-final" style="flex: 2; padding: 14px; font-size: 16px; background: var(--success); color: white;">
+              שמור במערכת <span class="material-icons-regular" style="font-size: 18px; margin-right: 8px;">check_circle</span>
+            </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div id="timeout-warning-modal" class="modal-overlay" style="z-index: 10000;">
+    <div class="modal-content app-modal" style="max-width: 400px; text-align: center;">
+      <div class="modal-inner">
+        <span class="material-icons-regular" style="font-size: 48px; color: var(--warning); margin-bottom: 15px;">timer</span>
+        <h3 class="page-title small" style="margin-bottom: 10px; color: var(--text-main);">המערכת עומדת להינעל</h3>
+        <p style="color: var(--text-secondary); margin-bottom: 25px; font-size: 15px;">זיהינו חוסר פעילות. למען אבטחת הנתונים, המערכת תתנתק בעוד <strong id="timeout-countdown" style="color: var(--danger); font-size: 18px;">20</strong> שניות.</p>
+        <button class="btn btn-solid-blue" onclick="resetIdleTimer()" style="width: 100%;">השאר אותי מחובר</button>
+      </div>
+    </div>
+  </div>
+
+  <datalist id="members-datalist"></datalist>
+
+  <script src="supabase-integration.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
