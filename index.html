@@ -602,8 +602,16 @@
             </div>
 
             <div class="card-panel grants-package-panel">
-              <h3 class="page-title small" style="margin:0 0 4px;">מה מקבלים <span id="grants-package-year-label"></span></h3>
-              <p class="settings-card-sub" style="margin:0 0 12px;">שווי חבילה לחתן <strong id="grants-archive-pkg-total"></strong></p>
+              <div class="grants-archive-panel-head">
+                <div>
+                  <h3 class="page-title small" style="margin:0 0 4px;">מה מקבלים <span id="grants-package-year-label"></span></h3>
+                  <p class="settings-card-sub" style="margin:0;">שווי חבילה לחתן <strong id="grants-archive-pkg-total"></strong></p>
+                </div>
+                <div class="grants-archive-head-actions">
+                  <button class="members-toolbar-btn members-toolbar-btn--gold" id="grants-pkg-edit-btn" onclick="toggleGrantsPackageEditMode()" title="עריכת תכולת המענק"><span class="material-icons-regular">edit</span> ערוך תכולה</button>
+                  <button class="members-toolbar-btn hidden" id="grants-pkg-cancel-btn" onclick="cancelGrantsPackageEdit()">ביטול</button>
+                </div>
+              </div>
               <div id="grants-archive-package"></div>
             </div>
           </div>

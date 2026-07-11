@@ -1154,15 +1154,17 @@ button.dashboard-segment-item:hover {
 .grants-pkg-item > span:last-child { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 #grants-screen #grants-archive-package {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  column-count: 2;
+  column-gap: 10px;
 }
 #grants-screen .grants-pkg-group {
-  margin-bottom: 0;
+  margin-bottom: 8px;
   min-width: 0;
+  break-inside: avoid;
+  -webkit-column-break-inside: avoid;
 }
-#grants-screen .grants-pkg-group-head {
+#grants-screen .grants-pkg-group-head,
+#grants-screen .grants-pkg-group-head-edit {
   padding: 5px 8px;
   font-size: 11.5px;
   margin-bottom: 2px;
@@ -1197,6 +1199,43 @@ button.dashboard-segment-item:hover {
   white-space: nowrap;
 }
 #grants-screen .grants-pkg-group-head .grants-pkg-prices strong { font-size: 14px; }
+
+.grants-pkg-group--editing {
+  border: 1px solid rgba(212,175,55,0.35);
+  border-radius: 8px;
+  padding: 6px;
+  background: rgba(212,175,55,0.04);
+}
+.grants-pkg-group-head-edit {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr auto;
+  gap: 6px;
+  align-items: center;
+}
+.grants-pkg-item-edit {
+  display: grid;
+  grid-template-columns: 1.6fr 0.55fr 0.85fr 0.85fr auto;
+  gap: 6px;
+  align-items: center;
+  margin-top: 4px;
+}
+.grants-pkg-group-head-edit .ui-input,
+.grants-pkg-item-edit .ui-input {
+  margin: 0;
+  min-height: 30px;
+  padding: 5px 8px;
+  font-size: 12px;
+}
+.grants-pkg-add-row-btn {
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  width: 100%; margin-top: 6px; padding: 6px; border-radius: 7px;
+  border: 1px dashed var(--border-color); background: transparent; color: var(--text-secondary);
+  font-family: inherit; font-size: 11.5px; font-weight: 700; cursor: pointer; transition: all 0.15s;
+}
+.grants-pkg-add-row-btn .material-icons-regular { font-size: 15px; }
+.grants-pkg-add-row-btn:hover { border-color: var(--gold-main); color: var(--gold-dark); background: rgba(212,175,55,0.06); }
+.grants-pkg-add-group-btn { margin-top: 0; padding: 10px; font-size: 12.5px; break-inside: avoid; }
+
 .grants-payment-add-form {
   display: grid;
   grid-template-columns: 1.2fr 0.9fr 1.4fr 0.9fr 0.8fr auto;
@@ -1242,7 +1281,7 @@ button.dashboard-segment-item:hover {
 @media (max-width: 900px) {
   .grants-giving-grid,
   .grants-payments-grid { grid-template-columns: 1fr; }
-  #grants-screen #grants-archive-package { grid-template-columns: 1fr; }
+  #grants-screen #grants-archive-package { column-count: 1; }
   .grants-payment-add-form { grid-template-columns: 1fr 1fr; }
   .grants-archive-grid { grid-template-columns: 1fr; }
   .grants-archive-stats { grid-template-columns: 1fr; }

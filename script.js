@@ -47,6 +47,8 @@ let state = {
   users: [],
   purimAddresses: [],
   grantsArchive: null,
+  grantsPackageEditMode: false,
+  grantsPackageDraft: null,
   settings: { ...DEFAULT_SETTINGS },
   activeScreen: "dashboard-screen",
   globalSearchTerm: "",
@@ -3465,31 +3467,43 @@ function renderGrantsArchive() {
   // --- תכולת החבילה: מודגש = שווי (מחיר מלא), משני = עלות לארגון (אחרי הנחה) ---
   const pkgTotalEl = document.getElementById("grants-archive-pkg-total");
   if (pkgTotalEl) pkgTotalEl.textContent = formatCurrency(perGroomRetail);
+
+  const editBtn = document.getElementById("grants-pkg-edit-btn");
+  const cancelBtn = document.getElementById("grants-pkg-cancel-btn");
+  if (editBtn) editBtn.innerHTML = state.grantsPackageEditMode
+    ? `<span class="material-icons-regular">save</span> שמור תכולה`
+    : `<span class="material-icons-regular">edit</span> ערוך תכולה`;
+  if (cancelBtn) cancelBtn.classList.toggle("hidden", !state.grantsPackageEditMode);
+
   const pkgEl = document.getElementById("grants-archive-package");
   if (pkgEl) {
-    pkgEl.innerHTML = packageGroups.length ? packageGroups.map(group => {
-      const items = group.items || [];
-      const groupOrgTotal = items.reduce((s, it) => s + (Number(it.value) || 0), 0);
-      const groupRetailTotal = items.reduce((s, it) => s + (Number(it.storePrice) || 0) * (Number(it.qty) || 1), 0);
-      return `
-        <div class="grants-pkg-group">
-          <div class="grants-pkg-group-head">
-            <span>${escapeHtml(group.store)}${group.discount ? ` · הנחה ${escapeHtml(group.discount)}` : ""}</span>
-            <span class="grants-pkg-prices">
-              <strong>שווי ${formatCurrency(groupRetailTotal)}</strong>
-              <small>עלות לארגון ${formatCurrency(groupOrgTotal)}</small>
-            </span>
-          </div>
-          ${items.map(it => `
-            <div class="grants-pkg-item">
-              <span>${escapeHtml(it.name)}${it.qty > 1 ? ` <em>×${it.qty}</em>` : ""}</span>
+    if (state.grantsPackageEditMode) {
+      pkgEl.innerHTML = renderGrantsPackageEditorHtml(state.grantsPackageDraft || []);
+    } else {
+      pkgEl.innerHTML = packageGroups.length ? packageGroups.map(group => {
+        const items = group.items || [];
+        const groupOrgTotal = items.reduce((s, it) => s + (Number(it.value) || 0), 0);
+        const groupRetailTotal = items.reduce((s, it) => s + (Number(it.storePrice) || 0) * (Number(it.qty) || 1), 0);
+        return `
+          <div class="grants-pkg-group">
+            <div class="grants-pkg-group-head">
+              <span>${escapeHtml(group.store)}${group.discount ? ` · הנחה ${escapeHtml(group.discount)}` : ""}</span>
               <span class="grants-pkg-prices">
-                <strong>שווי ${formatCurrency((Number(it.storePrice) || 0) * (Number(it.qty) || 1))}</strong>
-                <small>עלות לארגון ${formatCurrency(it.value != null ? it.value : it.orgPrice)}</small>
+                <strong>שווי ${formatCurrency(groupRetailTotal)}</strong>
+                <small>עלות לארגון ${formatCurrency(groupOrgTotal)}</small>
               </span>
-            </div>`).join("")}
-        </div>`;
-    }).join("") : `<div class="empty-state" style="padding:28px 12px;">אין עדיין פירוט תכולת מענק לשנה זו</div>`;
+            </div>
+            ${items.map(it => `
+              <div class="grants-pkg-item">
+                <span>${escapeHtml(it.name)}${it.qty > 1 ? ` <em>×${it.qty}</em>` : ""}</span>
+                <span class="grants-pkg-prices">
+                  <strong>שווי ${formatCurrency((Number(it.storePrice) || 0) * (Number(it.qty) || 1))}</strong>
+                  <small>עלות לארגון ${formatCurrency(it.value != null ? it.value : it.orgPrice)}</small>
+                </span>
+              </div>`).join("")}
+          </div>`;
+      }).join("") : `<div class="empty-state" style="padding:28px 12px;">אין עדיין פירוט תכולת מענק לשנה זו</div>`;
+    }
   }
 
   // --- תשלומים בפועל לפי חנות ---
@@ -3524,8 +3538,111 @@ function renderGrantsArchive() {
   }
 }
 
+// ==========================================
+// עריכת תכולת חבילת המענק (הוספת/הסרת מוצרים וחנויות, שינוי שם/כמות/מחיר)
+// ==========================================
+function renderGrantsPackageEditorHtml(groups) {
+  const groupsHtml = (groups || []).map((group, gIdx) => `
+    <div class="grants-pkg-group grants-pkg-group--editing">
+      <div class="grants-pkg-group-head-edit">
+        <input type="text" class="ui-input" value="${escapeHtml(group.store || "")}" placeholder="שם חנות" oninput="updateGrantsPkgGroupField(${gIdx},'store',this.value)">
+        <input type="text" class="ui-input" value="${escapeHtml(group.discount || "")}" placeholder="הנחה (למשל 15%)" oninput="updateGrantsPkgGroupField(${gIdx},'discount',this.value)">
+        <button class="grants-archive-del" title="הסר חנות" onclick="removeGrantsPkgGroup(${gIdx})"><span class="material-icons-regular">close</span></button>
+      </div>
+      ${(group.items || []).map((it, iIdx) => `
+        <div class="grants-pkg-item-edit">
+          <input type="text" class="ui-input" value="${escapeHtml(it.name || "")}" placeholder="שם מוצר" oninput="updateGrantsPkgItemField(${gIdx},${iIdx},'name',this.value)">
+          <input type="number" class="ui-input" value="${Number(it.qty) || 0}" placeholder="כמות" min="0" oninput="updateGrantsPkgItemField(${gIdx},${iIdx},'qty',this.value)">
+          <input type="number" class="ui-input" value="${Number(it.storePrice) || 0}" placeholder="מחיר בחנות" min="0" step="0.01" oninput="updateGrantsPkgItemField(${gIdx},${iIdx},'storePrice',this.value)">
+          <input type="number" class="ui-input" value="${Number(it.orgPrice != null ? it.orgPrice : (it.value || 0))}" placeholder="עלות לארגון" min="0" step="0.01" oninput="updateGrantsPkgItemField(${gIdx},${iIdx},'orgPrice',this.value)">
+          <button class="grants-archive-del" title="הסר מוצר" onclick="removeGrantsPkgItem(${gIdx},${iIdx})"><span class="material-icons-regular">close</span></button>
+        </div>`).join("")}
+      <button type="button" class="grants-pkg-add-row-btn" onclick="addGrantsPkgItem(${gIdx})"><span class="material-icons-regular">add</span> הוסף מוצר</button>
+    </div>`).join("");
+
+  return groupsHtml + `<button type="button" class="grants-pkg-add-row-btn grants-pkg-add-group-btn" onclick="addGrantsPkgGroup()"><span class="material-icons-regular">add_business</span> הוסף חנות</button>`;
+}
+
+window.toggleGrantsPackageEditMode = function() {
+  if (state.grantsPackageEditMode) {
+    saveGrantsPackageEdit();
+  } else {
+    const archive = getGrantsArchive();
+    const current = getGrantPackageForYear(archive, state.grantsArchiveYear);
+    state.grantsPackageDraft = JSON.parse(JSON.stringify(current || []));
+    state.grantsPackageEditMode = true;
+    renderGrantsArchive();
+  }
+};
+
+window.cancelGrantsPackageEdit = function() {
+  state.grantsPackageEditMode = false;
+  state.grantsPackageDraft = null;
+  renderGrantsArchive();
+};
+
+function saveGrantsPackageEdit() {
+  const archive = ensureEditableArchive();
+  const year = state.grantsArchiveYear;
+  if (!archive.years[year]) archive.years[year] = { recipients: [] };
+  archive.years[year].package = state.grantsPackageDraft || [];
+  state.grantsPackageEditMode = false;
+  state.grantsPackageDraft = null;
+  saveState();
+  syncGrantsArchiveToServer();
+  renderGrantsArchive();
+  showToast("✅ תכולת המענק נשמרה");
+}
+
+window.updateGrantsPkgGroupField = function(gIdx, field, value) {
+  const group = state.grantsPackageDraft && state.grantsPackageDraft[gIdx];
+  if (!group) return;
+  group[field] = value;
+};
+
+window.updateGrantsPkgItemField = function(gIdx, iIdx, field, rawValue) {
+  const item = state.grantsPackageDraft && state.grantsPackageDraft[gIdx] && state.grantsPackageDraft[gIdx].items[iIdx];
+  if (!item) return;
+  if (field === "name") { item.name = rawValue; return; }
+  item[field] = Number(rawValue) || 0;
+  // שומרים על value (עלות שורה לארגון) מסונכרן עם עלות ליחידה × כמות
+  const qty = Number(item.qty) || 0;
+  const orgPrice = Number(item.orgPrice) || 0;
+  item.value = orgPrice * qty;
+};
+
+window.addGrantsPkgItem = function(gIdx) {
+  const group = state.grantsPackageDraft && state.grantsPackageDraft[gIdx];
+  if (!group) return;
+  if (!Array.isArray(group.items)) group.items = [];
+  group.items.push({ name: "", qty: 1, storePrice: 0, orgPrice: 0, value: 0 });
+  renderGrantsArchive();
+};
+
+window.removeGrantsPkgItem = function(gIdx, iIdx) {
+  const group = state.grantsPackageDraft && state.grantsPackageDraft[gIdx];
+  if (!group || !group.items) return;
+  group.items.splice(iIdx, 1);
+  renderGrantsArchive();
+};
+
+window.addGrantsPkgGroup = function() {
+  if (!state.grantsPackageDraft) state.grantsPackageDraft = [];
+  state.grantsPackageDraft.push({ store: "", discount: "", items: [{ name: "", qty: 1, storePrice: 0, orgPrice: 0, value: 0 }] });
+  renderGrantsArchive();
+};
+
+window.removeGrantsPkgGroup = function(gIdx) {
+  if (!state.grantsPackageDraft) return;
+  if (!confirm("להסיר את החנות הזו וכל המוצרים שבה מהעריכה?")) return;
+  state.grantsPackageDraft.splice(gIdx, 1);
+  renderGrantsArchive();
+};
+
 window.selectGrantsArchiveYear = function(year) {
   state.grantsArchiveYear = year;
+  state.grantsPackageEditMode = false;
+  state.grantsPackageDraft = null;
   toggleGrantsAddForm(false);
   renderGrantsArchive();
 };
