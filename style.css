@@ -1025,14 +1025,13 @@ button.dashboard-segment-item:hover {
   margin-bottom: 8px !important;
   align-items: center;
 }
-#grants-screen .grants-toolbar .page-title.small { font-size: 16px; }
 #grants-screen .members-toolbar-btn {
   padding: 8px 12px;
   min-height: 36px;
 }
 #grants-screen .members-toolbar-btn .material-icons-regular { font-size: 17px; }
 #grants-screen .grants-view-toggle {
-  margin-bottom: 10px;
+  margin: 0;
   padding: 3px;
 }
 #grants-screen .grants-view-btn {
@@ -1040,30 +1039,18 @@ button.dashboard-segment-item:hover {
   font-size: 12.5px;
 }
 
-.grants-archive-years { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
-.grants-year-pill {
-  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
-  padding: 10px 18px; border-radius: 10px; cursor: pointer; font-family: inherit;
-  border: 1px solid var(--border-color); background: var(--surface); transition: all 0.15s;
-  min-width: 120px;
+.grants-toolbar-filters { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; }
+.grants-year-filter { min-width: 0; }
+.grants-year-filter-row { display: flex; align-items: center; gap: 6px; }
+.grants-year-filter-row .ui-select { min-width: 130px; }
+.grants-year-add-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; border-radius: 8px; flex-shrink: 0;
+  border: 1px dashed var(--border-color); background: transparent; color: var(--text-secondary);
+  cursor: pointer; transition: all 0.15s;
 }
-.grants-year-pill:hover { border-color: var(--gold-main); transform: translateY(-1px); }
-.grants-year-pill.active { border-color: var(--gold-main); background: rgba(212,175,55,0.09); box-shadow: var(--shadow-soft); }
-.grants-year-pill-name { font-size: 17px; font-weight: 900; color: var(--text-main); }
-.grants-year-pill-count { font-size: 11.5px; font-weight: 700; color: var(--text-secondary); }
-.grants-year-pill.active .grants-year-pill-name { color: var(--gold-dark); }
-
-#grants-screen .grants-archive-years {
-  gap: 8px;
-  margin-bottom: 10px;
-}
-#grants-screen .grants-year-pill {
-  min-width: 104px;
-  padding: 7px 12px;
-  border-radius: 8px;
-}
-#grants-screen .grants-year-pill-name { font-size: 15px; line-height: 1.15; }
-#grants-screen .grants-year-pill-count { font-size: 10.5px; line-height: 1.1; }
+.grants-year-add-btn:hover { border-color: var(--gold-main); color: var(--gold-dark); background: rgba(212,175,55,0.06); }
+.grants-year-add-btn .material-icons-regular { font-size: 18px; }
 
 .grants-archive-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
 .grants-archive-stat {
@@ -1194,19 +1181,22 @@ button.dashboard-segment-item:hover {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  line-height: 1.15;
+  line-height: 1.2;
+  gap: 1px;
+}
+#grants-screen .grants-pkg-prices strong {
+  color: var(--gold-dark);
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
 }
 #grants-screen .grants-pkg-prices small {
   color: var(--text-muted);
-  font-size: 10.5px;
-  font-weight: 700;
+  font-size: 10px;
+  font-weight: 600;
   white-space: nowrap;
 }
-#grants-screen .grants-pkg-prices strong {
-  color: var(--text-main);
-  font-size: 11.5px;
-  white-space: nowrap;
-}
+#grants-screen .grants-pkg-group-head .grants-pkg-prices strong { font-size: 14px; }
 .grants-payment-add-form {
   display: grid;
   grid-template-columns: 1.2fr 0.9fr 1.4fr 0.9fr 0.8fr auto;
@@ -1233,13 +1223,6 @@ button.dashboard-segment-item:hover {
 .grants-archive-head-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .members-toolbar-btn--gold { border-color: var(--gold-main); color: var(--gold-dark); background: rgba(212,175,55,0.08); }
 .members-toolbar-btn--gold:hover { background: rgba(212,175,55,0.16); }
-
-.grants-year-pill--add {
-  align-items: center; justify-content: center; flex-direction: row; gap: 6px;
-  min-width: 0; border-style: dashed; color: var(--text-secondary); background: transparent;
-}
-.grants-year-pill--add .material-icons-regular { font-size: 18px; }
-.grants-year-pill--add:hover { color: var(--gold-dark); background: rgba(212,175,55,0.06); }
 
 .grants-archive-add-form {
   display: grid; grid-template-columns: 2fr 1.2fr 1.2fr 1.2fr auto auto; gap: 8px; align-items: center;

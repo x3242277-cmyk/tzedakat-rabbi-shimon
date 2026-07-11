@@ -63,7 +63,6 @@
       </div>
 
       <nav class="sidebar-nav">
-        <button class="nav-item" data-screen="dashboard-screen">לוח בקרה</button>
         <button class="nav-item" data-screen="members-screen">בחורים</button>
         <button class="nav-item" data-screen="daily-report-screen">דו"ח תנועות מרוכז</button>
         <button class="nav-item" data-screen="expenses-summary-screen">סיכום הוצאות</button>
@@ -364,10 +363,11 @@
                   <th data-sort="shiur" class="sortable-header">שיעור</th>
                   <th data-sort="address" class="sortable-header">עיר</th>
                   <th data-sort="collectedThisYear" class="sortable-header">נאסף השנה</th>
+                  <th class="no-export" id="members-delete-col-head"></th>
                 </tr>
-              </thead>              
+              </thead>
               <tbody id="members-table-body">
-                <tr><td colspan="7"><div class="empty-state"><span class="material-icons-regular">groups</span><p>אין נתונים להצגה</p></div></td></tr>
+                <tr><td colspan="8"><div class="empty-state"><span class="material-icons-regular">groups</span><p>אין נתונים להצגה</p></div></td></tr>
               </tbody>
             </table>
           </div>
@@ -547,9 +547,22 @@
       </section>
 
       <section id="grants-screen" class="content-screen">
-        <div class="app-toolbar grants-toolbar" style="margin-bottom: 20px;">
-          <div class="toolbar-filters">
-            <h3 class="page-title small" style="margin: 0; color: var(--gold-dark);">מענקים</h3>
+        <div class="app-toolbar grants-toolbar" style="margin-bottom: 14px;">
+          <div class="toolbar-filters grants-toolbar-filters">
+            <div class="filter-group grants-year-filter">
+              <label>שנה</label>
+              <div class="grants-year-filter-row">
+                <select id="grants-year-select" class="ui-select" onchange="selectGrantsArchiveYear(this.value)"></select>
+                <button type="button" class="grants-year-add-btn" onclick="addGrantsArchiveYear()" title="הוספת שנה"><span class="material-icons-regular">add</span></button>
+              </div>
+            </div>
+            <div class="filter-group">
+              <label>&nbsp;</label>
+              <div class="grants-view-toggle" id="grants-view-toggle">
+                <button type="button" class="grants-view-btn active" data-view="grant" onclick="switchGrantsView('grant')"><span class="material-icons-regular">redeem</span> נתינת המענק</button>
+                <button type="button" class="grants-view-btn" data-view="payments" onclick="switchGrantsView('payments')"><span class="material-icons-regular">payments</span> תשלומים לחנויות</button>
+              </div>
+            </div>
           </div>
           <div class="toolbar-actions">
             <button class="members-toolbar-btn members-toolbar-btn--excel" onclick="exportGrantsToExcel()" title="הורדה לאקסל"><span class="material-icons-regular">download</span> ייצוא</button>
@@ -557,12 +570,6 @@
           </div>
         </div>
 
-        <div class="grants-view-toggle" id="grants-view-toggle">
-          <button type="button" class="grants-view-btn active" data-view="grant" onclick="switchGrantsView('grant')"><span class="material-icons-regular">redeem</span> נתינת המענק</button>
-          <button type="button" class="grants-view-btn" data-view="payments" onclick="switchGrantsView('payments')"><span class="material-icons-regular">payments</span> תשלומים לחנויות</button>
-        </div>
-
-        <div class="grants-archive-years" id="grants-archive-years"></div>
         <div class="grants-archive-stats" id="grants-archive-stats"></div>
 
         <div id="grants-grant-view" class="grants-page-view">

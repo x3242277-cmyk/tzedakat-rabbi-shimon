@@ -2713,8 +2713,12 @@ function renderMembersTable() {
       });
   }
 
+  const isAdmin = state.currentUserObj && String(state.currentUserObj.username).trim() === "מנהל";
+  const deleteColHead = document.getElementById("members-delete-col-head");
+  if (deleteColHead) deleteColHead.style.display = isAdmin ? "" : "none";
+
   if (rows.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><span class="material-icons-regular">groups</span><p>אין בחורים התואמים לסינון</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><span class="material-icons-regular">groups</span><p>אין בחורים התואמים לסינון</p></div></td></tr>`;
     return;
   }
 
@@ -2736,8 +2740,9 @@ function renderMembersTable() {
     if (!String(row.phone || "").trim()) missing.push("טלפון");
     if (!String(row.address || "").trim()) missing.push("כתובת");
     const star = missing.length ? `<span class="missing-star" title="חסר: ${escapeHtml(missing.join(", "))}">*</span>` : "";
+    const deleteCell = isAdmin ? `<td class="no-export" style="text-align:center;"><button class="grants-archive-del" title="מחק בחור" onclick="event.stopPropagation(); deleteMemberRow('${escapeHtml(dashboardJsString(row.id))}')"><span class="material-icons-regular">delete_outline</span></button></td>` : "";
 
-    tr.innerHTML = `<td data-field="firstName">${escapeHtml(row.firstName)}${star}</td><td data-field="lastName">${escapeHtml(row.lastName)}</td><td data-field="fatherName">${escapeHtml(row.fatherName || "---")}</td><td data-field="yeshiva">${escapeHtml(row.yeshiva)}</td><td data-field="shiur">${escapeHtml(shiurDisplay)}</td><td>${escapeHtml(cityDisplay)}</td><td class="amount-cell" style="font-weight: bold; color: var(--gold-dark);">${escapeHtml(formatCurrency(row.collectedThisYear))}</td>`;
+    tr.innerHTML = `<td data-field="firstName">${escapeHtml(row.firstName)}${star}</td><td data-field="lastName">${escapeHtml(row.lastName)}</td><td data-field="fatherName">${escapeHtml(row.fatherName || "---")}</td><td data-field="yeshiva">${escapeHtml(row.yeshiva)}</td><td data-field="shiur">${escapeHtml(shiurDisplay)}</td><td>${escapeHtml(cityDisplay)}</td><td class="amount-cell" style="font-weight: bold; color: var(--gold-dark);">${escapeHtml(formatCurrency(row.collectedThisYear))}</td>${deleteCell}`;
     tbody.appendChild(tr);
   });
 
@@ -2747,6 +2752,30 @@ function renderMembersTable() {
     tbody.querySelectorAll("td[data-field]").forEach(td => td.setAttribute("contenteditable", "true"));
   }
 }
+
+// מחיקת בחור - למנהל בלבד. מוחק את כרטיס הבחור בלבד; היסטוריית ההפקדות/הוצאות נשארת.
+window.deleteMemberRow = async function(memberId) {
+  const isAdmin = state.currentUserObj && String(state.currentUserObj.username).trim() === "מנהל";
+  if (!isAdmin) return;
+
+  const member = state.members.find(m => String(m.id).trim() === String(memberId).trim());
+  if (!member) return;
+  const label = `${member.firstName || ""} ${member.lastName || ""}`.trim() || "הבחור";
+  if (!confirm(`למחוק את ${label} לצמיתות? הפעולה לא ניתנת לביטול.`)) return;
+
+  state.members = state.members.filter(m => String(m.id).trim() !== String(memberId).trim());
+  invalidateCache();
+  saveState();
+  renderMembersTable();
+  populateMemberSelect();
+  populateFilters();
+  showToast(`${label} נמחק`, "success");
+
+  if (window.SB && SB.isLoggedIn()) {
+    try { await SB.deleteMember(memberId); }
+    catch (e) { showToast("⚠️ נמחק מקומית אך לא הסתנכרן לשרת", "warning"); }
+  }
+};
 
 // ===== מצב עריכה ישיר בטבלת הבחורים =====
 window.handleMembersEditButton = function() {
@@ -3239,9 +3268,20 @@ function getGrantPackageForYear(archive, year) {
   return Array.isArray(yearData.package) ? yearData.package : (archive.package || []);
 }
 
+// עלות בפועל לארגון (אחרי הנחה) - סכום שדה value לכל שורה (כבר מוכפל בכמות)
 function getGrantPackageTotal(packageGroups) {
   return (packageGroups || []).reduce((sum, group) => {
     return sum + (group.items || []).reduce((inner, item) => inner + (Number(item.value) || 0), 0);
+  }, 0);
+}
+
+// שווי אמיתי לחתן (מחיר מלא בחנות, לפני הנחה) - זה המספר שצריך להיות מודגש בעיני הצדקה
+function getGrantPackageRetailTotal(packageGroups) {
+  return (packageGroups || []).reduce((sum, group) => {
+    return sum + (group.items || []).reduce((inner, item) => {
+      const qty = Number(item.qty) || 1;
+      return inner + (Number(item.storePrice) || 0) * qty;
+    }, 0);
   }, 0);
 }
 
@@ -3359,29 +3399,25 @@ function renderGrantsArchive() {
   const recipients = yearData.recipients || [];
   const recipientsCount = recipients.length;
   const packageGroups = getGrantPackageForYear(archive, activeYear);
-  const perGroom = getGrantPerGroomValue(archive, activeYear);
+  const perGroomRetail = getGrantPackageRetailTotal(packageGroups); // שווי אמיתי (מחיר מלא) - זה מה שמודגש
+  const totalYearValue = perGroomRetail * recipientsCount; // שווי המענקים שניתנו השנה, בסך הכל
   const products = getGrantPaymentProductsForYear(archive, activeYear);
   const payments = getGrantPaymentsForYear(archive, activeYear);
   const paymentsTotal = payments.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
 
-  // --- כפתורי שנים ---
-  const yearsEl = document.getElementById("grants-archive-years");
-  if (yearsEl) {
-    yearsEl.innerHTML = years.map(y => `
-      <button type="button" class="grants-year-pill${y === activeYear ? " active" : ""}" onclick="selectGrantsArchiveYear('${escapeHtml(dashboardJsString(y))}')">
-        <span class="grants-year-pill-name">${escapeHtml(y)}</span>
-        <span class="grants-year-pill-count">${(archive.years[y].recipients || []).length} מקבלים</span>
-      </button>`).join("")
-      + `<button type="button" class="grants-year-pill grants-year-pill--add" onclick="addGrantsArchiveYear()" title="הוספת שנה"><span class="material-icons-regular">add</span><span class="grants-year-pill-count">הוסף שנה</span></button>`;
+  // --- בורר שנה (קומפקטי, בתוך הטולבר) ---
+  const yearSelectEl = document.getElementById("grants-year-select");
+  if (yearSelectEl) {
+    yearSelectEl.innerHTML = years.map(y => `<option value="${escapeHtml(y)}"${y === activeYear ? " selected" : ""}>${escapeHtml(y)} (${(archive.years[y].recipients || []).length})</option>`).join("");
   }
 
-  // --- כרטיסי נתונים ---
+  // --- כרטיסי נתונים: מודגש = שווי שניתן, לא עלות ---
   const statsEl = document.getElementById("grants-archive-stats");
   if (statsEl) {
     statsEl.innerHTML = [
-      { icon: "groups", label: "מקבלי מענק", value: recipientsCount.toLocaleString("he-IL"), tone: "info" },
-      { icon: "redeem", label: "שווי מענק לחתן", value: formatCurrency(perGroom), tone: "gold" },
-      { icon: "payments", label: "שולם בפועל", value: formatCurrency(paymentsTotal), tone: "success" }
+      { icon: "volunteer_activism", label: "שווי המענקים שניתנו השנה", value: formatCurrency(totalYearValue), tone: "gold" },
+      { icon: "redeem", label: "שווי מענק לחתן", value: formatCurrency(perGroomRetail), tone: "info" },
+      { icon: "groups", label: "מקבלי מענק", value: recipientsCount.toLocaleString("he-IL"), tone: "success" }
     ].map(s => `
       <div class="grants-archive-stat ${s.tone}">
         <span class="material-icons-regular">${s.icon}</span>
@@ -3426,26 +3462,30 @@ function renderGrantsArchive() {
     }
   }
 
-  // --- תכולת החבילה ---
+  // --- תכולת החבילה: מודגש = שווי (מחיר מלא), משני = עלות לארגון (אחרי הנחה) ---
   const pkgTotalEl = document.getElementById("grants-archive-pkg-total");
-  if (pkgTotalEl) pkgTotalEl.textContent = formatCurrency(perGroom);
+  if (pkgTotalEl) pkgTotalEl.textContent = formatCurrency(perGroomRetail);
   const pkgEl = document.getElementById("grants-archive-package");
   if (pkgEl) {
     pkgEl.innerHTML = packageGroups.length ? packageGroups.map(group => {
       const items = group.items || [];
-      const groupTotal = items.reduce((s, it) => s + (Number(it.value) || 0), 0);
+      const groupOrgTotal = items.reduce((s, it) => s + (Number(it.value) || 0), 0);
+      const groupRetailTotal = items.reduce((s, it) => s + (Number(it.storePrice) || 0) * (Number(it.qty) || 1), 0);
       return `
         <div class="grants-pkg-group">
           <div class="grants-pkg-group-head">
             <span>${escapeHtml(group.store)}${group.discount ? ` · הנחה ${escapeHtml(group.discount)}` : ""}</span>
-            <strong>${formatCurrency(groupTotal)}</strong>
+            <span class="grants-pkg-prices">
+              <strong>שווי ${formatCurrency(groupRetailTotal)}</strong>
+              <small>עלות לארגון ${formatCurrency(groupOrgTotal)}</small>
+            </span>
           </div>
           ${items.map(it => `
             <div class="grants-pkg-item">
               <span>${escapeHtml(it.name)}${it.qty > 1 ? ` <em>×${it.qty}</em>` : ""}</span>
               <span class="grants-pkg-prices">
-                <small>בחנות ${formatCurrency(it.storePrice || 0)}</small>
-                <strong>לארגון ${formatCurrency(it.orgPrice || it.value)}</strong>
+                <strong>שווי ${formatCurrency((Number(it.storePrice) || 0) * (Number(it.qty) || 1))}</strong>
+                <small>עלות לארגון ${formatCurrency(it.value != null ? it.value : it.orgPrice)}</small>
               </span>
             </div>`).join("")}
         </div>`;
