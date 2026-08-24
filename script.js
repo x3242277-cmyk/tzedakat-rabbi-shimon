@@ -224,7 +224,21 @@ function initLoginScreen() {
       showToast(`ברוך הבא למערכת, ${state.currentUser}!`, "success");
       initApp();
     } catch (e) {
-      if (errEl) { errEl.textContent = "שם משתמש או סיסמה שגויים"; errEl.style.display = "block"; }
+      if (errEl) {
+        const raw = String((e && e.message) || "");
+        let msg;
+        if (raw.includes("Failed to fetch") || raw.includes("NetworkError") || raw.includes("Load failed")) {
+          msg = "לא ניתן להתחבר לשרת. בדוק את החיבור לאינטרנט, או שהשרת אינו זמין כרגע.";
+        } else if (raw.includes("Invalid login credentials")) {
+          msg = "שם משתמש או סיסמה שגויים";
+        } else if (raw) {
+          msg = "שגיאה בהתחברות: " + raw;
+        } else {
+          msg = "שם משתמש או סיסמה שגויים";
+        }
+        errEl.textContent = msg;
+        errEl.style.display = "block";
+      }
     } finally {
       newBtnLogin.disabled = false; newBtnLogin.textContent = origText;
     }
