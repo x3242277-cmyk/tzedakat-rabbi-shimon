@@ -843,7 +843,7 @@ function openGrantStatusModal(memberId) {
 
       let msgeret = data.historicalType || "";
       if (data.historicalShiur) msgeret += ` ${data.historicalShiur}'`;
-      const rowBg = isCurrentYear ? "background:rgba(212,175,55,0.06);" : "";
+      const rowBg = isCurrentYear ? "background:var(--gold-soft);" : "";
 
       tbody.innerHTML += `<tr style="${rowBg}">
         <td style="font-weight:700;">${escapeHtml(data.year)}${isCurrentYear ? ' <span style="font-size:10px;color:var(--gold-dark);">השנה</span>' : ''}</td>
@@ -900,7 +900,7 @@ function showSavingIndicator() {
     document.body.appendChild(el);
   }
   el.innerHTML = '<div class="si-spinner"></div><span>מעדכן...</span>';
-  el.style.background = "#1c1c2e";
+  el.style.background = "var(--tchelet)";
   clearTimeout(el._hideTimer);
   requestAnimationFrame(() => el.classList.add("visible"));
 }
@@ -2595,8 +2595,8 @@ function renderChart(selectedYear) {
   // מילוי זהב מדורג לעמודות
   const canvasCtx = ctx.getContext("2d");
   const goldFill = canvasCtx.createLinearGradient(0, 0, 0, ctx.height || 250);
-  goldFill.addColorStop(0, "#E6C875");
-  goldFill.addColorStop(1, "#C9A227");
+  goldFill.addColorStop(0, "#F5D47A");
+  goldFill.addColorStop(1, "#D29E26");
 
   incomeChartInstance = new Chart(ctx, {
       type: "bar",
@@ -2618,9 +2618,11 @@ function renderChart(selectedYear) {
           plugins: {
               legend: { display: false },
               tooltip: {
-                  backgroundColor: "#101014",
-                  titleColor: "#FCE883",
-                  bodyColor: "#fff",
+                  backgroundColor: "#FFFFFF",
+                  titleColor: "#141A33",
+                  bodyColor: "#5B627A",
+                  borderColor: "#E5E8F0",
+                  borderWidth: 1,
                   titleFont: { family: "Heebo", weight: "700", size: 13 },
                   bodyFont: { family: "Heebo", size: 13 },
                   padding: 12,
@@ -2937,7 +2939,7 @@ function renderDailyReport() {
 }
 
 const HEBREW_YEARS_ORDER = ['תשע"ה', 'תשע"ו', 'תשע"ז', 'תשע"ח', 'תשע"ט', 'תש"פ', 'תשפ"א', 'תשפ"ב', 'תשפ"ג', 'תשפ"ד', 'תשפ"ה', 'תשפ"ו', 'תשפ"ז', 'תשפ"ח', 'תשפ"ט', 'תש"צ'];
-const EXPENSE_CHART_COLORS = ["#1D9E75", "#378ADD", "#EF9F27", "#7F77DD", "#D85A30", "#D4537E", "#639922", "#A38525"];
+const EXPENSE_CHART_COLORS = ["#3563E9", "#DDA933", "#0E9F6E", "#8B7CF6", "#E5484D", "#14B8C4", "#F08A24", "#EC6AA0"];
 
 function populateExpensesYearFilter() {
   const sel = document.getElementById("expenses-year-filter");
@@ -3023,7 +3025,7 @@ function renderExpensesKpisAndCharts() {
           plugins: {
             legend: { position: "left", rtl: true, labels: { font: { family: "Heebo", size: 12 }, color: "#646470", boxWidth: 12, padding: 10 } },
             tooltip: {
-              backgroundColor: "#101014", titleColor: "#FCE883", bodyColor: "#fff",
+              backgroundColor: "#FFFFFF", titleColor: "#141A33", bodyColor: "#5B627A", borderColor: "#E5E8F0", borderWidth: 1,
               titleFont: { family: "Heebo", weight: "700", size: 13 }, bodyFont: { family: "Heebo", size: 13 },
               padding: 12, cornerRadius: 8, rtl: true,
               callbacks: { label: (item) => "  " + formatCurrency(item.raw) + " (" + (totalThisYear > 0 ? Math.round(item.raw / totalThisYear * 100) : 0) + "%)" }
@@ -3047,19 +3049,19 @@ function renderExpensesKpisAndCharts() {
     });
     const canvasCtx = trendCtx.getContext("2d");
     const goldFill = canvasCtx.createLinearGradient(0, 0, 0, 240);
-    goldFill.addColorStop(0, "#E6C875"); goldFill.addColorStop(1, "#C9A227");
+    goldFill.addColorStop(0, "#F5D47A"); goldFill.addColorStop(1, "#D29E26");
     expenseTrendChartInstance = new Chart(trendCtx, {
       type: "bar",
       data: {
         labels: sortedYears,
-        datasets: [{ data: sortedYears.map(y => yearTotals[y]), backgroundColor: sortedYears.map(y => y === currentYear ? "#185FA5" : goldFill), borderRadius: 6, borderSkipped: false, maxBarThickness: 48 }]
+        datasets: [{ data: sortedYears.map(y => yearTotals[y]), backgroundColor: sortedYears.map(y => y === currentYear ? "#3563E9" : goldFill), borderRadius: 6, borderSkipped: false, maxBarThickness: 48 }]
       },
       options: {
         responsive: true, maintainAspectRatio: false,
         plugins: {
           legend: { display: false },
           tooltip: {
-            backgroundColor: "#101014", titleColor: "#FCE883", bodyColor: "#fff",
+            backgroundColor: "#FFFFFF", titleColor: "#141A33", bodyColor: "#5B627A", borderColor: "#E5E8F0", borderWidth: 1,
             titleFont: { family: "Heebo", weight: "700", size: 13 }, bodyFont: { family: "Heebo", size: 13 },
             padding: 12, cornerRadius: 8, displayColors: false, callbacks: { label: (item) => "  " + formatCurrency(item.raw) }
           }
@@ -3936,7 +3938,7 @@ function renderPurimGroups() {
                 
                 yearsToShow.forEach(y => {
                     if (y === currentYear) {
-                        tableHtml += td(row, y, false, "color: var(--gold-dark); font-weight: bold; background: rgba(212, 175, 55, 0.05);");
+                        tableHtml += td(row, y, false, "color: var(--gold-dark); font-weight: bold; background: var(--gold-soft);");
                     } else {
                         tableHtml += td(row, y, false, "color: var(--text-secondary);");
                     }

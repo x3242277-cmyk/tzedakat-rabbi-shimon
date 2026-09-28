@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#101014">
+  <meta name="theme-color" content="#F4F5F9">
   <meta name="description" content="מערכת ניהול גבייה, זכאות ומענקים — צדקת רבי שמעון">
   <title>צדקת רבי שמעון | מערכת ניהול</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -23,8 +23,8 @@
   </script>
   <div id="login-screen" class="login-overlay" style="display:var(--login-init-display,flex)">
     <div class="login-card">
-      <img src="https://i.ibb.co/35GFFgB9/1-optimized.png" alt="לוגו צדקת רבי שמעון" id="login-logo" style="display: block; margin: 0 auto 20px auto; width: 120px; height: auto;">
-      <h2 style="color: var(--gold-main); margin-bottom: 5px; font-weight: 800; font-size: 24px;">צדקת רבי שמעון</h2>
+      <img src="https://i.ibb.co/35GFFgB9/1-optimized.png" alt="לוגו צדקת רבי שמעון" id="login-logo" style="display: block; margin: 0 auto 18px auto; width: 112px; height: auto;">
+      <h2 class="login-brand">צדקת רבי שמעון</h2>
       
       <div id="login-loader-area" style="padding: 30px 0;">
          <div class="sleek-spinner"></div>
@@ -32,7 +32,7 @@
       </div>
 
       <div id="login-form-area" style="display: none; opacity: 0; transition: opacity 0.6s ease-in-out;">
-          <p style="color: var(--text-secondary); margin-bottom: 30px; font-size: 14px;">הזן פרטי זיהוי לכניסה למערכת</p>
+          <p class="login-hint">הזן פרטי זיהוי לכניסה למערכת</p>
           
           <div class="form-group" style="text-align: right; margin-bottom: 20px;">
             <label>שם משתמש</label>
@@ -44,7 +44,7 @@
           </div>
           
           <button id="btn-login" class="btn btn-solid-blue" style="width: 100%; font-size: 16px; padding: 14px;">היכנס למערכת</button>
-          <div id="login-error" style="color: var(--danger); margin-top: 15px; font-weight: bold; display: none;">סיסמה שגויה, נסה שוב.</div>
+          <div id="login-error" style="display: none;">סיסמה שגויה, נסה שוב.</div>
       </div>
     </div>
   </div>
@@ -52,13 +52,12 @@
   <div class="screen active-screen app-layout hidden-layout" id="main-screen">
     
     <aside class="sidebar">
-      <div class="sidebar-header" style="display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px; margin-bottom: 24px; padding-top: 10px;">
-        <img src="https://i.ibb.co/35GFFgB9/1-optimized.png" alt="לוגו צדקת רבי שמעון" id="sidebar-logo" style="width: 126px; height: auto; cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
-        <div>
-          <h2 style="font-size: 22px; color: var(--gold-main); margin: 0; font-weight: 800;">צדקת רבי שמעון</h2>
-          <div class="brand-subtitle" style="font-size: 12px; color: var(--text-sidebar);">ניהול גבייה, זכאות ומענקים</div>
-          <div id="user-role-indicator" style="margin-top: 8px; display: inline-block; font-size: 11px; font-weight: bold; background: rgba(212, 175, 55, 0.15); color: var(--gold-light); padding: 4px 10px; border-radius: 12px; border: 1px solid rgba(212, 175, 55, 0.3);">
-          </div>
+      <div class="sidebar-header">
+        <img src="https://i.ibb.co/35GFFgB9/1-optimized.png" alt="לוגו צדקת רבי שמעון" id="sidebar-logo">
+        <div class="sidebar-brand">
+          <h2 class="sidebar-brand-name">צדקת רבי שמעון</h2>
+          <div class="brand-subtitle">ניהול גבייה, זכאות ומענקים</div>
+          <div id="user-role-indicator"></div>
         </div>
       </div>
 
@@ -72,19 +71,19 @@
       </nav>
 
       <div class="sidebar-footer">
-        <button class="nav-item" data-screen="settings-screen" style="margin-bottom: 12px; width: 100%; justify-content: flex-start;" id="nav-settings">הגדרות מערכת</button>
+        <button class="nav-item" data-screen="settings-screen" id="nav-settings">הגדרות מערכת</button>
         
       </div>
     </aside>
 
     <main class="main-content">
       
-      <header class="content-header" id="main-content-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
+      <header class="content-header" id="main-content-header">
         <div>
           <h1 class="page-title" id="page-title">לוח בקרה</h1>
           <div class="page-subtitle" id="page-subtitle">שליטה על גבייה, עמידה ביעדים וזכאות למענק</div>
         </div>
-        <div id="header-top-actions" style="display: flex; gap: 8px;">
+        <div id="header-top-actions">
           <button id="btn-refresh-data" class="header-icon-btn" title="רענן נתונים מהשרת">
             <span class="material-icons-regular" id="refresh-icon" style="font-size: 19px;">refresh</span>
           </button>
@@ -387,7 +386,7 @@
             <div style="display: flex; flex-direction: column; gap: 10px; width: 200px;">
               <button class="btn btn-outline" id="btn-profile-deposit" style="text-align: right;">₪ הפקדת כספים</button>
               <button class="btn btn-outline" id="btn-profile-edit" style="text-align: right;">✏️ עדכון פרטים</button>
-              <button class="btn btn-outline" id="btn-profile-grant" style="text-align: right; background: rgba(212, 175, 55, 0.1);">🏆 היסטוריית זכאות</button>
+              <button class="btn btn-outline" id="btn-profile-grant" style="text-align: right; background: var(--gold-soft);">🏆 היסטוריית זכאות</button>
             </div>
           </div>
 
@@ -450,20 +449,20 @@
             <div class="toolbar-actions">
               <button class="btn btn-outline" style="padding: 8px 12px;" onclick="window.print()"><span class="material-icons-regular" style="font-size: 18px;">print</span></button>
               <button class="btn btn-solid-blue" id="btn-report-add-donation">＋ רישום תרומה</button>
-              <button class="btn btn-danger-outline" id="btn-report-add-expense" style="border: 1px solid var(--danger); background: transparent;">− רישום הוצאה</button>
+              <button class="btn btn-danger-outline" id="btn-report-add-expense">− רישום הוצאה</button>
             </div>
           </div>
 
           <div class="card-panel" id="box-chart" style="margin-bottom: 20px; padding: 16px;">
-            <div style="font-size: 13px; font-weight: 700; color: var(--text-secondary); margin-bottom: 12px;">גרף פריסת הכנסות שנתי</div>
+            <div class="chart-card-title">גרף פריסת הכנסות שנתי</div>
             <canvas id="incomeChart" style="max-height: 220px;"></canvas>
           </div>
 
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; margin-top: 20px;">
-            <div style="border: 1px solid var(--success); border-radius: 8px; overflow: hidden;">
-              <div style="background: rgba(22, 163, 74, 0.1); padding: 15px; border-bottom: 1px solid var(--success); display: flex; justify-content: space-between; align-items: center;">
-                <h3 style="color: var(--success); margin: 0; font-size: 18px;">הכנסות (איסוף)</h3>
-                <strong id="report-total-income" style="font-size: 20px; color: var(--success);">₪0</strong>
+          <div class="report-boxes">
+            <div class="report-box report-box--income">
+              <div class="report-box-head">
+                <h3><span class="material-icons-regular">south_west</span> הכנסות (איסוף)</h3>
+                <strong id="report-total-income">₪0</strong>
               </div>
               <div class="table-container table-sticky" style="border: none; border-radius: 0; max-height: 50vh;">
                 <table class="data-table compact-view">
@@ -473,10 +472,10 @@
               </div>
             </div>
 
-            <div style="border: 1px solid var(--danger); border-radius: 8px; overflow: hidden;">
-              <div style="background: rgba(220, 38, 38, 0.1); padding: 15px; border-bottom: 1px solid var(--danger); display: flex; justify-content: space-between; align-items: center;">
-                <h3 style="color: var(--danger); margin: 0; font-size: 18px;">הוצאות קמפיין</h3>
-                <strong id="report-total-expense" style="font-size: 20px; color: var(--danger);">₪0</strong>
+            <div class="report-box report-box--expense">
+              <div class="report-box-head">
+                <h3><span class="material-icons-regular">north_east</span> הוצאות קמפיין</h3>
+                <strong id="report-total-expense">₪0</strong>
               </div>
               <div class="table-container table-sticky" style="border: none; border-radius: 0; max-height: 50vh;">
                 <table class="data-table compact-view">
@@ -643,9 +642,9 @@
                   </thead>
                   <tbody id="grants-payments-tbody"></tbody>
                   <tfoot>
-                    <tr style="background: var(--text-main);">
-                      <td colspan="4" style="font-weight:bold; color:#fff;">סה"כ שולם בפועל</td>
-                      <td id="grants-payments-total" style="font-weight:bold; color: var(--gold-main);">₪0</td>
+                    <tr class="table-total-row">
+                      <td colspan="4">סה"כ שולם בפועל</td>
+                      <td id="grants-payments-total">₪0</td>
                     </tr>
                   </tfoot>
                 </table>
@@ -920,7 +919,7 @@
   <div id="nedarim-modal" class="modal-overlay">
     <div class="modal-content app-modal" style="max-width: 600px; height: 85vh; display: flex; flex-direction: column; overflow: hidden; background: #fff; padding: 0; position: relative;">
       
-      <div style="padding: 16px 24px; background: rgba(212, 175, 55, 0.05); border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+      <div style="padding: 16px 24px; background: var(--gold-soft); border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
         <h3 style="margin: 0; font-size: 18px; font-weight: 800; color: var(--gold-dark);">סליקת אשראי - צדקת רבי שמעון</h3>
         <button id="btn-close-nedarim" title="סגור / סיימתי תשלום" style="background: none; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 50%; color: var(--text-secondary); transition: background 0.15s;" onmouseover="this.style.background='rgba(0,0,0,0.06)'" onmouseout="this.style.background='none'">
           <span class="material-icons-regular" style="font-size: 26px;">close</span>
