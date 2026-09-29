@@ -4114,9 +4114,13 @@ window.removeGrantsArchiveRecipient = function(index) {
 window.addGrantsArchiveYear = function() {
   const archive = getGrantsArchive();
   const existing = Object.keys(archive.years);
-  const options = (typeof HEBREW_YEARS_ORDER !== "undefined" ? HEBREW_YEARS_ORDER : []).filter(y => !existing.includes(y));
-  const promptText = `הזן את שם השנה החדשה (לדוגמה: תשפ"ז)${options.length ? "\nשנים פנויות: " + options.join(", ") : ""}`;
-  const input = prompt(promptText, options[options.length - 1] || "");
+  // הצעה: השנה העברית הנוכחית, ואם כבר קיימת - השנה שאחרי האחרונה ברשימה
+  const latestIdx = Math.max(-1, ...existing.map(y => HEBREW_YEARS_ORDER.indexOf(y)));
+  const options = HEBREW_YEARS_ORDER.filter((y, i) => i > latestIdx && !existing.includes(y)).slice(0, 3);
+  const current = getCurrentHebrewYearLabel();
+  const suggested = current && !existing.includes(current) ? current : (options[0] || "");
+  const promptText = `הזן את שם השנה החדשה (לדוגמה: ${suggested || 'תשפ"ז'})${options.length ? "\nהשנים הבאות: " + options.join(", ") : ""}`;
+  const input = prompt(promptText, suggested);
   if (input === null) return;
   const year = input.trim();
   if (!year) return;
