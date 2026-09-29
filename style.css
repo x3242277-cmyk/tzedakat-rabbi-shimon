@@ -249,7 +249,6 @@ button, input, select, textarea { font-family: inherit; outline: none; color: in
 .nav-item[data-screen="daily-report-screen"]::before { content: "insert_chart_outlined"; }
 .nav-item[data-screen="expenses-screen"]::before { content: "receipt_long"; }
 .nav-item[data-screen="expenses-summary-screen"]::before { content: "analytics"; }
-.nav-item[data-screen="eligibility-screen"]::before { content: "fact_check"; }
 .nav-item[data-screen="purim-registration-screen"]::before { content: "celebration"; }
 .nav-item[data-screen="rules-screen"]::before { content: "menu_book"; }
 .nav-item[data-screen="grants-screen"]::before { content: "workspace_premium"; }
@@ -327,17 +326,6 @@ button, input, select, textarea { font-family: inherit; outline: none; color: in
 /* --------------------------------------------------------------------------
    7. לוח בקרה — פס עליון ומדדים
    -------------------------------------------------------------------------- */
-.dashboard-topbar {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 20px; padding-bottom: 16px;
-  border-bottom: 1px solid var(--border-color);
-}
-.dashboard-topbar-title {
-  font-size: 20px; font-weight: 700; color: var(--text-main);
-  font-family: var(--font-display);
-}
-.dashboard-year-wrap { display: flex; align-items: center; gap: 8px; }
-.dashboard-year-label { font-size: 12px; color: var(--text-secondary); font-weight: 600; }
 .dashboard-year-select {
   background: var(--surface-light); border: 1px solid var(--border-color);
   color: var(--text-main); padding: 7px 14px; border-radius: var(--radius-sm);
@@ -395,7 +383,6 @@ button, input, select, textarea { font-family: inherit; outline: none; color: in
 @media (max-width: 920px) { .metrics-row-4 { grid-template-columns: 1fr 1fr; } .exp-charts-row { grid-template-columns: 1fr; } }
 
 /* ===== Dashboard command center ===== */
-.dashboard-legacy-hidden { display: none !important; }
 
 .dashboard-command-center {
   display: flex;
@@ -1208,17 +1195,32 @@ button.dashboard-segment-item:hover {
 }
 .grants-pkg-group-head-edit {
   display: grid;
-  grid-template-columns: 1.3fr 1fr auto;
+  grid-template-columns: 1.3fr 1fr 30px;
   gap: 6px;
   align-items: center;
 }
 .grants-pkg-item-edit {
   display: grid;
-  grid-template-columns: 1.6fr 0.55fr 0.85fr 0.85fr auto;
+  grid-template-columns: minmax(160px, 2.4fr) minmax(70px, 0.7fr) minmax(90px, 1fr) minmax(110px, 1fr) 30px;
   gap: 6px;
   align-items: center;
   margin-top: 4px;
 }
+.grants-pkg-edit-labels {
+  display: grid;
+  grid-template-columns: minmax(160px, 2.4fr) minmax(70px, 0.7fr) minmax(90px, 1fr) minmax(110px, 1fr) 30px;
+  gap: 6px; margin-top: 8px; padding: 0 2px;
+  font-size: 11px; font-weight: 700; color: var(--text-secondary);
+}
+.grants-pkg-edit-labels--group { grid-template-columns: 1.3fr 1fr 30px; margin-top: 0; margin-bottom: 2px; }
+.grants-giving-grid.is-editing-package { grid-template-columns: 1fr; }
+@media (max-width: 640px) {
+  .grants-pkg-edit-labels { display: none; }
+  .grants-pkg-item-edit { grid-template-columns: 1fr 1fr; padding: 6px 0; border-bottom: 1px dashed var(--border-color); }
+  .grants-pkg-item-edit > input:first-child { grid-column: 1 / -1; }
+}
+.grants-giving-grid.is-editing-package .grants-package-panel { order: -1; }
+#grants-screen .grants-giving-grid.is-editing-package #grants-archive-package { column-count: 1; }
 .grants-pkg-group-head-edit .ui-input,
 .grants-pkg-item-edit .ui-input {
   margin: 0;
@@ -1260,16 +1262,53 @@ button.dashboard-segment-item:hover {
 }
 
 .grants-archive-head-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ===== תשלומים לחנויות לפי מחצית ===== */
+.store-bills-head { flex-wrap: wrap; }
+#grants-screen .store-bills-head .grants-view-toggle { margin: 0; }
+.store-bills-stats { margin: 4px 0 12px !important; }
+.store-bills-table td { vertical-align: middle; }
+.bill-status { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 800; white-space: nowrap; }
+.bill-status--paid { background: rgba(22,163,74,0.1); color: var(--success); border: 1px solid rgba(22,163,74,0.25); }
+.bill-status--due { background: rgba(217,119,6,0.1); color: var(--warning); border: 1px solid rgba(217,119,6,0.25); }
+.bill-status--empty { background: var(--surface-light); color: var(--text-muted); border: 1px dashed var(--border-strong); }
+.bill-notes { font-size: 11px; color: var(--text-secondary); margin-top: 3px; white-space: normal; }
+.bill-row--paid td { background: rgba(22,163,74,0.03); }
+.bill-row-btn { padding: 4px 12px !important; font-size: 12px !important; }
+.bill-receipt-link {
+  display: inline-flex; align-items: center; gap: 3px; border: none; background: none; cursor: pointer;
+  color: var(--gold-dark); font-family: inherit; font-size: 12.5px; font-weight: 700; padding: 2px 4px; border-radius: 6px;
+}
+.bill-receipt-link:hover { background: rgba(212,175,55,0.12); }
+.bill-receipt-link .material-icons-regular { font-size: 16px; }
+.bill-receipt-remove { color: var(--danger); }
+.store-bills-footnote { font-size: 11.5px; color: var(--text-secondary); margin: 8px 2px 0; line-height: 1.6; }
+.store-bills-add { margin-top: 10px; }
+.store-bill-paid-box { margin-top: 16px; padding: 12px 14px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--surface-light); }
+.store-bill-paid-toggle { display: inline-flex; align-items: center; gap: 8px; font-weight: 800; cursor: pointer; margin-bottom: 10px; }
+.store-bill-paid-toggle input { width: 17px; height: 17px; }
+.store-bill-receipt { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px dashed var(--border-strong); border-radius: 10px; }
+.store-bill-receipt-current { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 13px; }
+.store-bill-receipt-current .material-icons-regular { font-size: 18px; color: var(--gold-dark); }
+.legacy-total-row td { background: var(--surface-light); font-weight: 800; border-top: 2px solid var(--border-strong); }
+.legacy-total-row td:last-child { color: var(--gold-dark); }
 .members-toolbar-btn--gold { border-color: var(--gold-main); color: var(--gold-dark); background: rgba(212,175,55,0.08); }
 .members-toolbar-btn--gold:hover { background: rgba(212,175,55,0.16); }
 
 .grants-archive-add-form {
-  display: grid; grid-template-columns: 2fr 1.2fr 1.2fr 1.2fr auto auto; gap: 8px; align-items: center;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; align-items: end;
   padding: 12px; margin-bottom: 12px; border: 1px solid var(--gold-main);
   background: rgba(212,175,55,0.05); border-radius: 10px;
 }
-.grants-archive-add-form .ui-input { margin: 0; }
+.grants-archive-add-form.hidden { display: none !important; }
+.grants-archive-add-form .form-group { min-width: 0; }
+.grants-archive-add-form .form-group label { font-size: 11.5px; margin-bottom: 4px; }
+.grants-archive-add-form .grants-add-name-group { grid-column: 1 / -1; }
+.grants-archive-add-form .ui-input { margin: 0; min-width: 0; }
+.grants-add-actions { grid-column: 1 / -1; display: flex; gap: 8px; }
 .grants-archive-add-form .btn { padding: 8px 14px; white-space: nowrap; }
+.field-hint { font-weight: 500; color: var(--text-muted); }
+.grants-archive-edit:hover { background: rgba(212,175,55,0.14); color: var(--gold-dark); }
 
 .grants-archive-del {
   display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px;
@@ -1278,9 +1317,13 @@ button.dashboard-segment-item:hover {
 .grants-archive-del .material-icons-regular { font-size: 17px; }
 .grants-archive-del:hover { background: rgba(220,38,38,0.1); color: var(--danger); }
 
+/* מסכים בינוניים (עם תפריט צד): טבלת המקבלים מקבלת רוחב מלא ולא נחתכת */
+@media (max-width: 1150px) {
+  .grants-giving-grid { grid-template-columns: minmax(0, 1fr); }
+}
 @media (max-width: 900px) {
   .grants-giving-grid,
-  .grants-payments-grid { grid-template-columns: 1fr; }
+  .grants-payments-grid { grid-template-columns: minmax(0, 1fr); }
   #grants-screen #grants-archive-package { column-count: 1; }
   .grants-payment-add-form { grid-template-columns: 1fr 1fr; }
   .grants-archive-grid { grid-template-columns: 1fr; }
@@ -1388,30 +1431,6 @@ button.dashboard-segment-item:hover {
 /* --------------------------------------------------------------------------
    8. פעולות מהירות — רשימה נקייה
    -------------------------------------------------------------------------- */
-.quick-actions-panel { padding: 0 !important; overflow: hidden; }
-.quick-actions-title {
-  font-size: 12px; font-weight: 700; color: var(--text-secondary);
-  letter-spacing: 0.5px; text-transform: uppercase;
-  padding: 16px 20px 12px; border-bottom: 1px solid var(--border-color);
-}
-.quick-actions-list { display: flex; flex-direction: column; }
-.quick-action-item {
-  display: flex; align-items: center; gap: 14px;
-  padding: 14px 20px; background: transparent; border: none;
-  border-bottom: 1px solid var(--border-color); cursor: pointer;
-  text-align: right; transition: background 0.15s;
-  width: 100%;
-}
-.quick-action-item:last-child { border-bottom: none; }
-.quick-action-item:hover { background: var(--surface-light); }
-.qa-icon { font-size: 20px; color: var(--text-secondary); flex-shrink: 0; }
-.quick-action-item:hover .qa-icon { color: var(--gold-dark); }
-.qa-text { display: flex; flex-direction: column; flex: 1; text-align: right; }
-.qa-main { font-size: 14px; font-weight: 700; color: var(--text-main); }
-.qa-sub { font-size: 12px; color: var(--text-secondary); margin-top: 1px; }
-.qa-arrow { font-size: 18px; color: var(--border-strong); margin-right: auto; }
-.quick-action-item:hover .qa-arrow { color: var(--gold-dark); }
-
 .section-title-inline {
   margin-bottom: 12px; color: var(--text-secondary);
   font-size: 12px; letter-spacing: 0.6px; text-transform: uppercase; font-weight: 700;
@@ -1701,6 +1720,37 @@ tr.hidden { display: none !important; }
 }
 
 .form-actions-row { display: flex; gap: 12px; justify-content: flex-start; }
+.modal-meta { font-size: 12px; color: var(--text-muted); min-height: 0; }
+.modal-meta:empty { display: none; }
+
+/* שורה בטבלה שאפשר ללחוץ עליה לעריכה */
+.data-table tbody tr.clickable-row { cursor: pointer; }
+.data-table tbody tr.clickable-row:hover td { background-color: #FAF4E4 !important; }
+
+/* היסטוריית הפקדות בכרטיס בחור */
+.profile-donations { margin-top: 24px; }
+.profile-donations-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.profile-donations-count { font-size: 12.5px; color: var(--text-secondary); font-weight: 600; }
+.profile-donations .table-container { max-height: 320px; overflow-y: auto; }
+
+/* פס "שינויים שממתינים לשמירה בשרת" */
+.pending-writes-banner {
+  position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 10002;
+  display: flex; align-items: center; gap: 10px; max-width: calc(100vw - 24px);
+  padding: 9px 12px 9px 16px; border-radius: var(--radius-md);
+  background: #FFF7E6; color: #7A4A06; border: 1px solid rgba(217,119,6,0.45);
+  box-shadow: var(--shadow-raise); font-size: 13.5px; font-weight: 700;
+}
+.pending-writes-banner > .material-icons-regular { color: var(--warning); font-size: 20px; }
+.pending-writes-banner .btn { padding: 5px 12px; font-size: 12.5px; }
+
+/* מסך משתמשים */
+.users-perm-table td, .users-perm-table th { text-align: center; }
+.users-perm-table td:first-child, .users-perm-table th:first-child { text-align: right; }
+.users-perm-table input[type="checkbox"] { width: 17px; height: 17px; }
+.role-chip { display: inline-block; font-size: 10.5px; font-weight: 800; padding: 1px 8px; border-radius: 10px; background: rgba(212,175,55,0.15); color: var(--gold-dark); margin-right: 4px; }
+.users-help { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; background: rgba(37,99,235,0.05); border: 1px solid rgba(37,99,235,0.15); border-radius: 10px; font-size: 12.5px; line-height: 1.7; color: var(--text-main); }
+.users-help .material-icons-regular { color: var(--info); font-size: 20px; }
 
 .hero-badge { background: var(--bg-sidebar); color: var(--gold-main); padding: 6px 16px; border-radius: var(--radius-pill); font-size: 13px; font-weight: 700; }
 .simple-list-item {
@@ -1883,6 +1933,11 @@ td[contenteditable="true"]:focus { background: #ffffff !important; box-shadow: i
 
   .app-toolbar { flex-direction: column; align-items: stretch; }
   .toolbar-actions { justify-content: flex-start; }
+  /* סרגל הסינון במסך הבחורים לא יוצא מרוחב המסך */
+  #members-list-section .app-toolbar,
+  #members-list-section .toolbar-filters { flex-wrap: wrap !important; }
+  #members-list-section .toolbar-filters .filter-group { flex: 1 1 140px; min-width: 0 !important; }
+  .members-inline-checks { flex-wrap: wrap; }
 
   .modal-inner { padding: 22px; }
 }
@@ -2326,12 +2381,75 @@ td[contenteditable="true"]:focus { background: #ffffff !important; box-shadow: i
 /* --------------------------------------------------------------------------
    19. הדפסה — מסתיר ניווט ומשאיר תוכן נקי
    -------------------------------------------------------------------------- */
+.print-only { display: none; }
+
 @media print {
-  .sidebar, .app-toolbar, .toolbar-actions, .modal-overlay, .login-overlay,
-  .dashboard-welcome-banner, .actions-grid, .drill-icon { display: none !important; }
-  body { overflow: visible; height: auto; background: #fff; }
-  .main-content { padding: 0; overflow: visible; }
-  .card-panel { box-shadow: none; border: 1px solid #ccc; }
-  .data-table th { background: #f0f0f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .takanon-lookup-box, #takanon-member-card { display: none !important; }
+  @page { size: A4; margin: 12mm 10mm; }
+  html, body { height: auto !important; overflow: visible !important; background: #fff !important; }
+  body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .app-layout, .main-content { display: block !important; height: auto !important; overflow: visible !important; padding: 0 !important; }
+  .content-screen.active-content-screen { animation: none !important; }
+
+  /* כותרת הדפסה: שם הדו"ח, הסינון ותאריך */
+  .print-only { display: block !important; }
+  .print-header { border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 10px; }
+  .print-header-title { font-size: 16px; font-weight: 800; color: #000; }
+  .print-header-meta { font-size: 11px; color: #444; margin-top: 2px; }
+  .content-header { display: none !important; }
+
+  /* כל מה שהוא כפתור, טופס או ניווט - לא מודפס */
+  .sidebar, .login-overlay, .modal-overlay, .app-toast, .saving-indicator, .pending-writes-banner,
+  .btn, .members-toolbar-btn, .purim-action-btn, .grants-archive-del, .header-icon-btn, .modal-close,
+  .app-toolbar, .toolbar-actions, .no-export, .sortable-header::after, .missing-star,
+  .grants-archive-add-form, .grants-archive-head-actions, .grants-pkg-add-row-btn, .store-bills-add, .grants-view-toggle,
+  .bill-row-btn, .bill-receipt-link, .grants-year-add-btn,
+  .dashboard-hero-controls, .dashboard-panel--actions, .dashboard-drill-open-member,
+  .purim-cities-nav, .purim-groups-nav, .purim-group-actions,
+  .settings-subnav, .exp-year-bar, .takanon-lookup-box, #takanon-member-card, .takanon-col-divider,
+  #btn-back-to-search, #member-profile-section > div:first-child > div:last-child { display: none !important; }
+
+  /* רשימות מלאות: בלי תיבות גלילה שחותכות שורות */
+  .table-container, .table-sticky, .grants-recipients-table, .grants-actual-payments-table, .grants-products-table,
+  .profile-donations .table-container, .dashboard-drill-table-wrap {
+    max-height: none !important; overflow: visible !important; border-radius: 0 !important;
+  }
+  .data-table th, .data-table td, .table-sticky thead th { position: static !important; box-shadow: none !important; }
+  .data-table th, .data-table td { padding: 5px 7px !important; font-size: 11.5px !important; white-space: normal !important; }
+  thead { display: table-header-group; }
+  tfoot { display: table-footer-group; }
+  tr { break-inside: avoid; page-break-inside: avoid; }
+  .data-table tbody tr:nth-child(even), .data-table tbody tr:nth-child(even) td:first-child { background: #f7f7f7 !important; }
+
+  /* כרטיסים: בלי צללים; כרטיסים קטנים לא נשברים בין עמודים */
+  .card-panel, .dashboard-panel, .metric-card, .dashboard-kpi-card, .grants-archive-stat, .exp-cat-card,
+  .takanon-col-left, .takanon-col-right, .takanon-section, .takanon-hero { box-shadow: none !important; }
+  .card-panel { border: 1px solid #ccc !important; padding: 8px 10px !important; }
+  .metric-card, .dashboard-kpi-card, .grants-archive-stat, .exp-cat-card, .takanon-type-card, .dashboard-attention-item { break-inside: avoid; }
+  /* כותרת לא נשארת לבד בתחתית עמוד */
+  h1, h2, h3, .page-title, .dashboard-panel-head, .grants-archive-panel-head { break-after: avoid; page-break-after: avoid; }
+  /* גרפים מוקטנים לרוחב הדף (הגרף נבנה לרוחב המסך ונחתך בלי זה) */
+  canvas { max-width: 100% !important; height: auto !important; }
+
+  /* לוח בקרה: כותרת בהירה, מדדים בשלוש עמודות, פאנלים אחד מתחת לשני */
+  .dashboard-hero-panel { background: none !important; color: #000 !important; border: 1px solid #ccc !important; box-shadow: none !important; min-height: 0 !important; padding: 8px 12px !important; display: block !important; }
+  .dashboard-hero-copy h1 { color: #000 !important; font-size: 22px !important; }
+  .dashboard-hero-copy p, .dashboard-eyebrow { display: none !important; }
+  .dashboard-kpi-grid { grid-template-columns: repeat(3, 1fr) !important; }
+  .dashboard-main-grid { display: block !important; }
+  .dashboard-main-grid > .dashboard-panel { margin-bottom: 10px; }
+
+  /* תקנון: כותרת בהירה, שתי עמודות נשמרות */
+  .takanon-hero { background: none !important; border: 1px solid #ccc !important; }
+  .takanon-hero-title, .takanon-hero-year { color: #000 !important; }
+  .takanon-hero-sub { color: #444 !important; }
+
+  /* מענקים: פאנלים אחד מתחת לשני */
+  .grants-giving-grid, .grants-payments-grid { display: block !important; }
+  .grants-giving-grid > .card-panel { margin-bottom: 10px; }
+  #grants-screen #grants-archive-package { column-count: 2 !important; }
+  .grants-archive-stats { grid-template-columns: repeat(3, 1fr) !important; }
+
+  /* כרטיס בחור */
+  #member-profile-section > div:first-child { display: block !important; }
+  #profile-total-amount { font-size: 34px !important; }
 }
