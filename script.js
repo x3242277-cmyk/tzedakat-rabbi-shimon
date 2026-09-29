@@ -29,7 +29,7 @@ const DEFAULT_SETTINGS = {
   additionalRules: ""
 };
 
-const DEFAULT_USERS = [{ username: "מנהל", password: "123", canEdit: true, canViewIncome: true, canViewExpenses: true, canViewGrants: true, canViewHistory: true }];
+const DEFAULT_USERS = [];
 
 // מיפוי שם משתמש (עברית) לכתובת מייל להתחברות ב-Supabase Auth.
 // שומר על חוויית "בחירת שם מרשימה" תוך שימוש בהתחברות מאובטחת.
@@ -51,7 +51,6 @@ let state = {
   grantsPackageDraft: null,
   settings: { ...DEFAULT_SETTINGS },
   activeScreen: "dashboard-screen",
-  globalSearchTerm: "",
   filterYeshiva: "",
   filterCity: "",
   filterYeshivaTypes: [],
@@ -113,6 +112,197 @@ function extractMemberId(inputValue) {
 }
 // ------------------------------------------
 
+// ==========================================
+// שמירה לשרת עם תור ממתינים
+// כל שינוי נכנס לתור שנשמר בדפדפן ונשלח לשרת. אם השליחה נכשלת (אין אינטרנט / תקלה זמנית),
+// השינוי נשאר בתור, נשלח שוב אוטומטית, ולא נמחק כשהנתונים נטענים מחדש מהשרת.
+// ==========================================
+const PENDING_WRITES_KEY = "ezer_pending_writes";
+const WRITE_OPS = {
+  saveMember: p => SB.saveMember(p),
+  saveDonation: p => SB.saveDonation(p),
+  saveExpense: p => SB.saveExpense(p),
+  savePurim: p => SB.savePurim(p),
+  saveSettings: p => SB.saveSettings(p),
+  saveGrantsArchive: p => SB.saveGrantsArchive(p),
+  deleteMember: p => SB.deleteMember(p.id),
+  deleteDonation: p => SB.deleteDonation(p.id),
+  deleteExpense: p => SB.deleteExpense(p.id),
+};
+const WRITE_LABELS = {
+  saveMember: "פרטי בחור", deleteMember: "מחיקת בחור", saveDonation: "הפקדה", deleteDonation: "מחיקת הפקדה",
+  saveExpense: "הוצאה", deleteExpense: "מחיקת הוצאה", savePurim: "כתובת פורים", saveSettings: "הגדרות", saveGrantsArchive: "נתוני מענקים",
+};
+let pendingLastError = null;
+let flushPromise = null;
+const rejectedWriteIds = new Set();
+
+function readPendingWrites() { try { const raw = localStorage.getItem(PENDING_WRITES_KEY); return raw ? (JSON.parse(raw) || []) : []; } catch (e) { return []; } }
+function writePendingWrites(list) { try { localStorage.setItem(PENDING_WRITES_KEY, JSON.stringify(list)); } catch (e) {} }
+
+// מפתח לפי ישות: שמירה חדשה של אותה רשומה מחליפה שמירה ישנה שעוד לא נשלחה
+function pendingEntityKey(op, payload) {
+  if (op === "saveSettings") return "settings";
+  if (op === "saveGrantsArchive") return "grants";
+  if (op === "savePurim") return "purim:" + (payload.__sbId || `${payload["עיר"]}|${payload["קבוצה"]}|${payload["מס'"]}`);
+  const kind = op.replace(/^(save|delete)/, "").toLowerCase();
+  return kind + ":" + String(payload && payload.id);
+}
+
+function enqueueWrite(op, payload) {
+  const key = pendingEntityKey(op, payload);
+  const item = { id: generateId("W"), op, key, payload: JSON.parse(JSON.stringify(payload)), ts: Date.now() };
+  const list = readPendingWrites().filter(x => x.key !== key);
+  list.push(item);
+  writePendingWrites(list);
+  updatePendingBanner();
+  return item.id;
+}
+
+// שגיאה קבועה = השרת דחה את הבקשה (הרשאות / נתון לא תקין). שגיאה זמנית = אין חיבור / תקלת שרת.
+function isPermanentWriteError(err) {
+  const st = err && err.status;
+  return !!st && st >= 400 && st < 500 && ![401, 408, 429].includes(st);
+}
+
+function flushPendingWrites() {
+  if (flushPromise) return flushPromise;
+  flushPromise = (async () => {
+    if (!window.SB || !SB.isLoggedIn()) return readPendingWrites().length === 0;
+    for (;;) {
+      const list = readPendingWrites();
+      if (!list.length) break;
+      const item = list[0];
+      try {
+        await WRITE_OPS[item.op](item.payload);
+        writePendingWrites(readPendingWrites().filter(x => x.id !== item.id));
+        pendingLastError = null;
+      } catch (err) {
+        if (isPermanentWriteError(err) || !WRITE_OPS[item.op]) {
+          writePendingWrites(readPendingWrites().filter(x => x.id !== item.id));
+          rejectedWriteIds.add(item.id);
+          const reason = err && err.status === 403 ? "אין לך הרשאה לפעולה הזו" : (err && err.message) || "שגיאה";
+          showToast(`השרת לא אישר את השמירה (${WRITE_LABELS[item.op] || item.op}): ${reason}`, "danger");
+          continue;
+        }
+        pendingLastError = err;
+        break;
+      }
+    }
+    updatePendingBanner();
+    return readPendingWrites().length === 0;
+  })().finally(() => { flushPromise = null; });
+  return flushPromise;
+}
+
+// שומר שינוי בשרת. מחזיר true אם נשמר בשרת, false אם נשאר בתור (יישלח שוב) או נדחה.
+async function persist(op, payload) {
+  if (!window.SB) return false;
+  const id = enqueueWrite(op, payload);
+  await flushPendingWrites();
+  if (readPendingWrites().some(x => x.id === id) && !pendingLastError) await flushPendingWrites();
+  return !readPendingWrites().some(x => x.id === id) && !rejectedWriteIds.has(id);
+}
+
+// הודעה אחידה אחרי שמירה
+function reportSave(saved, okMsg) {
+  if (saved) showToast(okMsg || "נשמר בהצלחה", "success");
+  else if (readPendingWrites().length) showToast("אין חיבור לשרת כרגע. השינוי שמור במחשב הזה ויישלח אוטומטית כשהחיבור יחזור", "warning");
+}
+
+// אחרי טעינה מהשרת: מחילים שוב שינויים שעוד לא נשלחו, כדי שלא ייעלמו מהמסך
+function applyPendingWritesToState() {
+  const upsertById = (arr, obj) => { const i = arr.findIndex(x => String(x.id) === String(obj.id)); if (i === -1) arr.push(obj); else arr[i] = obj; };
+  readPendingWrites().forEach(({ op, payload }) => {
+    if (op === "saveMember") upsertById(state.members, payload);
+    else if (op === "saveDonation") upsertById(state.donations, payload);
+    else if (op === "saveExpense") upsertById(state.expenses, payload);
+    else if (op === "deleteMember") state.members = state.members.filter(x => String(x.id) !== String(payload.id));
+    else if (op === "deleteDonation") state.donations = state.donations.filter(x => String(x.id) !== String(payload.id));
+    else if (op === "deleteExpense") state.expenses = state.expenses.filter(x => String(x.id) !== String(payload.id));
+    else if (op === "saveSettings") state.settings = { ...DEFAULT_SETTINGS, ...payload };
+    else if (op === "saveGrantsArchive") state.grantsArchive = payload;
+    else if (op === "savePurim") {
+      const i = state.purimAddresses.findIndex(r => (payload.__sbId && r.__sbId === payload.__sbId) || (!payload.__sbId && pendingEntityKey("savePurim", r) === pendingEntityKey("savePurim", payload)));
+      if (i === -1) state.purimAddresses.push(payload); else state.purimAddresses[i] = payload;
+    }
+  });
+}
+
+function updatePendingBanner() {
+  const count = readPendingWrites().length;
+  let el = document.getElementById("pending-writes-banner");
+  if (!count) { if (el) el.remove(); return; }
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "pending-writes-banner";
+    el.className = "pending-writes-banner";
+    el.innerHTML = `<span class="material-icons-regular">cloud_off</span><span class="pending-writes-text"></span><button type="button" class="btn btn-outline pending-writes-retry">נסה עכשיו</button>`;
+    el.querySelector(".pending-writes-retry").addEventListener("click", async () => {
+      const ok = await flushPendingWrites();
+      showToast(ok ? "כל השינויים נשמרו בשרת" : "עדיין אין חיבור לשרת. ננסה שוב אוטומטית", ok ? "success" : "warning");
+    });
+    document.body.appendChild(el);
+  }
+  el.querySelector(".pending-writes-text").textContent = `${count} ${count === 1 ? "שינוי עדיין לא נשמר" : "שינויים עדיין לא נשמרו"} בשרת. הם שמורים במחשב הזה ויישלחו אוטומטית.`;
+}
+
+window.addEventListener("online", () => { if (readPendingWrites().length) flushPendingWrites(); });
+setInterval(() => { if (readPendingWrites().length && !flushPromise) flushPendingWrites(); }, 30000);
+
+// ===== שמירת הגדרות ומענקים בלי לדרוס שינויים של משתמש אחר =====
+// לפני שמירה טוענים את הגרסה העדכנית מהשרת ומחילים עליה רק את השינוי הנוכחי.
+let settingsSaveChain = Promise.resolve();
+function saveSettingsPatch(mutator) {
+  mutator(state.settings);
+  invalidateCache(); saveState();
+  const run = async () => {
+    const before = JSON.stringify(state.settings);
+    await flushPendingWrites();
+    if (!readPendingWrites().some(x => x.op === "saveSettings")) {
+      try {
+        const fresh = await SB.fetchSingleton("settings");
+        if (fresh) { const merged = { ...DEFAULT_SETTINGS, ...fresh }; mutator(merged); state.settings = merged; saveState(); }
+      } catch (e) {}
+    }
+    const saved = await persist("saveSettings", state.settings);
+    if (JSON.stringify(state.settings) !== before) { invalidateCache(); renderAll(); if (state.activeScreen === "settings-screen") renderSettings(); }
+    return saved;
+  };
+  const p = settingsSaveChain.then(run, run);
+  settingsSaveChain = p.catch(() => {});
+  return p;
+}
+
+let grantsSaveChain = Promise.resolve();
+function mutateGrantsArchive(mutator) {
+  mutator(ensureEditableArchive());
+  saveState();
+  const run = async () => {
+    const before = JSON.stringify(state.grantsArchive);
+    await flushPendingWrites();
+    if (!readPendingWrites().some(x => x.op === "saveGrantsArchive")) {
+      try {
+        const fresh = await SB.fetchSingleton("grants_archive");
+        if (fresh) { const merged = mergeGrantsArchiveDefaults(fresh); mutator(merged); state.grantsArchive = merged; saveState(); }
+      } catch (e) {}
+    }
+    const saved = await persist("saveGrantsArchive", state.grantsArchive);
+    if (JSON.stringify(state.grantsArchive) !== before) { renderGrantsArchive(); renderDashboard(); }
+    return saved;
+  };
+  const p = grantsSaveChain.then(run, run);
+  grantsSaveChain = p.catch(() => {});
+  return p;
+}
+
+// ===== יומן פעולות: מי עשה מה ומתי (לא חוסם את הפעולה אם נכשל) =====
+function logAudit(action, entity, entityId, details) {
+  if (!window.SB || !SB.isLoggedIn()) return;
+  const entry = { action, entity, entity_id: entityId != null ? String(entityId) : null, username: state.currentUser || "", details: details || null };
+  SB.insertAudit(entry).catch(() => {});
+}
+
 const screenMeta = {
   "dashboard-screen": { title: "לוח בקרה", subtitle: "שליטה על גבייה, עמידה ביעדים וזכאות למענק" },
   "members-screen": { title: "ניהול בחורים", subtitle: "רשימת בחורים, סטטוס גבייה ופרופיל אישי" },
@@ -127,6 +317,12 @@ const screenMeta = {
 
 document.addEventListener("DOMContentLoaded", async () => {
   loadState();
+  try {
+    if (sessionStorage.getItem("ezer_logout_reason") === "idle") {
+      sessionStorage.removeItem("ezer_logout_reason");
+      setTimeout(() => showToast("המערכת ננעלה אוטומטית עקב חוסר פעילות", "warning"), 300);
+    }
+  } catch (e) {}
 
   const loaderArea = document.getElementById("login-loader-area");
   const formArea = document.getElementById("login-form-area");
@@ -142,15 +338,17 @@ document.addEventListener("DOMContentLoaded", async () => {
   // סשן פעיל של Supabase (רענון דף) — נכנסים ישר למערכת
   if (window.SB && SB.isLoggedIn()) {
       const sbUser = SB.currentUser();
-      state.currentUser = (sbUser && sbUser.user_metadata && sbUser.user_metadata.username) || state.currentUser || "";
+      state.currentUser = (sbUser && sbUser.user_metadata && sbUser.user_metadata.username) || "";
       if (loaderArea) loaderArea.style.display = "none";
       if (logo) logo.classList.remove("pulse-logo");
       document.getElementById("login-screen").classList.add("hidden-login");
       document.getElementById("main-screen").classList.remove("hidden-layout");
       document.getElementById("main-screen").classList.add("visible-layout");
       await fetchDataFromServer(true);   // טוען נתונים + קובע currentUserObj + הרשאות
+      resolveCurrentUser();
       applyPermissions();
       initApp();
+      restoreFormDraft();
       return;
   }
 
@@ -215,7 +413,8 @@ function initLoginScreen() {
       if (errEl) errEl.style.display = "none";
 
       await fetchDataFromServer(true); // טוען את כל הנתונים מ-Supabase
-      state.currentUserObj = state.users.find(u => String(u.username).trim() === userVal) || { username: userVal, canEdit: true, canViewIncome: true, canViewExpenses: true, canViewGrants: true, canViewHistory: true };
+      resolveCurrentUser();
+      if (!state.currentUserObj) state.currentUserObj = { username: userVal, canEdit: true, canViewIncome: true, canViewExpenses: true, canViewGrants: true, canViewHistory: true };
 
       document.getElementById("login-screen").classList.add("hidden-login");
       applyPermissions();
@@ -223,6 +422,7 @@ function initLoginScreen() {
       document.getElementById("main-screen").classList.add("visible-layout");
       showToast(`ברוך הבא למערכת, ${state.currentUser}!`, "success");
       initApp();
+      restoreFormDraft();
     } catch (e) {
       if (errEl) {
         const raw = String((e && e.message) || "");
@@ -245,8 +445,33 @@ function initLoginScreen() {
   });
 }
 
+// זיהוי המשתמש המחובר לפי מזהה החשבון (ולא רק לפי שם), כדי שרענון הדף לא יאבד הרשאות
+function resolveCurrentUser() {
+  const sbUser = window.SB ? SB.currentUser() : null;
+  const uid = sbUser && sbUser.id;
+  let prof = uid ? (state.users || []).find(u => u.id && String(u.id) === String(uid)) : null;
+  if (!prof) {
+    const email = String((sbUser && sbUser.email) || "").toLowerCase();
+    const byEmail = Object.keys(USER_EMAIL_MAP).find(n => USER_EMAIL_MAP[n] === email);
+    const name = String(state.currentUser || byEmail || "").trim();
+    if (name) prof = (state.users || []).find(u => String(u.username).trim() === name) || null;
+    if (!state.currentUser && name) state.currentUser = name;
+  }
+  if (prof) { state.currentUserObj = prof; state.currentUser = prof.username; }
+}
+
+function canEditUser() {
+  const u = state.currentUserObj;
+  return !u || isAdminUser() || isTrue(u.canEdit);
+}
+
+function isAdminUser() {
+  const u = state.currentUserObj;
+  return !!u && (u.isAdmin === true || String(u.username || "").trim() === "מנהל");
+}
+
 function applyPermissions() {
-  const isVIP = state.currentUserObj && state.currentUserObj.username && String(state.currentUserObj.username).trim() === "מנהל";
+  const isVIP = isAdminUser();
   
   const canEdit = isVIP ? true : (state.currentUserObj ? isTrue(state.currentUserObj.canEdit) : false);
   const canViewIncome = isVIP ? true : (state.currentUserObj ? isTrue(state.currentUserObj.canViewIncome) : false);
@@ -263,7 +488,7 @@ function applyPermissions() {
   const editButtons = [
     "quick-add-donation", "quick-add-expense", "quick-add-member", 
     "btn-inner-add-member", "btn-inner-add-expense", "btn-profile-deposit", 
-    "btn-profile-edit", "btn-save-settings", "btn-add-user", "btn-report-add-donation", "btn-report-add-expense"
+    "btn-profile-edit", "btn-save-settings", "btn-report-add-donation", "btn-report-add-expense"
   ];
   editButtons.forEach(id => {
     const el = document.getElementById(id);
@@ -273,29 +498,19 @@ function applyPermissions() {
   const navPurim = document.querySelector('.nav-item[data-screen="purim-registration-screen"]');
   if (navPurim) navPurim.style.display = canViewIncome ? "" : "none";
   
-  const incomeGroup1 = document.getElementById("box-purim-groups");
-  if (incomeGroup1) incomeGroup1.style.display = canViewIncome ? "" : "none";
-  const incomeGroup2 = document.getElementById("box-members-collection");
-  if (incomeGroup2) incomeGroup2.style.display = canViewIncome ? "" : "none";
   const chartBox = document.getElementById("box-chart");
   if (chartBox) chartBox.style.display = canViewIncome ? "" : "none";
 
   const navExpSum = document.querySelector('.nav-item[data-screen="expenses-summary-screen"]');
   if (navExpSum) navExpSum.style.display = canViewExpenses ? "" : "none";
-  const expBox = document.getElementById("box-expenses");
-  if (expBox) expBox.style.display = canViewExpenses ? "" : "none";
 
   const navDailyReport = document.querySelector('.nav-item[data-screen="daily-report-screen"]');
   if (navDailyReport) navDailyReport.style.display = (canViewIncome || canViewExpenses) ? "" : "none";
 
   const navGrants = document.querySelector('.nav-item[data-screen="grants-screen"]');
   if (navGrants) navGrants.style.display = canViewGrants ? "" : "none";
-  const navElig = document.querySelector('.nav-item[data-screen="eligibility-screen"]');
-  if (navElig) navElig.style.display = canViewGrants ? "" : "none";
   const btnGrantHistory = document.getElementById("btn-profile-grant");
   if (btnGrantHistory) btnGrantHistory.style.display = canViewGrants ? "" : "none";
-  const btnQuickElig = document.getElementById("quick-open-eligibility");
-  if (btnQuickElig) btnQuickElig.style.display = canViewGrants ? "" : "none";
   
   const navSettings = document.getElementById("nav-settings");
   if (navSettings) navSettings.style.display = isVIP ? "" : "none";
@@ -318,8 +533,10 @@ async function initApp() {
 }
 
 async function fetchDataFromServer(isSilent = false) {
-  if (!window.SB || !SB.isLoggedIn()) return;
+  if (!window.SB || !SB.isLoggedIn()) return false;
   try {
+    // קודם שולחים שינויים שממתינים, כדי שהטעינה תכלול אותם
+    if (readPendingWrites().length) await flushPendingWrites();
     const d = await SB.loadAll();
     state.members = (d.members || []).map(m => ({ ...m, yeshivaType: normalizeYeshivaType(m.yeshivaType) }));
     if (Array.isArray(d.donations)) state.donations = d.donations;
@@ -328,10 +545,8 @@ async function fetchDataFromServer(isSilent = false) {
     if (Array.isArray(d.profiles) && d.profiles.length) state.users = d.profiles;
     if (d.settings) state.settings = { ...DEFAULT_SETTINGS, ...d.settings };
     if (d.grantsArchive) state.grantsArchive = d.grantsArchive;
-
-    if (state.currentUser) {
-      state.currentUserObj = state.users.find(u => String(u.username).trim() === String(state.currentUser).trim()) || state.currentUserObj;
-    }
+    applyPendingWritesToState();
+    resolveCurrentUser();
 
     invalidateCache();
     saveState();
@@ -349,8 +564,12 @@ async function fetchDataFromServer(isSilent = false) {
       if (state.activeScreen === "settings-screen") renderSettings();
       if (isSilent) console.log("נתונים סונכרנו מ-Supabase בהצלחה.");
     }
+    updatePendingBanner();
+    return true;
   } catch (error) {
-    if (!isSilent) console.warn("שגיאה בטעינת נתונים מ-Supabase. נטענו נתונים מקומיים.", error);
+    console.warn("שגיאה בטעינת נתונים מ-Supabase. מוצגים הנתונים האחרונים שנשמרו במחשב.", error);
+    if (!isSilent) showToast("לא ניתן לטעון נתונים מהשרת כרגע. מוצגים הנתונים האחרונים שנטענו", "warning");
+    return false;
   }
 }
 
@@ -513,6 +732,7 @@ function bindEvents() {
           document.getElementById("nedarim-member-input").value = "";
           document.getElementById("nedarim-amount").value = "";
           document.getElementById("nedarim-notes").value = "אשראי - נדרים פלוס";
+          const conf = document.getElementById("nedarim-confirmation"); if (conf) conf.value = "";
           document.getElementById("nedarim-step-details").style.display = "block";
       });
   }
@@ -529,11 +749,12 @@ function bindEvents() {
       btnSaveNedarimFinal.addEventListener("click", async () => {
           const memberInput = document.getElementById("nedarim-member-input").value;
           const memberId = extractMemberId(memberInput);
-          const amount = Number(document.getElementById("nedarim-amount").value);
-          const notes = document.getElementById("nedarim-notes").value.trim();
+          const amount = parseAmount(document.getElementById("nedarim-amount").value);
+          const confirmation = (document.getElementById("nedarim-confirmation")?.value || "").trim();
+          let notes = document.getElementById("nedarim-notes").value.trim();
 
-          if (!memberId || !amount) {
-              showToast("⚠️ חובה לחפש בחור מתוך הרשימה ולהזין סכום ששולם", "danger");
+          if (!memberId || amount === null) {
+              showToast("⚠️ חובה לחפש בחור מתוך הרשימה ולהזין סכום ששולם (גדול מ-0)", "danger");
               return;
           }
 
@@ -542,6 +763,8 @@ function bindEvents() {
               showToast("⚠️ הבחור לא אותר. אנא בחר מהרשימה התואמת", "danger");
               return;
           }
+          if (!confirmation && !confirm("לא הוזן מספר אישור עסקה מנדרים פלוס. לשמור בכל זאת?")) return;
+          if (confirmation) notes = `${notes} | אישור עסקה: ${confirmation}`.replace(/^ \| /, "");
 
           const newDonation = {
               id: generateId("D"), 
@@ -565,10 +788,9 @@ function bindEvents() {
               renderAll(); 
               
               document.getElementById("nedarim-modal").classList.remove("open"); 
-              showToast("✅ התרומה נרשמה בהצלחה לזכות הבחור!");
-              await SB.saveDonation(newDonation);
-          } catch (error) { 
-              showToast(`❌ שגיאה בסנכרון לשרת, אך הנתונים נשמרו מקומית.`, "danger");
+              const saved = await persist("saveDonation", newDonation);
+              reportSave(saved, "✅ התרומה נרשמה בהצלחה לזכות הבחור!");
+              logAudit("create", "donation", newDonation.id, { amount, member: member.fullName, via: "נדרים פלוס", confirmation });
           } finally { 
               saveBtn.disabled = false; 
               saveBtn.innerHTML = `שמור במערכת <span class="material-icons-regular" style="font-size: 18px; margin-right: 8px;">check_circle</span>`;
@@ -602,12 +824,6 @@ function bindNavigation() {
 }
 
 function bindHeaderActions() {
-  const searchElig = document.getElementById("search-eligibility-list");
-  if (searchElig) searchElig.addEventListener("input", debounce((e) => {
-    state.globalSearchTerm = String(e.target.value || "").trim().toLowerCase();
-    renderEligibilityTable();
-    renderGrantsLists();
-  }, 300));
 
   const memberSearchInput = document.getElementById("search-members-list");
   const memberYeshivaFilter = document.getElementById("filter-members-yeshiva");
@@ -646,19 +862,34 @@ function bindUXEnhancements() {
   });
 
   if (document.getElementById("btn-export-members")) document.getElementById("btn-export-members").addEventListener("click", () => exportToCSV("members-table-body", "רשימת_בחורים"));
-  if (document.getElementById("btn-export-eligibility")) document.getElementById("btn-export-eligibility").addEventListener("click", () => exportToCSV("eligibility-table-body", "דוח_זכאות"));
+
+  // תשלום לחנות: שדות תאריך ואמצעי מוצגים רק כשמסמנים "שולם"
+  const billPaid = document.getElementById("store-bill-paid");
+  if (billPaid) billPaid.addEventListener("change", updateStoreBillPaidFields);
+  const billModal = document.getElementById("store-bill-modal");
+  if (billModal) billModal.addEventListener("click", (e) => { if (e.target === billModal) closeStoreBillModal(); });
+
+  // הוספת חתן: בחירה מרשימת הבחורים ממלאת שם וטלפון
+  const grantName = document.getElementById("grants-add-name");
+  if (grantName) grantName.addEventListener("change", () => {
+    const memberId = extractMemberId(grantName.value);
+    if (!memberId) return;
+    const m = state.members.find(x => String(x.id) === String(memberId));
+    if (!m) return;
+    grantName.value = `${m.firstName || ""} ${m.lastName || ""}`.trim();
+    const phone = document.getElementById("grants-add-phone");
+    if (phone && !phone.value && m.phone) phone.value = m.phone;
+  });
 }
 
 function bindQuickActions() {
   const quickAddDonation = document.getElementById("quick-add-donation"); 
   const quickAddExpense = document.getElementById("quick-add-expense");
   const quickAddMember = document.getElementById("quick-add-member"); 
-  const quickOpenEligibility = document.getElementById("quick-open-eligibility");
   
   if (quickAddDonation) quickAddDonation.addEventListener("click", () => openDonationModal());
   if (quickAddExpense) quickAddExpense.addEventListener("click", () => openExpenseModal());
   if (quickAddMember) quickAddMember.addEventListener("click", () => openMemberModal());
-  if (quickOpenEligibility) quickOpenEligibility.addEventListener("click", () => switchScreen("eligibility-screen", true));
 }
 
 function bindPhoneFormatting() {
@@ -752,6 +983,23 @@ function loadMemberProfile(memberId) {
     progText.textContent = percent + "%";
     progBar.style.background = percent === 100 ? "var(--success)" : "var(--gold-main)";
   }
+
+  // רשימת ההפקדות של הבחור (לחיצה על שורה פותחת עריכה)
+  const donTbody = document.getElementById("profile-donations-tbody");
+  if (donTbody) {
+    const list = (state.donations || [])
+      .filter(d => String(d.memberId).trim() === String(member.id).trim())
+      .sort((a, b) => compareDatesDesc(a.date, b.date));
+    setText("profile-donations-count", list.length ? `${list.length} הפקדות · סה"כ ${formatCurrency(sumArray(list, "amount"))}` : "");
+    const canEdit = !state.currentUserObj || isAdminUser() || isTrue(state.currentUserObj.canEdit);
+    donTbody.innerHTML = list.length ? list.map(d => `
+      <tr${canEdit ? ` class="clickable-row" onclick="openDonationModal(null, '${escapeHtml(dashboardJsString(d.id))}')" title="לחיצה לעריכה"` : ""}>
+        <td>${escapeHtml(formatDateDisplay(d.date) || "—")}</td>
+        <td>${escapeHtml(d.year || "")}</td>
+        <td class="amount-cell" style="font-weight:bold; color: var(--success);">${escapeHtml(formatCurrency(d.amount))}</td>
+        <td style="white-space:normal; color: var(--text-secondary);">${escapeHtml(d.notes || "")}</td>
+      </tr>`).join("") : `<tr><td colspan="4" class="empty-cell" style="padding:18px!important;">אין עדיין הפקדות לבחור הזה</td></tr>`;
+  }
 }
 
 function bindGrantStatusModal() {
@@ -773,7 +1021,7 @@ function openGrantStatusModal(memberId) {
   const tbody = document.getElementById("grant-status-tbody");
   tbody.innerHTML = "";
 
-  const isVIP = state.currentUserObj && state.currentUserObj.username && String(state.currentUserObj.username).trim() === "מנהל";
+  const isVIP = isAdminUser();
   const canViewHistory = isVIP ? true : (state.currentUserObj ? isTrue(state.currentUserObj.canViewHistory) : false);
 
   let dataToDisplay = member.yearlyData;
@@ -870,7 +1118,7 @@ function bindMemberModal() {
   };
   if (document.getElementById("close-add-member-modal")) document.getElementById("close-add-member-modal").addEventListener("click", closeWithAutoSave);
   if (document.getElementById("cancel-add-member")) document.getElementById("cancel-add-member").addEventListener("click", closeModal);
-  if (document.getElementById("save-member-btn")) document.getElementById("save-member-btn").addEventListener("click", handleSaveMember);
+  if (document.getElementById("save-member-btn")) document.getElementById("save-member-btn").addEventListener("click", () => handleSaveMember(false));
   if (modal) modal.addEventListener("click", (e) => { if (e.target === modal) closeWithAutoSave(); });
 
   const yeshivaTypeSelect = document.getElementById("member-yeshiva-type");
@@ -910,12 +1158,13 @@ function hideSavingIndicator(success = true) {
   if (!el) return;
   el.innerHTML = success
     ? '<span class="material-icons-regular si-icon">check_circle</span><span>עודכן בהצלחה</span>'
-    : '<span class="material-icons-regular si-icon">error</span><span>שגיאה בעדכון</span>';
-  el.style.background = success ? "var(--success)" : "var(--danger)";
+    : '<span class="material-icons-regular si-icon">cloud_off</span><span>נשמר במחשב, ממתין לשליחה</span>';
+  el.style.background = success ? "var(--success)" : "var(--warning)";
   el._hideTimer = setTimeout(() => el.classList.remove("visible"), 2200);
 }
 
 async function handleSaveMember(isAutoSave = false) {
+  isAutoSave = isAutoSave === true;
   const saveBtn = document.getElementById("save-member-btn");
   const existingId = getValue("edit-member-id").trim();
   const id = existingId || generateId("M");
@@ -927,50 +1176,38 @@ async function handleSaveMember(isAutoSave = false) {
   };
 
   if (!newMemberData.firstName || !newMemberData.lastName) { showToast("⚠️ יש להזין שם פרטי ושם משפחה", "danger"); return; }
-  newMemberData.createdAt = existingId ? (state.members.find((m) => m.id === existingId)?.createdAt || new Date().toISOString()) : new Date().toISOString();
+  const existing = existingId ? state.members.find((m) => String(m.id).trim() === String(existingId).trim()) : null;
+  newMemberData.createdAt = existing ? (existing.createdAt || new Date().toISOString()) : new Date().toISOString();
 
-  if (isAutoSave) {
-    // סגור את החלון מיד ‑ האינדיקטור יישאר עד שהשרת עונה
-    document.getElementById("add-member-modal")?.classList.remove("open");
-    if (existingId) {
-      const index = state.members.findIndex((m) => String(m.id).trim() === String(existingId).trim());
-      if (index !== -1) state.members[index] = newMemberData;
-    } else {
-      state.members.push(newMemberData);
+  // בסגירה אוטומטית של חלון עריכה בלי שינוי - לא שומרים כלום
+  if (isAutoSave && existing) {
+    const fields = ["firstName", "lastName", "fatherName", "phone", "yeshiva", "shiur", "yeshivaType", "maritalStatus", "address", "notes"];
+    if (fields.every(f => String(existing[f] || "").trim() === String(newMemberData[f] || "").trim())) {
+      document.getElementById("add-member-modal")?.classList.remove("open");
+      clearFormDraft();
+      return;
     }
-    invalidateCache();
-    saveState(); populateMemberSelect(); populateFilters(); renderAll();
-    if (state.activeScreen === "members-screen") loadMemberProfile(id);
-    showSavingIndicator();
-    try {
-      await SB.saveMember(newMemberData);
-      hideSavingIndicator(true);
-    } catch (error) {
-      hideSavingIndicator(false);
-    }
-    return;
   }
 
-  try {
-    saveBtn.disabled = true; saveBtn.textContent = "שומר...";
-    if (existingId) {
-        const index = state.members.findIndex((m) => String(m.id).trim() === String(existingId).trim());
-        if (index !== -1) state.members[index] = newMemberData;
-    } else {
-        state.members.push(newMemberData);
-    }
-
-    invalidateCache();
-    saveState(); populateMemberSelect(); populateFilters(); renderAll(); document.getElementById("add-member-modal").classList.remove("open");
-    showToast("✅ פרטי הבחור נשמרו בהצלחה!");
-
-    await SB.saveMember(newMemberData);
-  } catch (error) {
-    showToast(`❌ הפעולה נכשלה: ${error.message || 'לא ניתן לשמור מול השרת'}`, "danger");
-  } finally {
-    saveBtn.disabled = false; saveBtn.textContent = "שמור בחור";
-    if (state.activeScreen === "members-screen" && state.currentProfileId === id) loadMemberProfile(id);
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = "שומר..."; }
+  if (existing) {
+    const index = state.members.indexOf(existing);
+    state.members[index] = newMemberData;
+  } else {
+    state.members.push(newMemberData);
   }
+  invalidateCache();
+  saveState(); populateMemberSelect(); populateFilters(); renderAll();
+  document.getElementById("add-member-modal")?.classList.remove("open");
+  clearFormDraft();
+  const profileOpen = !document.getElementById("member-profile-section")?.classList.contains("hidden");
+  if (state.activeScreen === "members-screen" && existing && profileOpen && state.currentProfileId === id) loadMemberProfile(id);
+
+  showSavingIndicator();
+  const saved = await persist("saveMember", newMemberData);
+  hideSavingIndicator(saved);
+  logAudit(existing ? "update" : "create", "member", id, { name: `${newMemberData.firstName} ${newMemberData.lastName}` });
+  if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = "שמור בחור"; }
 }
 
 function openMemberModal(memberId = null) {
@@ -995,26 +1232,42 @@ function openMemberModal(memberId = null) {
 
 function resetMemberForm() { ["edit-member-id", "member-first-name", "member-last-name", "member-father-name", "member-phone", "member-yeshiva", "member-address", "member-notes", "member-shiur"].forEach(id => setValue(id, "")); setValue("member-yeshiva-type", "ישיבה קטנה"); setValue("member-marital-status", "רווק"); }
 
+// ===== שנים לבחירה בחלונות הפקדה/הוצאה =====
+function populateYearSelect(selectId, selectedYear) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  const campaign = getCampaignYear();
+  let idx = HEBREW_YEARS_ORDER.indexOf(campaign);
+  if (idx === -1) idx = HEBREW_YEARS_ORDER.length - 1;
+  const years = HEBREW_YEARS_ORDER.slice(Math.max(0, idx - 4), idx + 2);
+  if (selectedYear && !years.includes(selectedYear)) years.push(selectedYear);
+  sel.innerHTML = years.map(y => `<option value="${escapeHtml(y)}">${escapeHtml(y)}${y === campaign ? " (שנת הקמפיין)" : ""}</option>`).join("");
+  sel.value = selectedYear || campaign;
+}
+
 function bindDonationModal() {
   const modal = document.getElementById("add-donation-modal"); 
-  const closeModal = () => { if(modal) modal.classList.remove("open"); populateMemberSelect(); };
+  const closeModal = () => { if(modal) modal.classList.remove("open"); clearFormDraft(); populateMemberSelect(); };
   if (document.getElementById("close-add-donation-modal")) document.getElementById("close-add-donation-modal").addEventListener("click", closeModal);
   if (document.getElementById("cancel-add-donation")) document.getElementById("cancel-add-donation").addEventListener("click", closeModal);
   if (document.getElementById("save-donation-btn")) document.getElementById("save-donation-btn").addEventListener("click", handleSaveDonation);
+  if (document.getElementById("delete-donation-btn")) document.getElementById("delete-donation-btn").addEventListener("click", handleDeleteDonation);
   if (modal) modal.addEventListener("click", (e) => { if (e.target === modal) closeModal(); });
 }
 
 async function handleSaveDonation() {
   const saveBtn = document.getElementById("save-donation-btn");
+  const editId = getValue("edit-donation-id").trim();
+  const existing = editId ? state.donations.find(d => String(d.id) === editId) : null;
   const memberInput = getValue("donation-member-input").trim(); 
   const memberId = extractMemberId(memberInput); 
   
-  const amount = Number(getValue("donation-amount"));
+  const amount = parseAmount(getValue("donation-amount"));
   let notes = getValue("donation-notes").trim(); 
   const paymentMethod = document.querySelector('input[name="donation_payment_method"]:checked')?.value || "cash";
   
-  if (!memberId || !amount) { 
-    showToast("⚠️ יש לחפש ולבחור בחור מתוך הרשימה, ולהזין סכום", "danger"); 
+  if (!memberId || amount === null) { 
+    showToast("⚠️ יש לחפש ולבחור בחור מתוך הרשימה, ולהזין סכום גדול מ-0", "danger"); 
     return; 
   }
 
@@ -1024,79 +1277,153 @@ async function handleSaveDonation() {
     return;
   }
 
-  const newDonation = {
-    id: generateId("D"), date: getValue("donation-date").trim() || getTodayIsoDate(), memberId, memberNameSnapshot: member.fullName, year: member.currentYear,
-    amount, notes: (paymentMethod === "credit" ? `(אשראי) ${notes}` : notes).trim(), createdAt: new Date().toISOString(),
+  const donation = {
+    id: existing ? existing.id : generateId("D"),
+    date: getValue("donation-date").trim() || getTodayIsoDate(), memberId, memberNameSnapshot: member.fullName,
+    year: getValue("donation-year") || (existing ? existing.year : member.currentYear),
+    amount, notes: (paymentMethod === "credit" ? `(אשראי) ${notes}` : notes).trim(),
+    createdAt: existing ? (existing.createdAt || new Date().toISOString()) : new Date().toISOString(),
   };
 
-  try {
-    saveBtn.disabled = true; saveBtn.textContent = "שומר...";
-    state.donations.push(newDonation); 
-    invalidateCache(); 
-    saveState(); renderAll(); document.getElementById("add-donation-modal").classList.remove("open"); 
-    showToast("✅ ההפקדה נרשמה בהצלחה!");
-    await SB.saveDonation(newDonation);
-  } catch (error) { 
-    showToast(`❌ שגיאה בשמירה לשרת: ${error.message || 'תקלת תקשורת'}`, "danger");
-  } finally { 
-    saveBtn.disabled = false; saveBtn.textContent = "שמור הפקדה"; 
-    if (state.activeScreen === "members-screen" && state.currentProfileId === memberId) loadMemberProfile(memberId); 
-  }
+  saveBtn.disabled = true; saveBtn.textContent = "שומר...";
+  if (existing) state.donations[state.donations.indexOf(existing)] = donation;
+  else state.donations.push(donation);
+  invalidateCache(); 
+  saveState(); renderAll(); document.getElementById("add-donation-modal").classList.remove("open"); 
+  clearFormDraft();
+  if (state.activeScreen === "members-screen" && state.currentProfileId) loadMemberProfile(state.currentProfileId);
+  const saved = await persist("saveDonation", donation);
+  reportSave(saved, existing ? "✅ ההפקדה עודכנה" : "✅ ההפקדה נרשמה בהצלחה!");
+  logAudit(existing ? "update" : "create", "donation", donation.id, existing
+    ? { before: { amount: existing.amount, date: existing.date, member: existing.memberId, year: existing.year }, after: { amount, date: donation.date, member: memberId, year: donation.year } }
+    : { amount, member: member.fullName, year: donation.year });
+  saveBtn.disabled = false; saveBtn.textContent = "שמור הפקדה"; 
 }
 
-function openDonationModal(memberId = null) {
+async function handleDeleteDonation() {
+  const editId = getValue("edit-donation-id").trim();
+  const existing = state.donations.find(d => String(d.id) === editId);
+  if (!existing || !isAdminUser()) return;
+  if (!confirm(`למחוק את ההפקדה על סך ${formatCurrency(existing.amount)}? הפעולה לא ניתנת לביטול.`)) return;
+  state.donations = state.donations.filter(d => d !== existing);
+  invalidateCache(); saveState(); renderAll();
+  document.getElementById("add-donation-modal").classList.remove("open");
+  clearFormDraft();
+  if (state.activeScreen === "members-screen" && state.currentProfileId) loadMemberProfile(state.currentProfileId);
+  const saved = await persist("deleteDonation", { id: existing.id });
+  reportSave(saved, "ההפקדה נמחקה");
+  logAudit("delete", "donation", existing.id, { amount: existing.amount, date: existing.date, member: existing.memberNameSnapshot || existing.memberId, year: existing.year });
+}
+
+function openDonationModal(memberId = null, donationId = null) {
   const modal = document.getElementById("add-donation-modal"); if (!modal) return;
-  setValue("donation-date", getTodayIsoDate()); 
-  setValue("donation-amount", ""); 
-  setValue("donation-notes", ""); 
-  
-  const cashRadio = document.querySelector('input[name="donation_payment_method"][value="cash"]'); 
-  if (cashRadio) cashRadio.checked = true;
-  
+  const existing = donationId ? state.donations.find(d => String(d.id) === String(donationId)) : null;
+  if ((existing || !donationId) && !canEditUser()) { showToast("אין לך הרשאת עריכה", "warning"); return; }
+  setValue("edit-donation-id", existing ? existing.id : "");
+  setValue("donation-date", existing ? (toDateInputValue(existing.date) || "") : getTodayIsoDate()); 
+  setValue("donation-amount", existing ? existing.amount : ""); 
+  let notes = existing ? String(existing.notes || "") : "";
+  const isCredit = /^\(אשראי\)\s*/.test(notes);
+  notes = notes.replace(/^\(אשראי\)\s*/, "");
+  setValue("donation-notes", notes); 
+  const radio = document.querySelector(`input[name="donation_payment_method"][value="${isCredit ? "credit" : "cash"}"]`); 
+  if (radio) radio.checked = true;
+  populateYearSelect("donation-year", existing ? existing.year : null);
+
   const inputEl = document.getElementById("donation-member-input");
   if (inputEl) inputEl.value = "";
-  
-  if (memberId) { 
-      const m = state.members.find(x => x.id === memberId);
+  const targetMemberId = existing ? existing.memberId : memberId;
+  if (targetMemberId) { 
+      const m = state.members.find(x => String(x.id) === String(targetMemberId));
       if (m && inputEl) {
           inputEl.value = `${m.lastName || ""} ${m.firstName || ""} | ${m.yeshiva || ""} [${m.id}]`;
       }
   } 
+  const title = document.getElementById("donation-modal-title");
+  if (title) title.textContent = existing ? "עריכת הפקדה" : "רישום הפקדה חדשה";
+  const delBtn = document.getElementById("delete-donation-btn");
+  if (delBtn) delBtn.style.display = existing && isAdminUser() ? "" : "none";
+  const meta = document.getElementById("donation-meta");
+  if (meta) meta.textContent = existing && existing.createdAt ? `נרשם ב-${formatDateDisplay(existing.createdAt)}` : "";
   modal.classList.add("open");
 }
 
 function bindExpenseModal() {
-  const modal = document.getElementById("add-expense-modal"); const closeModal = () => { if(modal) modal.classList.remove("open"); };
+  const modal = document.getElementById("add-expense-modal"); const closeModal = () => { if(modal) modal.classList.remove("open"); clearFormDraft(); };
   if (document.getElementById("close-add-expense-modal")) document.getElementById("close-add-expense-modal").addEventListener("click", closeModal);
   if (document.getElementById("cancel-add-expense")) document.getElementById("cancel-add-expense").addEventListener("click", closeModal);
   if (document.getElementById("save-expense-btn")) document.getElementById("save-expense-btn").addEventListener("click", handleSaveExpense);
+  if (document.getElementById("delete-expense-btn")) document.getElementById("delete-expense-btn").addEventListener("click", handleDeleteExpense);
 }
 
-function openExpenseModal() { const modal = document.getElementById("add-expense-modal"); if (!modal) return; populateExpenseCategorySelect(); setValue("expense-date", getTodayIsoDate()); const cats = getExpenseCategories(); setValue("expense-category", cats[0] || "שונות"); setValue("expense-description", ""); setValue("expense-amount", ""); modal.classList.add("open"); }
+function openExpenseModal(expenseId = null) {
+  const modal = document.getElementById("add-expense-modal"); if (!modal) return;
+  const existing = expenseId ? state.expenses.find(e => String(e.id) === String(expenseId)) : null;
+  if (!canEditUser()) { showToast("אין לך הרשאת עריכה", "warning"); return; }
+  populateExpenseCategorySelect(existing ? existing.category : null);
+  setValue("edit-expense-id", existing ? existing.id : "");
+  setValue("expense-date", existing ? (toDateInputValue(existing.date) || "") : getTodayIsoDate());
+  const cats = getExpenseCategories();
+  setValue("expense-category", existing ? (existing.category || "שונות") : (cats[0] || "שונות"));
+  setValue("expense-description", existing ? (existing.description || "") : "");
+  setValue("expense-amount", existing ? existing.amount : "");
+  populateYearSelect("expense-year", existing ? existing.year : null);
+  const title = document.getElementById("expense-modal-title");
+  if (title) title.textContent = existing ? "עריכת הוצאה" : "הוספת הוצאה";
+  const delBtn = document.getElementById("delete-expense-btn");
+  if (delBtn) delBtn.style.display = existing && isAdminUser() ? "" : "none";
+  const meta = document.getElementById("expense-meta");
+  if (meta) meta.textContent = existing ? [existing.approvedBy ? `נרשם ע"י ${existing.approvedBy}` : "", existing.createdAt ? `ב-${formatDateDisplay(existing.createdAt)}` : ""].filter(Boolean).join(" ") : "";
+  const saveBtn = document.getElementById("save-expense-btn");
+  if (saveBtn) saveBtn.textContent = existing ? "שמור שינויים" : "הוסף הוצאה";
+  modal.classList.add("open");
+}
 
 async function handleSaveExpense() {
-  const saveBtn = document.getElementById("save-expense-btn"); const amount = Number(getValue("expense-amount"));
-  if (!amount) { showToast("⚠️ יש להזין סכום", "danger"); return; }
+  const saveBtn = document.getElementById("save-expense-btn");
+  const editId = getValue("edit-expense-id").trim();
+  const existing = editId ? state.expenses.find(e => String(e.id) === editId) : null;
+  const amount = parseAmount(getValue("expense-amount"));
+  if (amount === null) { showToast("⚠️ יש להזין סכום גדול מ-0", "danger"); return; }
 
-  const newExpense = { id: generateId("E"), date: getValue("expense-date").trim() || getTodayIsoDate(), year: getCampaignYear(), category: getValue("expense-category"), description: getValue("expense-description").trim(), amount, createdAt: new Date().toISOString() };
-  try {
-    saveBtn.disabled = true; saveBtn.textContent = "שומר..."; 
-    state.expenses.push(newExpense);
-    invalidateCache();
-    saveState(); renderAll(); document.getElementById("add-expense-modal").classList.remove("open"); 
-    showToast("✅ ההוצאה נרשמה בהצלחה!");
+  const expense = {
+    id: existing ? existing.id : generateId("E"),
+    date: getValue("expense-date").trim() || getTodayIsoDate(),
+    year: getValue("expense-year") || (existing ? existing.year : getCampaignYear()),
+    category: getValue("expense-category"), description: getValue("expense-description").trim(), amount,
+    approvedBy: existing ? (existing.approvedBy || state.currentUser || "") : (state.currentUser || ""),
+    createdAt: existing ? (existing.createdAt || new Date().toISOString()) : new Date().toISOString(),
+  };
+  saveBtn.disabled = true; saveBtn.textContent = "שומר..."; 
+  if (existing) state.expenses[state.expenses.indexOf(existing)] = expense;
+  else state.expenses.push(expense);
+  invalidateCache();
+  saveState(); renderAll(); document.getElementById("add-expense-modal").classList.remove("open"); 
+  clearFormDraft();
+  const saved = await persist("saveExpense", expense);
+  reportSave(saved, existing ? "✅ ההוצאה עודכנה" : "✅ ההוצאה נרשמה בהצלחה!");
+  logAudit(existing ? "update" : "create", "expense", expense.id, existing
+    ? { before: { amount: existing.amount, category: existing.category, description: existing.description }, after: { amount, category: expense.category, description: expense.description } }
+    : { amount, category: expense.category, description: expense.description });
+  saveBtn.disabled = false; saveBtn.textContent = existing ? "שמור שינויים" : "הוסף הוצאה"; 
+}
 
-    await SB.saveExpense(newExpense);
-  } catch (error) { 
-    showToast(`❌ תקלת סנכרון: ${error.message || 'ההוצאה לא נשמרה בשרת'}`, "danger");
-  } finally { 
-    saveBtn.disabled = false; saveBtn.textContent = "הוסף הוצאה"; 
-  }
+async function handleDeleteExpense() {
+  const editId = getValue("edit-expense-id").trim();
+  const existing = state.expenses.find(e => String(e.id) === editId);
+  if (!existing || !isAdminUser()) return;
+  if (!confirm(`למחוק את ההוצאה "${existing.description || existing.category}" על סך ${formatCurrency(existing.amount)}? הפעולה לא ניתנת לביטול.`)) return;
+  state.expenses = state.expenses.filter(e => e !== existing);
+  invalidateCache(); saveState(); renderAll();
+  document.getElementById("add-expense-modal").classList.remove("open");
+  clearFormDraft();
+  const saved = await persist("deleteExpense", { id: existing.id });
+  reportSave(saved, "ההוצאה נמחקה");
+  logAudit("delete", "expense", existing.id, { amount: existing.amount, category: existing.category, description: existing.description, year: existing.year });
 }
 
 function bindSettings() {
   if (document.getElementById("btn-save-settings")) document.getElementById("btn-save-settings").addEventListener("click", saveSettings);
-  if (document.getElementById("btn-add-user")) document.getElementById("btn-add-user").addEventListener("click", addUser);
 
   // ניווט פנימי בהגדרות
   document.querySelectorAll(".settings-tab").forEach(tab => {
@@ -1129,24 +1456,31 @@ function bindSettings() {
 }
 
 function saveSettings() {
-  const s = state.settings;
-  s.campaignYear = getValue("current-campaign-year").trim() || DEFAULT_SETTINGS.campaignYear;
-  s.targetChaider = Number(getValue("target-chaider")) || 0;
-  s.targetKtana = Number(getValue("target-ktana")) || 0;
-  s.targetGedola = Number(getValue("target-gedola")) || 0;
-  s.targetKibbutz = Number(getValue("target-kibbutz")) || 0;
-  s.targetTiyul = Number(getValue("target-tiyul")) || 0;
-  s.targetShayTotal = Number(getValue("target-shay")) || 0;
-  s.gift1Name = getValue("gift1-name").trim() || "טיול";
-  s.gift2Name = getValue("gift2-name").trim() || "מתנה";
-  s.gift1Enabled = !!document.getElementById("gift1-enabled")?.checked;
-  s.gift2Enabled = !!document.getElementById("gift2-enabled")?.checked;
-  s.gift1Image = (document.getElementById("gift1-image")?.value || "").trim();
-  s.gift2Image = (document.getElementById("gift2-image")?.value || "").trim();
-  s.additionalRules = (document.getElementById("additional-rules")?.value || "").trim();
-  invalidateCache();
-  saveState(); renderAll(); showToast("✅ הגדרות המערכת נשמרו בהצלחה");
-  if (window.SB && SB.isLoggedIn()) SB.saveSettings(s).catch(() => showToast("⚠️ ההגדרות נשמרו מקומית אך לא הסתנכרנו לשרת", "warning"));
+  const read = () => ({
+    campaignYear: getValue("current-campaign-year").trim() || DEFAULT_SETTINGS.campaignYear,
+    targetChaider: Number(getValue("target-chaider")) || 0,
+    targetKtana: Number(getValue("target-ktana")) || 0,
+    targetGedola: Number(getValue("target-gedola")) || 0,
+    targetKibbutz: Number(getValue("target-kibbutz")) || 0,
+    targetTiyul: Number(getValue("target-tiyul")) || 0,
+    targetShayTotal: Number(getValue("target-shay")) || 0,
+    gift1Name: getValue("gift1-name").trim() || "טיול",
+    gift2Name: getValue("gift2-name").trim() || "מתנה",
+    gift1Enabled: !!document.getElementById("gift1-enabled")?.checked,
+    gift2Enabled: !!document.getElementById("gift2-enabled")?.checked,
+    gift1Image: (document.getElementById("gift1-image")?.value || "").trim(),
+    gift2Image: (document.getElementById("gift2-image")?.value || "").trim(),
+    additionalRules: (document.getElementById("additional-rules")?.value || "").trim(),
+  });
+  const values = read();
+  const btn = document.getElementById("btn-save-settings");
+  if (btn) btn.disabled = true;
+  const p = saveSettingsPatch(settings => Object.assign(settings, values));
+  renderAll();
+  p.then(saved => {
+    reportSave(saved, "✅ הגדרות המערכת נשמרו בהצלחה");
+    logAudit("update", "settings", "targets", values);
+  }).finally(() => { if (btn) btn.disabled = false; });
 }
 
 // ===== מסך תקנון =====
@@ -1428,6 +1762,40 @@ window.takanonShowMember = function(memberId) {
 function switchSettingsTab(tabName) {
   document.querySelectorAll(".settings-tab").forEach(t => t.classList.toggle("active", t.dataset.tab === tabName));
   document.querySelectorAll(".settings-pane").forEach(p => p.classList.toggle("active", p.dataset.pane === tabName));
+  if (tabName === "audit") renderAuditLog();
+}
+
+// ===== יומן פעולות =====
+const AUDIT_ACTIONS = { create: "הוספה", update: "עדכון", delete: "מחיקה", import: "ייבוא", paid: "סימון תשלום", upload: "העלאת קבלה" };
+const AUDIT_ENTITIES = {
+  member: "בחור", donation: "הפקדה", expense: "הוצאה", purim: "כתובות פורים", settings: "הגדרות", "expense-category": "קטגוריית הוצאה",
+  "grant-recipient": "מקבל מענק", "grant-package": "תכולת מענק", "grant-year": "שנת מענקים", "store-bill": "תשלום לחנות", backup: "גיבוי", profile: "הרשאות משתמש",
+};
+function describeAuditDetails(d) {
+  if (!d || typeof d !== "object") return "";
+  if (d.before && d.after) {
+    return Object.keys(d.after).filter(k => JSON.stringify(d.before[k]) !== JSON.stringify(d.after[k]))
+      .map(k => `${k}: ${d.before[k] ?? "—"} ← ${d.after[k] ?? "—"}`).join(" · ");
+  }
+  return Object.entries(d).filter(([, v]) => v !== "" && v != null && typeof v !== "object").map(([k, v]) => `${k}: ${v}`).join(" · ");
+}
+async function renderAuditLog() {
+  const el = document.getElementById("audit-log-list");
+  if (!el) return;
+  el.innerHTML = `<div class="empty-state" style="padding:24px;">טוען...</div>`;
+  try {
+    const rows = await SB.selectAudit(300);
+    if (!rows.length) { el.innerHTML = `<div class="empty-state" style="padding:24px;"><span class="material-icons-regular">history</span><p>עדיין אין פעולות ביומן</p></div>`; return; }
+    el.innerHTML = `<div class="table-container table-sticky"><table class="data-table compact-view"><thead><tr><th>מתי</th><th>משתמש</th><th>פעולה</th><th>על מה</th><th>פרטים</th></tr></thead><tbody>${rows.map(r => {
+      const t = new Date(r.created_at);
+      const when = Number.isNaN(t.getTime()) ? "" : `${formatDateDisplay(t)} ${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")}`;
+      return `<tr><td>${escapeHtml(when)}</td><td>${escapeHtml(r.username || "")}</td><td>${escapeHtml(AUDIT_ACTIONS[r.action] || r.action)}</td><td>${escapeHtml(AUDIT_ENTITIES[r.entity] || r.entity)}</td><td style="white-space:normal;">${escapeHtml(describeAuditDetails(r.details))}</td></tr>`;
+    }).join("")}</tbody></table></div>`;
+  } catch (e) {
+    el.innerHTML = e.status === 404 || /audit_log/.test(e.message || "")
+      ? `<div class="grants-archive-note"><span class="material-icons-regular">info</span> יומן הפעולות יתחיל לעבוד אחרי הרצת קובץ העדכון supabase/security-update.sql ב-Supabase.</div>`
+      : `<div class="grants-archive-note"><span class="material-icons-regular">error</span> לא ניתן לטעון את היומן כרגע: ${escapeHtml(e.message || "")}</div>`;
+  }
 }
 
 // ===== רינדור כל מסך ההגדרות =====
@@ -1492,18 +1860,25 @@ function renderPurimSumsSettings() {
 
   const saveBtn = document.getElementById("btn-save-purim-sums");
   if (saveBtn) saveBtn.onclick = () => {
-    if (!state.settings.purimManualSums) state.settings.purimManualSums = {};
+    // שומרים רק את התאים ששונו, כדי לא לדרוס סכומים שמשתמש אחר עדכן בינתיים
+    const changes = [];
     el.querySelectorAll(".purim-sum-setting-input").forEach(input => {
       const group = input.getAttribute("data-group");
       const year = input.getAttribute("data-year");
-      if (!state.settings.purimManualSums[group]) state.settings.purimManualSums[group] = {};
-      state.settings.purimManualSums[group][year] = input.value;
+      const oldVal = String((state.settings.purimManualSums && state.settings.purimManualSums[group] && state.settings.purimManualSums[group][year]) || "");
+      if (String(input.value) !== oldVal) changes.push({ group, year, value: input.value });
     });
-    saveState();
+    if (!changes.length) { showToast("לא בוצעו שינויים", "success"); return; }
+    const p = saveSettingsPatch(settings => {
+      if (!settings.purimManualSums) settings.purimManualSums = {};
+      changes.forEach(({ group, year, value }) => {
+        if (!settings.purimManualSums[group]) settings.purimManualSums[group] = {};
+        settings.purimManualSums[group][year] = value;
+      });
+    });
     renderDashboard();
     renderPurimGroups();
-    showToast("הסכומים נשמרו בהצלחה!", "success");
-    if (window.SB && SB.isLoggedIn()) SB.saveSettings(state.settings).catch(() => showToast("⚠️ נשמר מקומית אך לא הסתנכרן לשרת", "warning"));
+    p.then(saved => { reportSave(saved, "הסכומים נשמרו בהצלחה!"); logAudit("update", "settings", "purim-sums", changes); });
   };
 }
 
@@ -1529,30 +1904,38 @@ window.addExpenseCategory = function() {
   if (!val) return;
   const cats = getExpenseCategories();
   if (cats.includes(val)) { showToast("הקטגוריה כבר קיימת", "danger"); return; }
-  cats.push(val);
-  state.settings.expenseCategories = cats;
-  saveState();
+  const p = saveSettingsPatch(settings => {
+    const list = (Array.isArray(settings.expenseCategories) && settings.expenseCategories.length) ? [...settings.expenseCategories] : [...DEFAULT_EXPENSE_CATEGORIES];
+    if (!list.includes(val)) list.push(val);
+    settings.expenseCategories = list;
+  });
   if (input) input.value = "";
   renderExpenseCategories();
   populateExpenseCategorySelect();
-  showToast("✅ הקטגוריה נוספה");
+  p.then(saved => { reportSave(saved, "✅ הקטגוריה נוספה"); logAudit("create", "expense-category", val); });
 };
 
 window.removeExpenseCategory = function(index) {
   const cats = getExpenseCategories();
   if (cats.length <= 1) { showToast("חייבת להישאר לפחות קטגוריה אחת", "danger"); return; }
-  cats.splice(index, 1);
-  state.settings.expenseCategories = cats;
-  saveState();
+  const name = cats[index];
+  if (name === undefined) return;
+  const p = saveSettingsPatch(settings => {
+    const list = (Array.isArray(settings.expenseCategories) && settings.expenseCategories.length) ? [...settings.expenseCategories] : [...DEFAULT_EXPENSE_CATEGORIES];
+    const next = list.filter(c => c !== name);
+    settings.expenseCategories = next.length ? next : list;
+  });
   renderExpenseCategories();
   populateExpenseCategorySelect();
+  p.then(saved => { reportSave(saved, `הקטגוריה "${name}" הוסרה`); logAudit("delete", "expense-category", name); });
 };
 
-function populateExpenseCategorySelect() {
+function populateExpenseCategorySelect(extraCategory = null) {
   const sel = document.getElementById("expense-category");
   if (!sel) return;
   const cur = sel.value;
-  const cats = getExpenseCategories();
+  const cats = [...getExpenseCategories()];
+  if (extraCategory && !cats.includes(extraCategory)) cats.push(extraCategory);
   sel.innerHTML = cats.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
   if (cats.includes(cur)) sel.value = cur;
 }
@@ -1679,11 +2062,14 @@ window.applyHealthFix = function(memberId, field, value) {
   else member[field] = val;
   invalidateCache();
   saveState();
+  persist("saveMember", member).then(saved => { if (!saved) reportSave(false); });
+  logAudit("update", "member", member.id, { field, value: val, via: "תקינות נתונים" });
   // הסרת השורה שתוקנה מהרשימה
   const row = document.getElementById(`fixrow-${memberId}`);
   if (row) row.remove();
   renderDataHealth();
   populateFilters();
+  renderMembersTable();
   showToast("✅ תוקן ונשמר");
   // אם לא נותרו שורות - הצגת הודעת סיום
   const body = document.getElementById("data-health-modal-body");
@@ -1727,7 +2113,7 @@ window.exportFullBackup = function() {
   const backup = {
     _app: "צדקת רבי שמעון", _version: 1, _exportedAt: new Date().toISOString(),
     members: state.members, donations: state.donations, expenses: state.expenses,
-    purimAddresses: state.purimAddresses, settings: state.settings, users: state.users
+    purimAddresses: state.purimAddresses, settings: state.settings, grantsArchive: state.grantsArchive, users: state.users
   };
   const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
@@ -1741,22 +2127,34 @@ window.exportFullBackup = function() {
 
 window.importFullBackup = function(file) {
   if (!file) return;
-  if (!confirm("ייבוא גיבוי יחליף את כל הנתונים המקומיים הנוכחיים. להמשיך?")) return;
+  if (!isAdminUser()) { showToast("רק מנהל יכול לייבא גיבוי", "danger"); return; }
   const reader = new FileReader();
-  reader.onload = (e) => {
+  reader.onload = async (e) => {
+    let data;
     try {
-      const data = JSON.parse(e.target.result);
-      if (!data || typeof data !== "object") throw new Error("invalid");
-      if (Array.isArray(data.members)) state.members = data.members.map(m => ({ ...m, yeshivaType: normalizeYeshivaType(m.yeshivaType) }));
-      if (Array.isArray(data.donations)) state.donations = data.donations;
-      if (Array.isArray(data.expenses)) state.expenses = data.expenses;
-      if (Array.isArray(data.purimAddresses)) state.purimAddresses = data.purimAddresses;
-      if (data.settings && typeof data.settings === "object") state.settings = { ...DEFAULT_SETTINGS, ...data.settings };
-      if (Array.isArray(data.users) && data.users.length) state.users = data.users;
-      invalidateCache(); saveState(); renderAll(); renderSettings(); populateExpenseCategorySelect();
-      showToast("✅ הגיבוי יובא בהצלחה");
+      data = JSON.parse(e.target.result);
+      if (!data || typeof data !== "object" || !Array.isArray(data.members)) throw new Error("invalid");
+    } catch (err) { showToast("הקובץ אינו קובץ גיבוי תקין", "danger"); return; }
+    const counts = `${(data.members || []).length} בחורים, ${(data.donations || []).length} הפקדות, ${(data.expenses || []).length} הוצאות, ${(data.purimAddresses || []).length} כתובות פורים`;
+    if (!confirm(`ייבוא הגיבוי יעלה לשרת: ${counts}, והגדרות${data.grantsArchive ? " ומענקים" : ""}.\nרשומות קיימות עם אותו מזהה יוחלפו בגרסה שבגיבוי. רשומות שלא נמצאות בגיבוי יישארו.\nלהמשיך?`)) return;
+    const btn = document.getElementById("btn-import-backup");
+    if (btn) { btn.disabled = true; btn.textContent = "מעלה לשרת..."; }
+    try {
+      const members = (data.members || []).map(m => ({ ...m, yeshivaType: normalizeYeshivaType(m.yeshivaType) }));
+      await SB.upsertChunked("members", members.map(SB.map.memberToDb));
+      if (Array.isArray(data.donations)) await SB.upsertChunked("donations", data.donations.map(SB.map.donationToDb));
+      if (Array.isArray(data.expenses)) await SB.upsertChunked("expenses", data.expenses.map(SB.map.expenseToDb));
+      if (Array.isArray(data.purimAddresses)) await SB.upsertChunked("purim_addresses", data.purimAddresses.map(SB.map.purimToDb));
+      if (data.settings && typeof data.settings === "object") await SB.saveSettings({ ...DEFAULT_SETTINGS, ...data.settings });
+      if (data.grantsArchive && typeof data.grantsArchive === "object") await SB.saveGrantsArchive(data.grantsArchive);
+      logAudit("import", "backup", file.name, { counts });
+      await fetchDataFromServer(true);
+      renderSettings();
+      showToast("✅ הגיבוי יובא ונשמר בשרת");
     } catch (err) {
-      showToast("הקובץ אינו תקין", "danger");
+      showToast(`הייבוא נעצר באמצע: ${err.message || "תקלת תקשורת"}. אפשר להריץ שוב את אותו קובץ`, "danger");
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerHTML = `<span class="material-icons-regular" style="font-size:16px;vertical-align:middle;">upload</span> ייבוא גיבוי`; }
     }
   };
   reader.readAsText(file);
@@ -1765,70 +2163,51 @@ window.importFullBackup = function(file) {
 window.syncNow = async function() {
   const btn = document.getElementById("btn-sync-now");
   if (btn) { btn.disabled = true; btn.innerHTML = `<span class="material-icons-regular" style="font-size:16px;vertical-align:middle;">sync</span> מסנכרן...`; }
-  await fetchDataFromServer(false);
+  const ok = await fetchDataFromServer(true);
   if (btn) { btn.disabled = false; btn.innerHTML = `<span class="material-icons-regular" style="font-size:16px;vertical-align:middle;">sync</span> סנכרן עכשיו`; }
   renderBackupPanel();
-  showToast("✅ הנתונים סונכרנו");
+  const pending = readPendingWrites().length;
+  if (!ok) showToast("הסנכרון נכשל: אין חיבור לשרת. מוצגים הנתונים האחרונים שנטענו", "danger");
+  else if (pending) showToast(`הנתונים נטענו, אבל ${pending} שינויים עדיין ממתינים לשליחה`, "warning");
+  else showToast("✅ הנתונים סונכרנו");
 };
 
-async function addUser() {
-  // יצירת/עדכון משתמשי התחברות מתבצעת בצד השרת המאובטח (Supabase Auth),
-  // ולא ניתן לעשות זאת מהדפדפן עם המפתח הציבורי. מנהל יוצר משתמשים דרך לוח הבקרה.
-  showToast("ליצירת משתמש חדש: לוח הבקרה של Supabase → Authentication → Add user. (מטעמי אבטחה אי אפשר מכאן)", "warning");
-}
-
-async function deleteUser(username) {
-  showToast("למחיקת משתמש: לוח הבקרה של Supabase → Authentication → Users. (מטעמי אבטחה אי אפשר מכאן)", "warning");
-}
+const PERM_FIELDS = [["canEdit", "הוספה ועריכה"], ["canViewIncome", "הכנסות ופורים"], ["canViewExpenses", "הוצאות"], ["canViewGrants", "מענקים"], ["canViewHistory", "היסטוריית זכאות"]];
 
 function renderUsersTable() {
-  const tbody = document.getElementById("users-table-body"); if(!tbody) return; tbody.innerHTML = "";
-  let usersToRender = (state.users && state.users.length > 0) ? state.users : state.settings.users || DEFAULT_USERS;
-  
-  usersToRender = usersToRender.filter(u => u && u.username && String(u.username).trim() !== "");
-
-  if (usersToRender.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="3" class="empty-cell">אין משתמשים להצגה</td></tr>`;
-    return;
-  }
-
-  usersToRender.forEach((u) => {
-    let perms = []; if(isTrue(u.canEdit)) perms.push("עריכה"); if(isTrue(u.canViewIncome)) perms.push("הכנסות"); if(isTrue(u.canViewExpenses)) perms.push("הוצאות"); if(isTrue(u.canViewGrants)) perms.push("מענקים"); if(isTrue(u.canViewHistory)) perms.push("היסטוריה");
-    const username = String(u.username).trim();
-    const tr = document.createElement("tr"); 
-    tr.style.cursor = "pointer";
-    tr.onclick = () => {
-      setValue("new-username", username);
-      setValue("new-password", String(u.password).trim());
-      document.getElementById("perm-edit").checked = isTrue(u.canEdit);
-      document.getElementById("perm-income").checked = isTrue(u.canViewIncome);
-      document.getElementById("perm-expenses").checked = isTrue(u.canViewExpenses);
-      document.getElementById("perm-grants").checked = isTrue(u.canViewGrants);
-      document.getElementById("perm-history").checked = isTrue(u.canViewHistory);
-      document.getElementById("new-username").focus();
-    };
-
-    const nameTd = document.createElement("td");
-    nameTd.style.fontWeight = "bold";
-    nameTd.textContent = username;
-
-    const permsTd = document.createElement("td");
-    permsTd.style.fontSize = "12px";
-    permsTd.style.color = "var(--text-secondary)";
-    permsTd.textContent = perms.join(" | ") || "ללא הרשאות מיוחדות";
-
-    const actionTd = document.createElement("td");
-    const delBtn = document.createElement("button");
-    delBtn.className = "btn btn-danger";
-    delBtn.style.cssText = "padding: 4px 8px; font-size:12px; background:var(--danger); color:#fff;";
-    delBtn.textContent = "מחק";
-    delBtn.addEventListener("click", (e) => { e.stopPropagation(); deleteUser(username); });
-    actionTd.appendChild(delBtn);
-
-    tr.append(nameTd, permsTd, actionTd);
-    tbody.appendChild(tr);
-  });
+  const tbody = document.getElementById("users-table-body"); if (!tbody) return;
+  const users = (state.users || []).filter(u => u && u.username && String(u.username).trim() !== "");
+  if (!users.length) { tbody.innerHTML = `<tr><td colspan="7" class="empty-cell">אין משתמשים להצגה</td></tr>`; return; }
+  tbody.innerHTML = users.map(u => {
+    const isAdminRow = u.isAdmin === true || String(u.username).trim() === "מנהל";
+    const boxes = PERM_FIELDS.map(([f, label]) => `<td style="text-align:center;"><input type="checkbox" data-perm="${f}" aria-label="${escapeHtml(label)}" ${isAdminRow || isTrue(u[f]) ? "checked" : ""} ${isAdminRow ? "disabled" : ""}></td>`).join("");
+    return `<tr data-user-id="${escapeHtml(u.id || "")}">
+      <td style="font-weight:bold;">${escapeHtml(u.username)}${isAdminRow ? ` <span class="role-chip">מנהל</span>` : ""}</td>
+      ${boxes}
+      <td class="no-export">${isAdminRow || !u.id ? "" : `<button class="btn btn-outline users-save-btn" style="padding:5px 12px; font-size:12px;" onclick="saveUserPermissions('${escapeHtml(dashboardJsString(u.id))}', this)">שמור</button>`}</td>
+    </tr>`;
+  }).join("");
 }
+
+window.saveUserPermissions = async function(userId, btn) {
+  if (!isAdminUser()) { showToast("רק מנהל יכול לשנות הרשאות", "danger"); return; }
+  const tr = btn.closest("tr");
+  const patch = {};
+  tr.querySelectorAll("input[data-perm]").forEach(cb => { patch[cb.dataset.perm] = cb.checked; });
+  btn.disabled = true; btn.textContent = "שומר...";
+  try {
+    await SB.updateProfile(userId, patch);
+    const u = state.users.find(x => String(x.id) === String(userId));
+    if (u) Object.assign(u, patch);
+    saveState();
+    showToast(`ההרשאות של ${u ? u.username : "המשתמש"} נשמרו. הן ייכנסו לתוקף בכניסה הבאה שלו`, "success");
+    logAudit("update", "profile", userId, { user: u ? u.username : userId, ...patch });
+  } catch (e) {
+    showToast(e.status === 403
+      ? "השרת לא אישר את השינוי. צריך להריץ פעם אחת את קובץ העדכון supabase/security-update.sql ב-Supabase"
+      : `השמירה נכשלה: ${e.message || "תקלת תקשורת"}`, "danger");
+  } finally { btn.disabled = false; btn.textContent = "שמור"; }
+};
 
 function normalizeYeshivaType(t) {
   const m = { "קטנה": "ישיבה קטנה", "גדולה": "ישיבה גדולה" };
@@ -1925,14 +2304,12 @@ window.renderDashboard = function() {
   const totalExpenses = state.expenses.filter(e => e.year === currentYear).reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
   const summaries = buildActiveMemberSummaries(currentYear);
   const totalRequired = summaries.reduce((sum, row) => sum + (Number(row.totalRequiredThisYear) || 0), 0);
-  const missingTotal = Math.max(0, totalRequired - totalDonations);
-  const progress = totalRequired > 0 ? Math.min(100, Math.round((totalDonations / totalRequired) * 100)) : 0;
+  // חסר = סכום החוסרים של כל בחור בנפרד (מי ששילם יותר לא "מכסה" על מי שחסר לו)
+  const missingTotal = summaries.reduce((sum, row) => sum + (Number(row.missingAmount) || 0), 0);
+  const progress = getDashboardProgress(summaries);
   const eligibleCount = summaries.filter(row => row.isEligible).length;
   const debtRows = summaries.filter(row => (Number(row.totalDebtFromPast) || 0) > 0);
   
-  setText("display-purim-groups", formatCurrency(totalPurim));
-  setText("display-members-collection", formatCurrency(totalDonations));
-  setText("display-expenses", formatCurrency(totalExpenses));
 
   setText("dashboard-kpi-collected", formatCurrency(totalCollected));
   setText("dashboard-kpi-target", formatCurrency(totalRequired));
@@ -1948,6 +2325,13 @@ window.renderDashboard = function() {
   renderDashboardMonthBars();
   renderDashboardActivity(currentYear, summaries);
   renderDashboardSegments(summaries);
+}
+
+// התקדמות = כמה מהחובה כוסה בפועל (עודף של בחור אחד לא נספר לטובת אחר)
+function getDashboardProgress(summaries) {
+  const required = summaries.reduce((sum, row) => sum + (Number(row.totalRequiredThisYear) || 0), 0);
+  const covered = summaries.reduce((sum, row) => sum + Math.min(Number(row.collectedThisYear) || 0, Number(row.totalRequiredThisYear) || 0), 0);
+  return required > 0 ? Math.min(100, Math.round((covered / required) * 100)) : 0;
 }
 
 function getDashboardPurimTotal(currentYear) {
@@ -1977,6 +2361,19 @@ function renderDashboardAttention({ summaries, totalDonations, currentYear }) {
   const expenseCategoryAlert = getDashboardExpenseCategoryAlert(currentYear);
 
   const items = [];
+  // תזכורת: השנה העברית התחלפה ושנת הקמפיין בהגדרות עדיין ישנה (הפקדות חדשות נרשמות אליה)
+  const hebrewNow = getCurrentHebrewYearLabel();
+  const campaignYear = getCampaignYear();
+  if (isAdminUser() && hebrewNow && HEBREW_YEARS_ORDER.indexOf(hebrewNow) > HEBREW_YEARS_ORDER.indexOf(campaignYear) && HEBREW_YEARS_ORDER.indexOf(campaignYear) !== -1) {
+    items.push({
+      icon: "event_repeat",
+      tone: "warn",
+      title: `השנה העברית התחלפה ל${hebrewNow}`,
+      sub: `שנת הקמפיין בהגדרות היא ${campaignYear}, ולכן הפקדות חדשות נרשמות אליה. לחיצה פותחת את ההגדרות`,
+      value: hebrewNow,
+      drill: "new-year"
+    });
+  }
   if (nearGoal.length) {
     items.push({
       icon: "near_me",
@@ -2107,80 +2504,181 @@ function renderDashboardMonthBars() {
   });
   if (!years.length) years.push(campaignYear);
 
-  const membersIncome = years.map(year => (state.donations || []).filter(d => d.year === year).reduce((sum, d) => sum + (Number(d.amount) || 0), 0));
-  const purimIncome = years.map(year => getDashboardPurimTotal(year));
-  const expenses = years.map(year => (state.expenses || []).filter(e => e.year === year).reduce((sum, e) => sum + (Number(e.amount) || 0), 0));
-  // עלות מענקים מחושבת רק לשנת הפעילות הנוכחית - שחזור אחורה לשנים עברו אינו אמין
-  // (getHistoricalStatus מקבע בחורים לחיידר בשנים רחוקות, מה שהופך את כולם ל"זכאים" באופן שגוי)
-  const grantsCost = years.map(year => year === campaignYear ? getDashboardGrantCostForMonth(year, 11) : 0);
-
-  const series = [
-    { key: "members", label: "בחורים", tone: "members", values: membersIncome },
-    { key: "purim", label: "פורים", tone: "purim", values: purimIncome },
-    { key: "expenses", label: "הוצאות", tone: "expenses", values: expenses },
-    { key: "grants", label: "עלות מענקים", tone: "grants", values: grantsCost }
-  ];
-  const maxValue = Math.max(1, ...series.flatMap(item => item.values));
-  const width = 640;
-  const height = 230;
-  const padX = 34;
-  const padY = 18;
-  const chartWidth = width - padX * 2;
-  const chartHeight = height - padY * 2;
-  const xFor = i => years.length === 1 ? width / 2 : padX + (chartWidth * i / (years.length - 1));
-  const yFor = value => padY + chartHeight - (Math.max(0, value) / maxValue) * chartHeight;
-  const baseY = padY + chartHeight;
-  const areaPath = values => {
-    const points = values.map((value, index) => `${xFor(index)},${yFor(value)}`).join(" L ");
-    return `M ${xFor(0)},${baseY} L ${points} L ${xFor(values.length - 1)},${baseY} Z`;
-  };
-  const linePath = values => `M ${values.map((value, index) => `${xFor(index)},${yFor(value)}`).join(" L ")}`;
-
-  const svgAreas = series.map(item => `
-    <path class="dashboard-mountain-area ${item.tone}" d="${areaPath(item.values)}"></path>
-    <path class="dashboard-mountain-line ${item.tone}" d="${linePath(item.values)}"></path>
-  `).join("");
-
-  const points = series.map(item => item.values.map((value, index) => `
-    <circle class="dashboard-mountain-dot ${item.tone}" cx="${xFor(index)}" cy="${yFor(value)}" r="3.5">
-      <title>${item.label} ${years[index]}: ${formatCurrency(value)}</title>
-    </circle>
-  `).join("")).join("");
-
-  const yearLabels = years.map((year, index) => `
-    <span style="right:${100 - ((xFor(index) / width) * 100)}%">${year}</span>
-  `).join("");
-
-  el.innerHTML = `
-    <div class="dashboard-mountain-chart">
-      <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="גרף הר גבייה מול הוצאות">
-        <line class="dashboard-mountain-axis" x1="${padX}" y1="${baseY}" x2="${width - padX}" y2="${baseY}"></line>
-        ${svgAreas}
-        ${points}
-      </svg>
-      <div class="dashboard-mountain-months">${yearLabels}</div>
-    </div>
-    <div class="dashboard-mountain-legend">
-      ${series.map(item => `
-        <div class="dashboard-mountain-chip ${item.tone}">
-          <span></span>
-          <strong>${item.label}</strong>
-          <em>${formatCurrency(item.values.reduce((sum, value) => sum + value, 0))}</em>
-        </div>
-      `).join("")}
-    </div>
-  `;
+  const sumBy = (list, year) => (list || []).filter(x => x.year === year).reduce((sum, x) => sum + (Number(x.amount) || 0), 0);
+  const rows = years.map(year => {
+    const grant = getDashboardYearGrantCost(year, campaignYear);
+    const members = sumBy(state.donations, year);
+    const purim = getDashboardPurimTotal(year);
+    const expenses = sumBy(state.expenses, year);
+    return { year, members, purim, expenses, grants: grant.cost, grantNote: grant.note, income: members + purim, outgoing: expenses + grant.cost };
+  });
+  renderFinanceChart(el, rows);
 }
 
-function getDashboardGrantPackageCost() {
-  if (!Array.isArray(GRANTS_PRODUCTS_CONFIG)) return 0;
-  return GRANTS_PRODUCTS_CONFIG.reduce((sum, product) => {
-    return sum + ((Number(product.orgPrice || product.price) || 0) * (Number(product.qtyPerStudent) || 0));
-  }, 0);
+// עלות המענקים לשנה: בשנת הפעילות - צפי לפי הזכאים; בשנים קודמות - לפי מקבלי המענק בפועל במסך המענקים
+function getDashboardYearGrantCost(year, campaignYear) {
+  const packageCost = getDashboardGrantPackageCost(year);
+  if (year === campaignYear) {
+    const cost = getDashboardGrantCostForMonth(year, 11);
+    const count = packageCost ? Math.round(cost / packageCost) : 0;
+    return { cost, note: count ? `צפי לפי ${count} זכאים השנה` : "" };
+  }
+  const archive = getGrantsArchive();
+  const recipients = (archive.years && archive.years[year] && archive.years[year].recipients) || [];
+  if (!recipients.length || !packageCost) return { cost: 0, note: "אין נתוני מענקים לשנה זו" };
+  return { cost: packageCost * recipients.length, note: `לפי ${recipients.length} מקבלי מענק` };
+}
+
+const FINANCE_SERIES = [
+  { key: "members", label: "בחורים", group: "income" },
+  { key: "purim", label: "פורים", group: "income" },
+  { key: "expenses", label: "הוצאות", group: "outgoing" },
+  { key: "grants", label: "עלות מענקים", group: "outgoing" },
+];
+
+function formatCompactCurrency(value) {
+  const v = Math.abs(Number(value) || 0);
+  if (v < 1000) return formatCurrency(value);
+  const k = v / 1000;
+  return `${value < 0 ? "-" : ""}₪${k >= 100 ? Math.round(k) : Math.round(k * 10) / 10}K`;
+}
+
+// גרף עמודות: לכל שנה עמודת הכנסות (בחורים + פורים) ליד עמודת הוצאות (הוצאות + עלות מענקים)
+function renderFinanceChart(el, rows) {
+  const width = Math.max(300, Math.round(el.clientWidth || 640));
+  const height = 236;
+  const compact = width < 520;
+  const padL = compact ? 40 : 50, padR = 12, padTop = 24, baseY = height - 44;
+  const plotW = width - padL - padR, plotH = baseY - padTop;
+  const band = plotW / rows.length;
+  const barW = Math.min(24, Math.max(12, band * 0.22));
+  const pairGap = Math.min(40, Math.max(8, band * 0.3));
+  const maxRaw = Math.max(1, ...rows.map(r => Math.max(r.income, r.outgoing)));
+  const step = (() => { const raw = maxRaw / 4; const mag = Math.pow(10, Math.floor(Math.log10(raw))); return [1, 2, 2.5, 5, 10].map(m => m * mag).find(m => m >= raw); })();
+  const niceMax = step * Math.ceil(maxRaw / step);
+  const y = v => baseY - (v / niceMax) * plotH;
+  const GAP = 2, R = 4;
+  const capLabel = v => (band < 150 || compact) ? formatCompactCurrency(v) : formatCurrency(v);
+
+  // מלבן עם פינות מעוגלות רק למעלה (הקצה של הנתון), ישר בבסיס
+  const topRounded = (x, top, w, h) => {
+    const r = Math.min(R, h, w / 2);
+    return `M${x},${top + h} L${x},${top + r} Q${x},${top} ${x + r},${top} L${x + w - r},${top} Q${x + w},${top} ${x + w},${top + r} L${x + w},${top + h} Z`;
+  };
+  const column = (x, segments) => {
+    let acc = 0; const parts = [];
+    const visible = segments.filter(s => s.value > 0);
+    visible.forEach((seg, i) => {
+      const bottom = y(acc) - (i > 0 ? GAP : 0);
+      acc += seg.value;
+      const top = y(acc);
+      const h = Math.max(0, bottom - top);
+      if (h <= 0) return;
+      parts.push(i === visible.length - 1
+        ? `<path class="fin-seg fin-${seg.key}" d="${topRounded(x, top, barW, h)}"></path>`
+        : `<rect class="fin-seg fin-${seg.key}" x="${x}" y="${top}" width="${barW}" height="${h}"></rect>`);
+    });
+    return parts.join("");
+  };
+
+  let ticks = "";
+  for (let v = 0; v <= niceMax + 1e-6; v += step) {
+    const ty = y(v);
+    ticks += `<line class="fin-grid${v === 0 ? " fin-base" : ""}" x1="${padL}" x2="${width - padR}" y1="${ty}" y2="${ty}"></line>
+      <text class="fin-tick" x="${padL - 6}" y="${ty + 3.5}" text-anchor="end">${escapeHtml(formatCompactCurrency(v))}</text>`;
+  }
+
+  const groups = rows.map((r, i) => {
+    const cx = padL + band * i + band / 2;
+    const xInc = cx + pairGap / 2, xOut = cx - pairGap / 2 - barW; // הכנסות מימין (נקראות ראשונות)
+    const inc = [{ key: "members", value: r.members }, { key: "purim", value: r.purim }];
+    const out = [{ key: "expenses", value: r.expenses }, { key: "grants", value: r.grants }];
+    const hit = (x, kind) => `<rect class="fin-hit" data-i="${i}" data-kind="${kind}" tabindex="0" role="img" aria-label="${escapeHtml(`${r.year} ${kind === "income" ? "הכנסות" : "הוצאות"} ${formatCurrency(kind === "income" ? r.income : r.outgoing)}`)}" x="${x - 6}" y="${padTop - 18}" width="${barW + 12}" height="${baseY - padTop + 18}"></rect>`;
+    return `<g class="fin-col" data-i="${i}" data-kind="income">${column(xInc, inc)}</g>
+      <g class="fin-col" data-i="${i}" data-kind="outgoing">${column(xOut, out)}</g>
+      <text class="fin-cap" x="${xInc + barW / 2}" y="${y(r.income) - 6}" text-anchor="middle">${escapeHtml(r.income ? capLabel(r.income) : "—")}</text>
+      <text class="fin-cap" x="${xOut + barW / 2}" y="${y(r.outgoing) - 6}" text-anchor="middle">${escapeHtml(r.outgoing ? capLabel(r.outgoing) : "—")}</text>
+      <text class="fin-sub" x="${xInc + barW / 2}" y="${baseY + 14}" text-anchor="middle">הכנסות</text>
+      <text class="fin-sub" x="${xOut + barW / 2}" y="${baseY + 14}" text-anchor="middle">הוצאות</text>
+      <text class="fin-year" x="${cx}" y="${baseY + 32}" text-anchor="middle">${escapeHtml(r.year)}</text>
+      ${hit(xInc, "income")}${hit(xOut, "outgoing")}`;
+  }).join("");
+
+  const legend = FINANCE_SERIES.map(s => `<span class="fin-legend-item"><i class="fin-swatch fin-${s.key}"></i>${escapeHtml(s.label)}</span>`).join("");
+  const table = `<table class="fin-table">
+      <thead><tr><th>שנה</th><th>הכנסות</th><th>הוצאות</th><th>פער</th></tr></thead>
+      <tbody>${rows.slice().reverse().map(r => {
+        const net = r.income - r.outgoing;
+        return `<tr><td>${escapeHtml(r.year)}</td><td>${formatCurrency(r.income)}</td><td>${formatCurrency(r.outgoing)}</td>
+          <td class="${net >= 0 ? "fin-net-up" : "fin-net-down"}"><span aria-hidden="true">${net >= 0 ? "▲" : "▼"}</span> ${net >= 0 ? "עודף" : "גירעון"} ${formatCurrency(Math.abs(net))}</td></tr>`;
+      }).join("")}</tbody>
+    </table>`;
+
+  el.innerHTML = `
+    <div class="fin-legend">${legend}</div>
+    <div class="dashboard-mountain-chart fin-chart">
+      <svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="group" aria-label="גרף הכנסות מול הוצאות לפי שנה">
+        ${ticks}${groups}
+      </svg>
+      <div class="fin-tooltip" hidden></div>
+    </div>
+    ${table}`;
+  el.dataset.renderWidth = String(width);
+
+  const tip = el.querySelector(".fin-tooltip");
+  const chart = el.querySelector(".fin-chart");
+  const show = target => {
+    const r = rows[Number(target.dataset.i)], kind = target.dataset.kind;
+    el.querySelectorAll(".fin-col").forEach(g => g.classList.toggle("is-dim", !(g.dataset.i === target.dataset.i && g.dataset.kind === kind)));
+    tip.textContent = "";
+    const head = document.createElement("div"); head.className = "fin-tip-head";
+    head.textContent = `${r.year} · ${kind === "income" ? "הכנסות" : "הוצאות"}`;
+    tip.appendChild(head);
+    FINANCE_SERIES.filter(s => s.group === kind).forEach(s => {
+      const row = document.createElement("div"); row.className = "fin-tip-row";
+      const key = document.createElement("i"); key.className = `fin-tip-key fin-${s.key}`;
+      const val = document.createElement("strong"); val.textContent = formatCurrency(r[s.key]);
+      const name = document.createElement("span"); name.textContent = s.label;
+      row.append(key, val, name); tip.appendChild(row);
+      if (s.key === "grants" && r.grantNote) { const note = document.createElement("div"); note.className = "fin-tip-note"; note.textContent = r.grantNote; tip.appendChild(note); }
+    });
+    const total = document.createElement("div"); total.className = "fin-tip-total";
+    total.textContent = `סה"כ ${formatCurrency(kind === "income" ? r.income : r.outgoing)}`;
+    tip.appendChild(total);
+    tip.hidden = false;
+    const cb = chart.getBoundingClientRect(), tb = target.getBoundingClientRect();
+    const tw = tip.offsetWidth;
+    let left = tb.left - cb.left + tb.width / 2 - tw / 2;
+    left = Math.max(4, Math.min(cb.width - tw - 4, left));
+    tip.style.left = `${left}px`;
+    tip.style.top = `${Math.max(4, tb.top - cb.top + 8)}px`;
+  };
+  const hide = () => { tip.hidden = true; el.querySelectorAll(".fin-col").forEach(g => g.classList.remove("is-dim")); };
+  el.querySelectorAll(".fin-hit").forEach(h => {
+    h.addEventListener("pointerenter", () => show(h));
+    h.addEventListener("focus", () => show(h));
+    h.addEventListener("pointerleave", hide);
+    h.addEventListener("blur", hide);
+  });
+}
+
+// הגרף נבנה לפי רוחב המסך - מציירים מחדש כשהרוחב משתנה
+let financeChartResizeTimer = null;
+window.addEventListener("resize", () => {
+  clearTimeout(financeChartResizeTimer);
+  financeChartResizeTimer = setTimeout(() => {
+    const el = document.getElementById("dashboard-month-bars");
+    if (el && el.clientWidth && Math.abs(el.clientWidth - Number(el.dataset.renderWidth || 0)) > 8) renderDashboardMonthBars();
+  }, 150);
+});
+
+// עלות חבילה לחתן (לארגון) לפי תכולת החבילה שמוגדרת במסך מענקים לשנה הזו
+function getDashboardGrantPackageCost(year = getCampaignYear()) {
+  return getGrantPackageTotal(getGrantPackageForYear(getGrantsArchive(), year));
 }
 
 function getDashboardGrantCostForMonth(currentYear, monthIndex) {
-  const packageCost = getDashboardGrantPackageCost();
+  const packageCost = getDashboardGrantPackageCost(currentYear);
   if (!packageCost) return 0;
 
   const summaries = buildActiveMemberSummaries(currentYear);
@@ -2188,8 +2686,8 @@ function getDashboardGrantCostForMonth(currentYear, monthIndex) {
     const collectedUntilMonth = (state.donations || [])
       .filter(d => d.year === currentYear && String(d.memberId).trim() === String(member.id).trim())
       .reduce((sum, d) => {
-        const date = d.date ? new Date(d.date) : null;
-        if (!date || Number.isNaN(date.getTime()) || date.getMonth() > monthIndex) return sum;
+        const date = parseAppDate(d.date);
+        if (!date || date.getMonth() > monthIndex) return sum;
         return sum + (Number(d.amount) || 0);
       }, 0);
     const target = Number(member.currentYearTarget) || 0;
@@ -2228,7 +2726,7 @@ function renderDashboardActivity(currentYear, summaries) {
     }));
 
   const rows = donations.concat(expenses)
-    .sort((a, b) => String(b.date).localeCompare(String(a.date)))
+    .sort((a, b) => compareDatesDesc(a.date, b.date))
     .slice(0, 8);
 
   if (!rows.length) {
@@ -2412,6 +2910,7 @@ window.openDashboardMember = function(memberId) {
 };
 
 window.openDashboardDrill = function(type, category = "") {
+  if (type === "new-year") { switchScreen("settings-screen", true); switchSettingsTab("targets"); return; }
   const year = getDashboardSelectedYear();
   const summaries = buildActiveMemberSummaries(year);
   const memberNameById = new Map(summaries.map(row => [String(row.id).trim(), getDashboardMemberLabel(row)]));
@@ -2433,7 +2932,7 @@ window.openDashboardDrill = function(type, category = "") {
     columns = ["תאריך", "בחור / מקור", "פירוט", "סכום"];
     const donationRows = (state.donations || [])
       .filter(d => d.year === year)
-      .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))
+      .sort((a, b) => compareDatesDesc(a.date, b.date))
       .map(d => ({
         memberId: d.memberId,
         cells: [
@@ -2488,9 +2987,8 @@ window.openDashboardDrill = function(type, category = "") {
     columns = progressColumns;
     rows = memberRows(items, "progress");
     title = "התקדמות כללית";
-    const totalTarget = items.reduce((sum, row) => sum + (Number(row.currentYearTarget) || 0), 0);
-    const totalCollected = items.reduce((sum, row) => sum + (Number(row.collectedThisYear) || 0), 0);
-    summaryValue = totalTarget > 0 ? `${Math.round((totalCollected / totalTarget) * 100)}%` : "0%";
+    subtitle = `שנת ${year} · כמה מהחובה (כולל חובות עבר) כבר כוסה`;
+    summaryValue = `${getDashboardProgress(summaries)}%`;
   } else if (type === "near-goal") {
     const items = summaries
       .filter(row => !row.isEligible && (Number(row.missingAmount) || 0) > 0 && (Number(row.missingAmount) || 0) <= 500)
@@ -2535,7 +3033,7 @@ window.openDashboardDrill = function(type, category = "") {
     columns = ["תאריך", "קטגוריה", "פירוט", "סכום"];
     rows = (state.expenses || [])
       .filter(e => e.year === year && (e.category || "שונות") === selectedCategory)
-      .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))
+      .sort((a, b) => compareDatesDesc(a.date, b.date))
       .map(e => ({
         cells: [
           formatDateDisplay(e.date) || "ללא תאריך",
@@ -2582,11 +3080,8 @@ function renderChart(selectedYear) {
 
   state.donations.forEach(d => {
       if (d.year === yearToChart && d.date) {
-          const dateObj = new Date(d.date);
-          if (!isNaN(dateObj.getTime())) {
-              const month = dateObj.getMonth();
-              monthlyData[month] += Number(d.amount) || 0;
-          }
+          const dateObj = parseAppDate(d.date);
+          if (dateObj) monthlyData[dateObj.getMonth()] += Number(d.amount) || 0;
       }
   });
 
@@ -2664,12 +3159,14 @@ function renderMembersTable() {
   });
 
   const getCity = m => m.address ? String(m.address).split(',').pop().trim() : "";
+  // חיפוש רק בשדות שרואים (שם, טלפון, ישיבה, כתובת...) ולא במספרים פנימיים
+  const searchText = m => [m.firstName, m.lastName, m.fatherName, m.fullName, m.phone, String(m.phone || "").replace(/\D/g, ""), m.yeshiva, m.yeshivaType, m.shiur, m.address, m.notes].filter(Boolean).join(" ").toLowerCase();
 
   // Update yeshiva dropdown based on current text+city filter (excluding yeshiva filter itself)
   const elYeshiva = document.getElementById("filter-members-yeshiva");
   if (elYeshiva) {
     const filteredForYeshiva = allRows.filter(m => {
-      const matchGlobal = !term || Object.values(m).join(" ").toLowerCase().includes(term);
+      const matchGlobal = !term || searchText(m).includes(term);
       const cityMatch = !state.filterCity || getCity(m) === state.filterCity;
       return matchGlobal && cityMatch;
     });
@@ -2685,7 +3182,7 @@ function renderMembersTable() {
   const elCity = document.getElementById("filter-members-city");
   if (elCity) {
     const filteredForCity = allRows.filter(m => {
-      const matchGlobal = !term || Object.values(m).join(" ").toLowerCase().includes(term);
+      const matchGlobal = !term || searchText(m).includes(term);
       const matchYeshiva = !state.filterYeshiva || m.yeshiva === state.filterYeshiva;
       return matchGlobal && matchYeshiva;
     });
@@ -2698,7 +3195,7 @@ function renderMembersTable() {
   }
 
   let rows = allRows.filter(m => {
-    const matchGlobal = !term || Object.values(m).join(" ").toLowerCase().includes(term);
+    const matchGlobal = !term || searchText(m).includes(term);
     const matchYeshiva = !state.filterYeshiva || m.yeshiva === state.filterYeshiva;
     const cityMatch = !state.filterCity || getCity(m) === state.filterCity;
     const types = state.filterYeshivaTypes || [];
@@ -2729,7 +3226,7 @@ function renderMembersTable() {
       });
   }
 
-  const isAdmin = state.currentUserObj && String(state.currentUserObj.username).trim() === "מנהל";
+  const isAdmin = isAdminUser();
   const deleteColHead = document.getElementById("members-delete-col-head");
   if (deleteColHead) deleteColHead.style.display = isAdmin ? "" : "none";
 
@@ -2771,8 +3268,7 @@ function renderMembersTable() {
 
 // מחיקת בחור - למנהל בלבד. מוחק את כרטיס הבחור בלבד; היסטוריית ההפקדות/הוצאות נשארת.
 window.deleteMemberRow = async function(memberId) {
-  const isAdmin = state.currentUserObj && String(state.currentUserObj.username).trim() === "מנהל";
-  if (!isAdmin) return;
+  if (!isAdminUser()) return;
 
   const member = state.members.find(m => String(m.id).trim() === String(memberId).trim());
   if (!member) return;
@@ -2785,12 +3281,9 @@ window.deleteMemberRow = async function(memberId) {
   renderMembersTable();
   populateMemberSelect();
   populateFilters();
-  showToast(`${label} נמחק`, "success");
-
-  if (window.SB && SB.isLoggedIn()) {
-    try { await SB.deleteMember(memberId); }
-    catch (e) { showToast("⚠️ נמחק מקומית אך לא הסתנכרן לשרת", "warning"); }
-  }
+  const saved = await persist("deleteMember", { id: member.id });
+  reportSave(saved, `${label} נמחק`);
+  logAudit("delete", "member", member.id, { name: label });
 };
 
 // ===== מצב עריכה ישיר בטבלת הבחורים =====
@@ -2828,9 +3321,11 @@ window.cancelMembersEdit = function() {
 window.saveMembersEdit = function() {
   const trs = document.querySelectorAll("#members-table-body tr[data-member-id]");
   let changed = 0;
+  const changedMembers = [];
   trs.forEach(tr => {
     const member = state.members.find(m => String(m.id).trim() === String(tr.dataset.memberId).trim());
     if (!member) return;
+    let memberChanged = false;
     tr.querySelectorAll("td[data-field]").forEach(td => {
       const field = td.dataset.field;
       const starEl = td.querySelector(".missing-star");
@@ -2838,16 +3333,20 @@ window.saveMembersEdit = function() {
       let val = (td.textContent || "").trim();
       if (val === "---") val = "";
       const oldVal = String(member[field] || "").trim();
-      if (val !== oldVal) { member[field] = val; changed++; }
+      if (val !== oldVal) { member[field] = val; changed++; memberChanged = true; }
     });
+    if (memberChanged) changedMembers.push(member);
   });
   exitMembersEditMode();
   if (changed > 0) {
     invalidateCache();
     saveState();
     populateFilters();
-    renderMembersTable();
-    showToast(`✅ נשמרו ${changed} שינויים`);
+    renderAll();
+    Promise.all(changedMembers.map(m => persist("saveMember", m))).then(results => {
+      reportSave(results.every(Boolean), `✅ נשמרו ${changed} שינויים`);
+    });
+    changedMembers.forEach(m => logAudit("update", "member", m.id, { via: "עריכה בטבלה", name: `${m.firstName || ""} ${m.lastName || ""}`.trim() }));
   } else {
     renderMembersTable();
   }
@@ -2861,47 +3360,40 @@ function renderDailyReport() {
     const filterVal = document.getElementById("report-time-filter")?.value || "today";
     const customDate = document.getElementById("report-custom-date")?.value;
     
+    const today = new Date();
+    const todayStr = dateKey(today);
+    const yesterday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
+    const yesterdayStr = dateKey(yesterday);
+    const weekStart = new Date(today.getFullYear(), today.getMonth(), today.getDate() - today.getDay());
     const isDateMatch = (dateStr) => {
-        if (!dateStr) return false;
-        const d = new Date(dateStr);
-        if (isNaN(d)) return false;
-        
-        const today = new Date();
-        const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
-        
-        const dStr = d.toISOString().split('T')[0];
-        const todayStr = today.toISOString().split('T')[0];
-        const yesterdayStr = yesterday.toISOString().split('T')[0];
-
+        if (filterVal === "all") return true;
+        const d = parseAppDate(dateStr);
+        if (!d) return false;
+        const dStr = dateKey(d);
         if (filterVal === "today") return dStr === todayStr;
         if (filterVal === "yesterday") return dStr === yesterdayStr;
-        if (filterVal === "week") {
-            const weekStart = new Date(today);
-            weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-            weekStart.setHours(0, 0, 0, 0);
-            return d >= weekStart;
-        }
+        if (filterVal === "week") return d >= weekStart && dStr <= todayStr;
         if (filterVal === "custom") return dStr === customDate;
-        
         return true; 
     };
+    const yearMatch = (y) => filterVal === "all" || y === getCampaignYear();
 
     let totalInc = 0;
     let incHtml = "";
     const summaries = getMemberSummaries();
     const summaryById = new Map(summaries.map(m => [String(m.id).trim(), m]));
-    const filteredDonations = state.donations.filter(d => isDateMatch(d.date) && d.year === getCampaignYear());
+    const filteredDonations = state.donations.filter(d => isDateMatch(d.date) && yearMatch(d.year));
     
     if (filteredDonations.length === 0) {
         incHtml = `<tr><td colspan="3" class="empty-cell" style="padding:20px!important;">אין הכנסות לתקופה זו</td></tr>`;
     } else {
-        filteredDonations.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0)).forEach(d => {
+        filteredDonations.sort((a, b) => compareDatesDesc(a.date, b.date)).forEach(d => {
             const member = summaryById.get(String(d.memberId).trim());
             const name = member ? member.fullName : d.memberNameSnapshot;
             const amt = Number(d.amount) || 0;
             totalInc += amt;
             
-            incHtml += `<tr>
+            incHtml += `<tr class="clickable-row" onclick="openDonationModal(null, '${escapeHtml(dashboardJsString(d.id))}')" title="לחיצה לעריכה">
                 <td>${escapeHtml(formatDateDisplay(d.date))}</td>
                 <td><strong>${escapeHtml(name)}</strong><br><span style="font-size:11px;color:var(--text-secondary);">${escapeHtml(d.notes)}</span></td>
                 <td class="amount-cell" style="font-weight: bold; color: var(--success);">${escapeHtml(formatCurrency(amt))}</td>
@@ -2911,16 +3403,16 @@ function renderDailyReport() {
 
     let totalExp = 0;
     let expHtml = "";
-    const filteredExpenses = state.expenses.filter(e => isDateMatch(e.date) && e.year === getCampaignYear());
+    const filteredExpenses = state.expenses.filter(e => isDateMatch(e.date) && yearMatch(e.year));
 
     if (filteredExpenses.length === 0) {
         expHtml = `<tr><td colspan="3" class="empty-cell" style="padding:20px!important;">אין הוצאות לתקופה זו</td></tr>`;
     } else {
-        filteredExpenses.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0)).forEach(e => {
+        filteredExpenses.sort((a, b) => compareDatesDesc(a.date, b.date)).forEach(e => {
             const amt = Number(e.amount) || 0;
             totalExp += amt;
             
-            expHtml += `<tr>
+            expHtml += `<tr class="clickable-row" onclick="openExpenseModal('${escapeHtml(dashboardJsString(e.id))}')" title="לחיצה לעריכה">
                 <td>${escapeHtml(formatDateDisplay(e.date))}</td>
                 <td><strong>${escapeHtml(e.description)}</strong><br><span style="background:var(--surface-light); border-radius:8px; padding:2px 6px; font-size:11px;">${escapeHtml(e.category)}</span></td>
                 <td class="amount-cell" style="font-weight: bold; color: var(--danger);">${escapeHtml(formatCurrency(amt))}</td>
@@ -2969,7 +3461,8 @@ function renderExpensesKpisAndCharts() {
   const curExpenses = state.expenses.filter(e => (e.year || "כללי") === currentYear);
   const totalThisYear = curExpenses.reduce((s, e) => s + (Number(e.amount) || 0), 0);
   const totalPrevYear = prevYear ? state.expenses.filter(e => e.year === prevYear).reduce((s, e) => s + (Number(e.amount) || 0), 0) : 0;
-  const incomeThisYear = state.donations.filter(d => d.year === currentYear).reduce((s, d) => s + (Number(d.amount) || 0), 0);
+  // הכנסות = הפקדות הבחורים + סכומי פורים (כמו בלוח הבקרה)
+  const incomeThisYear = state.donations.filter(d => d.year === currentYear).reduce((s, d) => s + (Number(d.amount) || 0), 0) + getDashboardPurimTotal(currentYear);
 
   // קטגוריות לשנה הנוכחית
   const catTotals = {};
@@ -2995,13 +3488,14 @@ function renderExpensesKpisAndCharts() {
   setText("exp-kpi-top-cat-amount", topCat ? `${formatCurrency(topCat[1])} · ${totalThisYear > 0 ? Math.round(topCat[1] / totalThisYear * 100) : 0}%` : "—");
 
   // KPI: ממוצע חודשי + תנועות
-  setText("exp-kpi-avg", formatCurrency(totalThisYear / 12));
-  setText("exp-kpi-count", `${curExpenses.length} תנועות`);
+  const monthsForAvg = getMonthsForAverage(currentYear);
+  setText("exp-kpi-avg", formatCurrency(totalThisYear / monthsForAvg));
+  setText("exp-kpi-count", `${curExpenses.length} תנועות · לפי ${monthsForAvg} ${monthsForAvg === 1 ? "חודש" : "חודשים"}`);
 
   // KPI: יחס מההכנסות
   const ratio = incomeThisYear > 0 ? Math.round(totalThisYear / incomeThisYear * 100) : 0;
   setText("exp-kpi-ratio", `${ratio}%`);
-  setText("exp-kpi-ratio-hint", incomeThisYear > 0 ? `מכל ₪100 שנאספו → ₪${ratio} הוצאות` : "אין הכנסות רשומות");
+  setText("exp-kpi-ratio-hint", incomeThisYear > 0 ? `מכל ₪100 שנאספו (כולל פורים) → ₪${ratio} הוצאות` : "אין הכנסות רשומות");
 
   if (typeof Chart === "undefined") return;
 
@@ -3071,6 +3565,21 @@ function renderExpensesKpisAndCharts() {
       }
     });
   }
+}
+
+// בשנה שעדיין רצה - מחלקים במספר החודשים שעברו מתחילתה (תשרי), ולא ב-12
+function getMonthsForAverage(year) {
+  const current = getCurrentHebrewYearLabel();
+  if (!current || year !== current) return 12;
+  const today = new Date();
+  const p = getHebrewDateParts(today);
+  let days = 0;
+  for (let d = new Date(today); days < 400; days++) {
+    d = new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1);
+    const pp = getHebrewDateParts(d);
+    if (!pp || pp.year !== p.year) break;
+  }
+  return Math.min(12, Math.max(1, Math.ceil((days + 1) / 29.53)));
 }
 
 function renderExpensesSummaryTable() {
@@ -3167,22 +3676,6 @@ window.toggleExpenseYears = function() {
     renderExpensesSummaryTable();
 }
 
-function renderEligibilityTable() {
-  const tbody = document.getElementById("eligibility-table-body"); if (!tbody) return;
-  const rows = applyGlobalSearch(getMemberSummaries());
-  if (rows.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><span class="material-icons-regular">rule</span><p>אין נתונים לבדיקת זכאות</p></div></td></tr>`;
-    return;
-  }
-  tbody.innerHTML = "";
-  rows.forEach((row) => { 
-    const req = row.totalRequiredThisYear; const col = row.collectedThisYear;
-    let percent = req > 0 ? Math.floor((col / req) * 100) : 100; if (percent > 100) percent = 100;
-    const progressHtml = `<div style="display:flex; align-items:center; gap:8px;"><div style="width:60px; height:6px; background:#e2e8f0; border-radius:3px; overflow:hidden;"><div style="width:${percent}%; height:100%; background:${percent === 100 ? 'var(--success)' : 'var(--gold-main)'};"></div></div><span style="font-size:11px; color:var(--text-secondary);">${percent}%</span></div>`;
-    const tr = document.createElement("tr"); 
-    tr.innerHTML = `<td>${escapeHtml(row.fullName)}</td><td class="amount-cell">${escapeHtml(formatCurrency(row.currentYearTarget))}</td><td class="amount-cell" style="font-weight:bold;">${escapeHtml(formatCurrency(row.totalRequiredThisYear))}</td><td class="amount-cell" style="color: var(--success); font-weight:bold;">${escapeHtml(formatCurrency(row.collectedThisYear))}</td><td>${progressHtml}</td><td>${renderStatusBadge(row.statusLabel, row.statusType)}</td>`; tbody.appendChild(tr); 
-  });
-}
 
 
 // ==========================================
@@ -3238,31 +3731,6 @@ const GRANTS_ARCHIVE = {
   ]
 };
 
-// מחירון מוצרים לפי האקסל: מחיר בחנות מול מחיר לארגון.
-const GRANTS_PRODUCTS_CONFIG = [
-  { store: "רויאל קולב", name: "חליפה 3 חלקים ביטנה מלאה", storePrice: 1375, orgPrice: 1031.25, price: 1031.25, qtyPerStudent: 1 },
-  { store: "רויאל קולב", name: "חליפה 3 חלקים חצי ביטנה", storePrice: 935, orgPrice: 654, price: 654, qtyPerStudent: 1 },
-  { store: "רויאל קולב", name: "בעקיטשע חלק ביטנה מלאה", storePrice: 1095, orgPrice: 821.25, price: 821.25, qtyPerStudent: 1 },
-  { store: "רויאל קולב", name: "בעקיטשע פירחוני ביטנה מלאה", storePrice: 850, orgPrice: 637.5, price: 637.5, qtyPerStudent: 2 },
-  { store: "רויאל קולב", name: "מכנס שחור פולייסטר", storePrice: 170, orgPrice: 127.5, price: 127.5, qtyPerStudent: 3 },
-  { store: "רויאל כללי", name: "חגורה יוקרתית מעור", storePrice: 59, orgPrice: 50.15, price: 50.15, qtyPerStudent: 1 },
-  { store: "רויאל כללי", name: "גרביים", storePrice: 13.9, orgPrice: 11.815, price: 11.815, qtyPerStudent: 9 },
-  { store: "רויאל כללי", name: "חולצות", storePrice: 135, orgPrice: 110, price: 110, qtyPerStudent: 8 },
-  { store: "רויאל כללי", name: "סוודר", storePrice: 110, orgPrice: 90, price: 90, qtyPerStudent: 1 },
-  { store: "רויאל כללי", name: "הלבשה אישית", storePrice: 64.9, orgPrice: 55.165, price: 55.165, qtyPerStudent: 4 },
-  { store: "רויאל כללי", name: "גופיות", storePrice: 30, orgPrice: 25.5, price: 25.5, qtyPerStudent: 8 },
-  { store: "רויאל כללי", name: "כיפות", storePrice: 24, orgPrice: 20.4, price: 20.4, qtyPerStudent: 2 },
-  { store: "רויאל כללי", name: "טלית קטן צמר", storePrice: 117, orgPrice: 99.45, price: 99.45, qtyPerStudent: 2 },
-  { store: "רויאל כללי", name: "פיגמה", storePrice: 85, orgPrice: 72.25, price: 72.25, qtyPerStudent: 1 },
-  { store: "סטייל שיך", name: "זיכוי נעלי יום חול", storePrice: 250, orgPrice: 212.5, price: 212.5, qtyPerStudent: 1 },
-  { store: "סטייל שיך", name: "זיכוי נעלי שבת", storePrice: 250, orgPrice: 212.5, price: 212.5, qtyPerStudent: 1 },
-  { store: "אווניו 13", name: "מגבת ידיים 50/90", storePrice: 33, orgPrice: 28.05, price: 28.05, qtyPerStudent: 4 },
-  { store: "אווניו 13", name: "מגבת רחצה 90/130", storePrice: 66, orgPrice: 56.1, price: 56.1, qtyPerStudent: 4 },
-  { store: "אווניו 13", name: "מגבת מטבח", storePrice: 16, orgPrice: 13.6, price: 13.6, qtyPerStudent: 4 },
-  { store: "אווניו 13", name: "זיכוי לקניית מצעים", storePrice: 400, orgPrice: 340, price: 340, qtyPerStudent: 0 },
-  { store: "סאפרים", name: "כובע חסידי", storePrice: 1500, orgPrice: 1450, price: 1450, qtyPerStudent: 1 }
-];
-
 function renderGrantsLists() {
   renderGrantsArchive();
 }
@@ -3291,13 +3759,16 @@ function getGrantPackageTotal(packageGroups) {
   }, 0);
 }
 
+// כמות של פריט בחבילה: כמות 0 היא באמת 0 (פריט שלא ניתן); רק כמות חסרה נחשבת 1
+function pkgQty(item) {
+  const q = item ? item.qty : undefined;
+  return (q === undefined || q === null || q === "") ? 1 : (Number(q) || 0);
+}
+
 // שווי אמיתי לחתן (מחיר מלא בחנות, לפני הנחה) - זה המספר שצריך להיות מודגש בעיני הצדקה
 function getGrantPackageRetailTotal(packageGroups) {
   return (packageGroups || []).reduce((sum, group) => {
-    return sum + (group.items || []).reduce((inner, item) => {
-      const qty = Number(item.qty) || 1;
-      return inner + (Number(item.storePrice) || 0) * qty;
-    }, 0);
+    return sum + (group.items || []).reduce((inner, item) => inner + (Number(item.storePrice) || 0) * pkgQty(item), 0);
   }, 0);
 }
 
@@ -3306,21 +3777,6 @@ function getGrantPerGroomValue(archive, year) {
   const explicit = Number(yearData.perGroomValue || archive.perGroomValue || 0);
   if (explicit > 0) return explicit;
   return getGrantPackageTotal(getGrantPackageForYear(archive, year));
-}
-
-function getGrantPaymentProductsForYear(archive, year) {
-  const yearData = archive.years && archive.years[year] ? archive.years[year] : {};
-  const source = Array.isArray(yearData.paymentProducts)
-    ? yearData.paymentProducts
-    : (Array.isArray(archive.paymentProducts) ? archive.paymentProducts : GRANTS_PRODUCTS_CONFIG);
-
-  return source.map((item) => ({
-    store: item.store || "ללא חנות",
-    name: item.name || "",
-    qtyPerStudent: Number(item.qtyPerStudent || item.qty || 0),
-    storePrice: Number(item.storePrice || item.retailPrice || 0),
-    orgPrice: Number(item.orgPrice || item.price || item.value || 0)
-  }));
 }
 
 function getGrantPaymentsForYear(archive, year) {
@@ -3359,7 +3815,7 @@ function mergeGrantsArchiveDefaults(savedArchive) {
 window.exportGrantsToExcel = function() {
   const year = (state.grantsArchiveYear || "").replace(/"/g, "");
   if (state.grantsActiveView === "payments") {
-    exportToCSV("grants-payments-tbody", `תשלומים_חנויות_${year}`);
+    exportToCSV("store-bills-tbody", `תשלומים_חנויות_${year}_מחצית_${state.billsHalf || "א"}`);
     return;
   }
   exportToCSV("grants-archive-recipients-tbody", `מקבלי_מענק_${year}`);
@@ -3386,8 +3842,8 @@ window.switchGrantsView = function(view) {
 
 function formatArchiveDate(dateStr) {
   if (!dateStr) return "—";
-  const d = new Date(dateStr);
-  if (Number.isNaN(d.getTime())) return escapeHtml(dateStr);
+  const d = parseAppDate(dateStr);
+  if (!d) return escapeHtml(dateStr);
   return d.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
@@ -3417,9 +3873,7 @@ function renderGrantsArchive() {
   const packageGroups = getGrantPackageForYear(archive, activeYear);
   const perGroomRetail = getGrantPackageRetailTotal(packageGroups); // שווי אמיתי (מחיר מלא) - זה מה שמודגש
   const totalYearValue = perGroomRetail * recipientsCount; // שווי המענקים שניתנו השנה, בסך הכל
-  const products = getGrantPaymentProductsForYear(archive, activeYear);
   const payments = getGrantPaymentsForYear(archive, activeYear);
-  const paymentsTotal = payments.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
 
   // --- בורר שנה (קומפקטי, בתוך הטולבר) ---
   const yearSelectEl = document.getElementById("grants-year-select");
@@ -3473,6 +3927,7 @@ function renderGrantsArchive() {
           <td style="direction:ltr; text-align:right;">${r.id ? escapeHtml(r.id) : "—"}</td>
           <td style="direction:ltr; text-align:right;">${r.phone ? escapeHtml(r.phone) : "—"}</td>
           <td>${formatArchiveDate(r.date)}</td>
+          <td class="no-export" style="text-align:center;"><button class="grants-archive-del grants-archive-edit" title="עריכה" onclick="editGrantsArchiveRecipient(${i})"><span class="material-icons-regular">edit</span></button></td>
           <td class="no-export" style="text-align:center;"><button class="grants-archive-del" title="הסר" onclick="removeGrantsArchiveRecipient(${i})"><span class="material-icons-regular">close</span></button></td>
         </tr>`).join("");
     }
@@ -3491,13 +3946,15 @@ function renderGrantsArchive() {
 
   const pkgEl = document.getElementById("grants-archive-package");
   if (pkgEl) {
+    const givingGrid = document.querySelector(".grants-giving-grid");
+    if (givingGrid) givingGrid.classList.toggle("is-editing-package", !!state.grantsPackageEditMode);
     if (state.grantsPackageEditMode) {
       pkgEl.innerHTML = renderGrantsPackageEditorHtml(state.grantsPackageDraft || []);
     } else {
       pkgEl.innerHTML = packageGroups.length ? packageGroups.map(group => {
         const items = group.items || [];
         const groupOrgTotal = items.reduce((s, it) => s + (Number(it.value) || 0), 0);
-        const groupRetailTotal = items.reduce((s, it) => s + (Number(it.storePrice) || 0) * (Number(it.qty) || 1), 0);
+        const groupRetailTotal = items.reduce((s, it) => s + (Number(it.storePrice) || 0) * pkgQty(it), 0);
         return `
           <div class="grants-pkg-group">
             <div class="grants-pkg-group-head">
@@ -3511,7 +3968,7 @@ function renderGrantsArchive() {
               <div class="grants-pkg-item">
                 <span>${escapeHtml(it.name)}${it.qty > 1 ? ` <em>×${it.qty}</em>` : ""}</span>
                 <span class="grants-pkg-prices">
-                  <strong>שווי ${formatCurrency((Number(it.storePrice) || 0) * (Number(it.qty) || 1))}</strong>
+                  <strong>שווי ${formatCurrency((Number(it.storePrice) || 0) * pkgQty(it))}</strong>
                   <small>עלות לארגון ${formatCurrency(it.value != null ? it.value : it.orgPrice)}</small>
                 </span>
               </div>`).join("")}
@@ -3520,36 +3977,31 @@ function renderGrantsArchive() {
     }
   }
 
-  // --- תשלומים בפועל לפי חנות ---
+  // --- תשלומים לחנויות לפי מחצית ---
+  renderStoreBills(archive, activeYear);
+
+  // --- תשלומים ישנים (לפני החלוקה למחציות) ---
+  // רק תשלומים שעוד לא שויכו למחצית (המשויכים מופיעים בטבלת המחצית)
+  const unassigned = payments.filter(p => !getLegacyPaymentHalf(archive, activeYear, p));
+  const unassignedTotal = unassigned.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+  const legacyPanel = document.getElementById("legacy-payments-panel");
+  if (legacyPanel) legacyPanel.classList.toggle("hidden", !unassigned.length);
+  setText("legacy-payments-year-label", `· ${activeYear}`);
+  const canEditLegacy = canEditUser();
   const paymentsTbody = document.getElementById("grants-payments-tbody");
   if (paymentsTbody) {
-    paymentsTbody.innerHTML = payments.length ? payments.map(payment => `
+    paymentsTbody.innerHTML = unassigned.map(payment => `
       <tr>
         <td style="font-weight:700;">${escapeHtml(payment.store || "—")}</td>
         <td>${escapeHtml(payment.date || "—")}</td>
         <td>${escapeHtml(payment.description || "—")}</td>
         <td>${escapeHtml(payment.method || "—")}</td>
         <td class="amount-cell" style="font-weight:800;">${formatCurrency(payment.amount)}</td>
-      </tr>`).join("") : `<tr><td colspan="5"><div class="empty-state">אין עדיין תשלומים בפועל בשנה זו</div></td></tr>`;
+        <td class="no-export">${canEditLegacy ? `<button type="button" class="btn btn-outline bill-row-btn" onclick="openLegacyAssign('${escapeHtml(dashboardJsString(legacyPaymentKey(payment)))}')">שייך למחצית</button>` : ""}</td>
+      </tr>`).join("");
   }
   const paymentsTotalEl = document.getElementById("grants-payments-total");
-  if (paymentsTotalEl) {
-    paymentsTotalEl.textContent = formatCurrency(paymentsTotal);
-  }
-
-  const productsTbody = document.getElementById("grants-payment-products-tbody");
-  if (productsTbody) {
-    productsTbody.innerHTML = products.length ? products.map((prod) => {
-      return `
-        <tr>
-          <td style="font-weight:700;">${escapeHtml(prod.store)}</td>
-          <td>${escapeHtml(prod.name)}</td>
-          <td style="text-align:center; font-weight:800;">${(Number(prod.qtyPerStudent) || 0).toLocaleString("he-IL")}</td>
-          <td class="amount-cell">${formatCurrency(prod.storePrice)}</td>
-          <td class="amount-cell" style="font-weight:800;">${formatCurrency(prod.orgPrice)}</td>
-        </tr>`;
-    }).join("") : `<tr><td colspan="5"><div class="empty-state">אין עדיין פירוט מוצרים לשנה זו</div></td></tr>`;
-  }
+  if (paymentsTotalEl) paymentsTotalEl.textContent = formatCurrency(unassignedTotal);
 }
 
 // ==========================================
@@ -3558,15 +4010,17 @@ function renderGrantsArchive() {
 function renderGrantsPackageEditorHtml(groups) {
   const groupsHtml = (groups || []).map((group, gIdx) => `
     <div class="grants-pkg-group grants-pkg-group--editing">
+      <div class="grants-pkg-edit-labels grants-pkg-edit-labels--group"><span>שם החנות</span><span>הנחה</span><span></span></div>
       <div class="grants-pkg-group-head-edit">
         <input type="text" class="ui-input" value="${escapeHtml(group.store || "")}" placeholder="שם חנות" oninput="updateGrantsPkgGroupField(${gIdx},'store',this.value)">
         <input type="text" class="ui-input" value="${escapeHtml(group.discount || "")}" placeholder="הנחה (למשל 15%)" oninput="updateGrantsPkgGroupField(${gIdx},'discount',this.value)">
         <button class="grants-archive-del" title="הסר חנות" onclick="removeGrantsPkgGroup(${gIdx})"><span class="material-icons-regular">close</span></button>
       </div>
+      ${(group.items || []).length ? `<div class="grants-pkg-edit-labels"><span>מוצר</span><span>כמות לחתן</span><span>מחיר בחנות</span><span>עלות לארגון (ליחידה)</span><span></span></div>` : ""}
       ${(group.items || []).map((it, iIdx) => `
         <div class="grants-pkg-item-edit">
           <input type="text" class="ui-input" value="${escapeHtml(it.name || "")}" placeholder="שם מוצר" oninput="updateGrantsPkgItemField(${gIdx},${iIdx},'name',this.value)">
-          <input type="number" class="ui-input" value="${Number(it.qty) || 0}" placeholder="כמות" min="0" oninput="updateGrantsPkgItemField(${gIdx},${iIdx},'qty',this.value)">
+          <input type="number" class="ui-input" value="${pkgQty(it)}" placeholder="כמות" min="0" oninput="updateGrantsPkgItemField(${gIdx},${iIdx},'qty',this.value)">
           <input type="number" class="ui-input" value="${Number(it.storePrice) || 0}" placeholder="מחיר בחנות" min="0" step="0.01" oninput="updateGrantsPkgItemField(${gIdx},${iIdx},'storePrice',this.value)">
           <input type="number" class="ui-input" value="${Number(it.orgPrice != null ? it.orgPrice : (it.value || 0))}" placeholder="עלות לארגון" min="0" step="0.01" oninput="updateGrantsPkgItemField(${gIdx},${iIdx},'orgPrice',this.value)">
           <button class="grants-archive-del" title="הסר מוצר" onclick="removeGrantsPkgItem(${gIdx},${iIdx})"><span class="material-icons-regular">close</span></button>
@@ -3596,16 +4050,18 @@ window.cancelGrantsPackageEdit = function() {
 };
 
 function saveGrantsPackageEdit() {
-  const archive = ensureEditableArchive();
   const year = state.grantsArchiveYear;
-  if (!archive.years[year]) archive.years[year] = { recipients: [] };
-  archive.years[year].package = state.grantsPackageDraft || [];
+  const draft = JSON.parse(JSON.stringify(state.grantsPackageDraft || []));
+  draft.forEach(group => (group.items || []).forEach(item => { item.value = (Number(item.orgPrice) || 0) * pkgQty(item); }));
   state.grantsPackageEditMode = false;
   state.grantsPackageDraft = null;
-  saveState();
-  syncGrantsArchiveToServer();
+  const p = mutateGrantsArchive(archive => {
+    if (!archive.years[year]) archive.years[year] = { recipients: [] };
+    archive.years[year].package = JSON.parse(JSON.stringify(draft));
+  });
   renderGrantsArchive();
-  showToast("✅ תכולת המענק נשמרה");
+  renderDashboard();
+  p.then(saved => { reportSave(saved, "✅ תכולת המענק נשמרה"); logAudit("update", "grant-package", year, { stores: draft.length }); });
 }
 
 window.updateGrantsPkgGroupField = function(gIdx, field, value) {
@@ -3666,81 +4122,81 @@ window.toggleGrantsAddForm = function(show) {
   if (!form) return;
   const willShow = (show === undefined) ? form.classList.contains("hidden") : show;
   form.classList.toggle("hidden", !willShow);
+  if (!willShow) resetGrantsAddForm();
   if (willShow) {
     const nameEl = document.getElementById("grants-add-name");
     if (nameEl) nameEl.focus();
   }
 };
 
-window.submitGrantPayment = function() {
-  const store = (document.getElementById("grants-payment-store")?.value || "").trim();
-  const date = (document.getElementById("grants-payment-date")?.value || "").trim();
-  const description = (document.getElementById("grants-payment-description")?.value || "").trim();
-  const method = (document.getElementById("grants-payment-method")?.value || "").trim();
-  const amountRaw = (document.getElementById("grants-payment-amount")?.value || "").trim();
-  const amount = Number(amountRaw);
+// זהות קבועה לחתן ברשימה: מזהה פנימי אם יש, ואחרת התוכן עצמו (לרשומות ישנות)
+function sameRecipient(a, b) {
+  if (a.rid && b.rid) return a.rid === b.rid;
+  return (a.name || "") === (b.name || "") && (a.id || "") === (b.id || "") && (a.phone || "") === (b.phone || "") && (a.date || "") === (b.date || "");
+}
 
-  if (!store || !amountRaw || !Number.isFinite(amount) || amount <= 0) {
-    showToast("יש להזין חנות וסכום תשלום תקין", "danger");
-    return;
-  }
+function readGrantsAddForm() {
+  return {
+    name: (document.getElementById("grants-add-name")?.value || "").trim(),
+    id: (document.getElementById("grants-add-id")?.value || "").trim(),
+    phone: (document.getElementById("grants-add-phone")?.value || "").trim(),
+    date: (document.getElementById("grants-add-date")?.value || "").trim(),
+  };
+}
 
-  const archive = ensureEditableArchive();
-  const year = state.grantsArchiveYear || getCampaignYear();
-  if (!archive.years[year]) archive.years[year] = { recipients: [] };
-  if (!Array.isArray(archive.years[year].payments)) archive.years[year].payments = [];
-
-  archive.years[year].payments.push({
-    store,
-    date,
-    description: description || "תשלום בפועל",
-    method,
-    amount
-  });
-
-  saveState();
-  ["grants-payment-store", "grants-payment-date", "grants-payment-description", "grants-payment-method", "grants-payment-amount"].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.value = "";
-  });
-  renderGrantsArchive();
-  renderDashboard();
-  showToast("התשלום נוסף");
-};
-
-function syncGrantsArchiveToServer() {
-  if (window.SB && SB.isLoggedIn()) SB.saveGrantsArchive(state.grantsArchive).catch(() => showToast("⚠️ נשמר מקומית אך לא הסתנכרן לשרת", "warning"));
+function resetGrantsAddForm() {
+  ["grants-add-name", "grants-add-id", "grants-add-phone", "grants-add-date", "grants-edit-rid"].forEach(elId => { const el = document.getElementById(elId); if (el) el.value = ""; });
+  const btn = document.getElementById("grants-add-submit");
+  if (btn) btn.innerHTML = `<span class="material-icons-regular" style="font-size:15px;vertical-align:middle;">check</span> הוסף`;
+  state.grantsEditingRecipient = null;
 }
 
 window.submitGrantsAddRecipient = function() {
-  const name = (document.getElementById("grants-add-name")?.value || "").trim();
-  const id = (document.getElementById("grants-add-id")?.value || "").trim();
-  const phone = (document.getElementById("grants-add-phone")?.value || "").trim();
-  const date = (document.getElementById("grants-add-date")?.value || "").trim();
-
-  if (!name && !id) {
+  const f = readGrantsAddForm();
+  if (!f.name && !f.id) {
     showToast("יש להזין לפחות שם או תעודת זהות", "danger");
     return;
   }
-
-  const archive = ensureEditableArchive();
   const year = state.grantsArchiveYear;
-  if (!archive.years[year]) archive.years[year] = { recipients: [] };
-  if (!Array.isArray(archive.years[year].recipients)) archive.years[year].recipients = [];
-
   const rec = {};
-  if (name) rec.name = name;
-  if (id) rec.id = id;
-  if (phone) rec.phone = phone;
-  if (date) rec.date = date;
-  archive.years[year].recipients.push(rec);
+  if (f.name) rec.name = f.name;
+  if (f.id) rec.id = f.id;
+  if (f.phone) rec.phone = f.phone;
+  if (f.date) rec.date = f.date;
+  const editing = state.grantsEditingRecipient;
+  rec.rid = (editing && editing.rid) || generateId("R");
 
-  saveState();
-  syncGrantsArchiveToServer();
-  ["grants-add-name", "grants-add-id", "grants-add-phone", "grants-add-date"].forEach(elId => { const el = document.getElementById(elId); if (el) el.value = ""; });
+  const p = mutateGrantsArchive(archive => {
+    if (!archive.years[year]) archive.years[year] = { recipients: [] };
+    if (!Array.isArray(archive.years[year].recipients)) archive.years[year].recipients = [];
+    const list = archive.years[year].recipients;
+    const idx = editing ? list.findIndex(r => sameRecipient(r, editing)) : -1;
+    if (idx !== -1) list[idx] = { ...rec };
+    else if (!list.some(r => r.rid === rec.rid)) list.push({ ...rec });
+  });
+  resetGrantsAddForm();
+  if (editing) toggleGrantsAddForm(false);
   renderGrantsArchive();
   renderDashboard();
-  showToast("✅ החתן נוסף לרשימת מקבלי המענק");
+  p.then(saved => {
+    reportSave(saved, editing ? "✅ פרטי החתן עודכנו" : "✅ החתן נוסף לרשימת מקבלי המענק");
+    logAudit(editing ? "update" : "create", "grant-recipient", rec.rid, { year, name: rec.name || "", id: rec.id || "" });
+  });
+};
+
+window.editGrantsArchiveRecipient = function(index) {
+  const archive = getGrantsArchive();
+  const year = state.grantsArchiveYear;
+  const r = archive.years[year] && archive.years[year].recipients && archive.years[year].recipients[index];
+  if (!r) return;
+  state.grantsEditingRecipient = JSON.parse(JSON.stringify(r));
+  toggleGrantsAddForm(true);
+  setValue("grants-add-name", r.name || "");
+  setValue("grants-add-id", r.id || "");
+  setValue("grants-add-phone", r.phone || "");
+  setValue("grants-add-date", toDateInputValue(r.date) || "");
+  const btn = document.getElementById("grants-add-submit");
+  if (btn) btn.innerHTML = `<span class="material-icons-regular" style="font-size:15px;vertical-align:middle;">save</span> שמור שינויים`;
 };
 
 window.removeGrantsArchiveRecipient = function(index) {
@@ -3748,34 +4204,39 @@ window.removeGrantsArchiveRecipient = function(index) {
   const year = state.grantsArchiveYear;
   const list = archive.years[year] && archive.years[year].recipients;
   if (!list || !list[index]) return;
-  const label = list[index].name || list[index].id || "רשומה זו";
+  const target = JSON.parse(JSON.stringify(list[index]));
+  const label = target.name || target.id || "רשומה זו";
   if (!confirm(`להסיר את ${label} מרשימת מקבלי המענק לשנת ${year}?`)) return;
-  ensureEditableArchive().years[year].recipients.splice(index, 1);
-  saveState();
-  syncGrantsArchiveToServer();
+  const p = mutateGrantsArchive(a => {
+    const l = a.years[year] && a.years[year].recipients;
+    if (!l) return;
+    const i = l.findIndex(r => sameRecipient(r, target));
+    if (i !== -1) l.splice(i, 1);
+  });
   renderGrantsArchive();
   renderDashboard();
-  showToast("הרשומה הוסרה");
+  p.then(saved => { reportSave(saved, "הרשומה הוסרה"); logAudit("delete", "grant-recipient", target.rid || target.id || "", { year, name: target.name || "", id: target.id || "" }); });
 };
 
 window.addGrantsArchiveYear = function() {
   const archive = getGrantsArchive();
   const existing = Object.keys(archive.years);
-  const options = (typeof HEBREW_YEARS_ORDER !== "undefined" ? HEBREW_YEARS_ORDER : []).filter(y => !existing.includes(y));
-  const promptText = `הזן את שם השנה החדשה (לדוגמה: תשפ"ז)${options.length ? "\nשנים פנויות: " + options.join(", ") : ""}`;
-  const input = prompt(promptText, options[options.length - 1] || "");
+  // הצעה: השנה העברית הנוכחית, ואם כבר קיימת - השנה שאחרי האחרונה ברשימה
+  const latestIdx = Math.max(-1, ...existing.map(y => HEBREW_YEARS_ORDER.indexOf(y)));
+  const options = HEBREW_YEARS_ORDER.filter((y, i) => i > latestIdx && !existing.includes(y)).slice(0, 3);
+  const current = getCurrentHebrewYearLabel();
+  const suggested = current && !existing.includes(current) ? current : (options[0] || "");
+  const promptText = `הזן את שם השנה החדשה (לדוגמה: ${suggested || 'תשפ"ז'})${options.length ? "\nהשנים הבאות: " + options.join(", ") : ""}`;
+  const input = prompt(promptText, suggested);
   if (input === null) return;
   const year = input.trim();
   if (!year) return;
-  const edit = ensureEditableArchive();
-  if (edit.years[year]) { state.grantsArchiveYear = year; renderGrantsArchive(); showToast("השנה כבר קיימת - עברת אליה", "danger"); return; }
-  edit.years[year] = { recipients: [] };
+  if (getGrantsArchive().years[year]) { state.grantsArchiveYear = year; renderGrantsArchive(); showToast("השנה כבר קיימת - עברת אליה", "danger"); return; }
   state.grantsArchiveYear = year;
-  saveState();
-  syncGrantsArchiveToServer();
+  const p = mutateGrantsArchive(a => { if (!a.years[year]) a.years[year] = { recipients: [] }; });
   renderGrantsArchive();
   toggleGrantsAddForm(true);
-  showToast(`נוספה שנת ${year} - הוסף כעת מקבלי מענק`);
+  p.then(saved => { reportSave(saved, `נוספה שנת ${year} - הוסף כעת מקבלי מענק`); logAudit("create", "grant-year", year); });
 };
 
 window.exportGrantsArchiveRecipients = function() {
@@ -3783,24 +4244,375 @@ window.exportGrantsArchiveRecipients = function() {
 };
 
 
-// עיצוב משופר לתגיות הסטטוס מבוסס משתני השקיפות
-function renderStatusBadge(label, type) {
-    return `<span style="background: rgba(var(--${type}-rgb), 0.1); color: var(--${type}); padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 800; border: 1px solid rgba(var(--${type}-rgb), 0.2);">${escapeHtml(label)}</span>`;
+// ==========================================
+// תשלומים לחנויות לפי מחצית (מחצית א' = תשרי–אדר, מחצית ב' = ניסן–אלול)
+// לכל חנות: סכום לתשלום לפי הקבלות, אישור ששולם, וקבלה סרוקה.
+// ==========================================
+state.billsHalf = state.billsHalf || "א";
+
+window.switchBillsHalf = function(half) {
+  state.billsHalf = half === "ב" ? "ב" : "א";
+  document.querySelectorAll("#bills-half-toggle .grants-view-btn").forEach(b => b.classList.toggle("active", b.dataset.half === state.billsHalf));
+  renderStoreBills(getGrantsArchive(), state.grantsArchiveYear);
+};
+
+function getStoreBills(archive, year) {
+  const y = archive.years && archive.years[year];
+  return (y && Array.isArray(y.storeBills)) ? y.storeBills : [];
 }
 
+// ===== תשלומים מהשיטה הקודמת: שיוך למחצית =====
+// תשלום שנרשם באדר שייך למחצית א' (תשרי-אדר), ותשלום באלול למחצית ב' (ניסן-אלול).
+// אפשר לשנות ידנית בכפתור "שיוך"; הבחירה נשמרת ב-years[year].legacyHalves
+function legacyPaymentKey(p) {
+  return [p.store, p.date, p.amount, p.description].map(x => String(x == null ? "" : x).trim()).join("|");
+}
+
+function guessLegacyPaymentHalf(p, year) {
+  const text = String(p.date || "").trim();
+  if (!text) return null;
+  const yearInText = (text.match(/תש[א-ת]*["״][א-ת]/) || [])[0];
+  if (yearInText && yearInText.replace("״", '"') !== year) return null;
+  if (/אדר/.test(text)) return "א";
+  if (/אלול/.test(text)) return "ב";
+  const d = parseAppDate(text);
+  const parts = d ? getHebrewDateParts(d) : null;
+  if (!parts || parts.year !== hebrewYearLabelToNumber(year)) return null;
+  if (/^Adar/.test(parts.month)) return "א";
+  if (parts.month === "Elul") return "ב";
+  return null;
+}
+
+function getLegacyPaymentHalf(archive, year, p) {
+  const saved = (archive.years && archive.years[year] && archive.years[year].legacyHalves) || {};
+  const choice = saved[legacyPaymentKey(p)];
+  if (choice === "א" || choice === "ב") return choice;
+  if (choice === "none") return null;
+  return guessLegacyPaymentHalf(p, year);
+}
+
+// שם החנות בתשלום הישן לפי שם החנות בחבילה ("אווניו 13 ביתר" -> "אווניו 13")
+function matchLegacyStoreName(name, storeNames) {
+  const n = String(name || "").trim();
+  if (storeNames.includes(n)) return n;
+  const hits = storeNames.filter(s => s && (n.startsWith(s) || s.startsWith(n)));
+  return hits.sort((a, b) => b.length - a.length)[0] || n;
+}
+
+function getLegacyBillsForHalf(archive, year, half, storeNames) {
+  return getGrantPaymentsForYear(archive, year)
+    .filter(p => getLegacyPaymentHalf(archive, year, p) === half)
+    .map(p => ({ legacy: true, key: legacyPaymentKey(p), store: matchLegacyStoreName(p.store, storeNames), originalStore: p.store,
+      amount: Number(p.amount) || 0, reference: p.description || "", paid: true, legacyDate: p.date || "", method: p.method || "" }));
+}
+
+window.openLegacyAssign = function(key) {
+  if (!canEditUser()) { showToast("אין לך הרשאת עריכה", "warning"); return; }
+  const archive = getGrantsArchive();
+  const year = state.grantsArchiveYear;
+  const p = getGrantPaymentsForYear(archive, year).find(x => legacyPaymentKey(x) === key);
+  if (!p) return;
+  state.legacyAssignKey = key;
+  setText("legacy-assign-desc", `${p.store || ""} · ${p.date || ""} · ${formatCurrency(p.amount)}${p.description ? ` · ${p.description}` : ""}`);
+  const current = getLegacyPaymentHalf(archive, year, p);
+  document.querySelectorAll("#legacy-assign-modal [data-half]").forEach(b => b.classList.toggle("active", (b.dataset.half === "none" ? null : b.dataset.half) === current));
+  document.getElementById("legacy-assign-modal").classList.add("open");
+};
+
+window.closeLegacyAssign = function() { document.getElementById("legacy-assign-modal").classList.remove("open"); };
+
+window.saveLegacyAssign = function(choice) {
+  const key = state.legacyAssignKey;
+  const year = state.grantsArchiveYear;
+  if (!key || !year) return;
+  closeLegacyAssign();
+  const p = mutateGrantsArchive(a => {
+    if (!a.years[year]) a.years[year] = { recipients: [] };
+    a.years[year].legacyHalves = { ...(a.years[year].legacyHalves || {}), [key]: choice };
+  });
+  if (choice === "א" || choice === "ב") { state.billsHalf = choice; }
+  renderGrantsArchive();
+  const label = choice === "none" ? "הרשומה חזרה לרשימת התשלומים הישנים" : `התשלום שויך למחצית ${choice}'`;
+  p.then(saved => { reportSave(saved, label); logAudit("update", "store-bill", key, { שנה: year, שיוך: choice === "none" ? "ללא" : `מחצית ${choice}` }); });
+};
+
+// עלות לארגון לחתן בכל חנות, לפי תכולת החבילה של השנה
+function getStoreCostPerGroom(archive, year) {
+  const map = {};
+  getGrantPackageForYear(archive, year).forEach(group => {
+    const store = String(group.store || "").trim();
+    if (!store) return;
+    const cost = (group.items || []).reduce((sum, it) => sum + (it.value != null ? Number(it.value) || 0 : (Number(it.orgPrice) || 0) * pkgQty(it)), 0);
+    map[store] = (map[store] || 0) + cost;
+  });
+  return map;
+}
+
+// כמה חתנים קיבלו מענק בכל מחצית של השנה (לפי התאריך שלהם)
+function countGroomsByHalf(archive, year) {
+  const yearNum = hebrewYearLabelToNumber(year);
+  const counts = { "א": 0, "ב": 0, none: 0 };
+  ((archive.years[year] && archive.years[year].recipients) || []).forEach(r => {
+    const d = parseAppDate(r.date);
+    const parts = d ? getHebrewDateParts(d) : null;
+    if (!d || !parts || (yearNum && parts.year !== yearNum)) { counts.none++; return; }
+    counts[getHalfForDate(d)]++;
+  });
+  return counts;
+}
+
+function renderStoreBills(archive, year) {
+  const tbody = document.getElementById("store-bills-tbody");
+  if (!tbody || !year) return;
+  const half = state.billsHalf || "א";
+  document.querySelectorAll("#bills-half-toggle .grants-view-btn").forEach(b => b.classList.toggle("active", b.dataset.half === half));
+  const costPerGroom = getStoreCostPerGroom(archive, year);
+  const bills = [...getStoreBills(archive, year).filter(b => b.half === half), ...getLegacyBillsForHalf(archive, year, half, Object.keys(costPerGroom))];
+  const grooms = countGroomsByHalf(archive, year);
+  const groomsInHalf = grooms[half];
+
+  // שורה לכל חנות מהחבילה, גם אם עוד לא הוזן לה חיוב במחצית הזו
+  const storeNames = [...new Set([...Object.keys(costPerGroom), ...bills.map(b => b.store)])];
+  const rows = [];
+  storeNames.forEach(store => {
+    const storeBills = bills.filter(b => b.store === store);
+    if (storeBills.length) storeBills.forEach((b, i) => rows.push({ store, bill: b, first: i === 0 }));
+    else rows.push({ store, bill: null, first: true });
+  });
+
+  const datalist = document.getElementById("store-names-datalist");
+  if (datalist) datalist.innerHTML = [...new Set([...storeNames, ...getStoreBills(archive, year).map(b => b.store)])].map(n => `<option value="${escapeHtml(n)}"></option>`).join("");
+
+  const canEdit = canEditUser();
+  tbody.innerHTML = rows.length ? rows.map(({ store, bill, first }) => {
+    const expected = first && costPerGroom[store] && groomsInHalf ? costPerGroom[store] * groomsInHalf : null;
+    const status = !bill
+      ? `<span class="bill-status bill-status--empty">טרם הוזן חיוב</span>`
+      : bill.legacy
+        ? `<span class="bill-status bill-status--paid">שולם · ${escapeHtml(bill.legacyDate || "")}${bill.method ? ` · ${escapeHtml(bill.method)}` : ""}</span><div class="bill-notes">נרשם בשיטה הקודמת${bill.originalStore && bill.originalStore !== bill.store ? ` (${escapeHtml(bill.originalStore)})` : ""}</div>`
+      : bill.paid
+        ? `<span class="bill-status bill-status--paid">שולם${bill.paidDate ? ` ב-${escapeHtml(formatDateDisplay(bill.paidDate))}` : ""}${bill.method ? ` · ${escapeHtml(bill.method)}` : ""}</span>`
+        : `<span class="bill-status bill-status--due">ממתין לתשלום</span>`;
+    const receipt = bill && bill.receipt && bill.receipt.path
+      ? `<button type="button" class="bill-receipt-link" onclick="viewStoreBillReceipt('${escapeHtml(dashboardJsString(bill.bid))}')"><span class="material-icons-regular">attach_file</span> צפייה</button>`
+      : `<span style="color:var(--text-muted);">—</span>`;
+    const action = !canEdit ? "" : bill && bill.legacy
+      ? `<button type="button" class="btn btn-outline bill-row-btn" onclick="openLegacyAssign('${escapeHtml(dashboardJsString(bill.key))}')">שיוך</button>`
+      : bill
+      ? `<button type="button" class="btn btn-outline bill-row-btn" onclick="openStoreBillModal('${escapeHtml(dashboardJsString(bill.bid))}')">עריכה</button>`
+      : `<button type="button" class="btn btn-outline bill-row-btn" onclick="openStoreBillModal(null, '${escapeHtml(dashboardJsString(store))}')">הזן חיוב</button>`;
+    return `<tr class="${bill && bill.paid ? "bill-row--paid" : ""}">
+      <td style="font-weight:700;">${escapeHtml(store)}</td>
+      <td class="amount-cell" style="color:var(--text-secondary);">${expected !== null ? formatCurrency(expected) : "—"}</td>
+      <td class="amount-cell" style="font-weight:800;">${bill ? formatCurrency(bill.amount) : "—"}</td>
+      <td>${bill && bill.reference ? escapeHtml(bill.reference) : "—"}</td>
+      <td>${status}${bill && bill.notes ? `<div class="bill-notes">${escapeHtml(bill.notes)}</div>` : ""}</td>
+      <td class="no-export">${receipt}</td>
+      <td class="no-export">${action}</td>
+    </tr>`;
+  }).join("") : `<tr><td colspan="7"><div class="empty-state" style="padding:28px 12px;">אין עדיין חנויות בתכולת המענק לשנה זו. אפשר להוסיף תשלום לחנות בכפתור למטה</div></td></tr>`;
+
+  const totalDue = bills.reduce((s, b) => s + (Number(b.amount) || 0), 0);
+  const totalPaid = bills.filter(b => b.paid).reduce((s, b) => s + (Number(b.amount) || 0), 0);
+  const totalExpected = Object.values(costPerGroom).reduce((s, c) => s + c, 0) * groomsInHalf;
+  const tfoot = document.getElementById("store-bills-tfoot");
+  if (tfoot) tfoot.innerHTML = `<tr class="table-total-row">
+      <td>סה"כ מחצית ${half}'</td>
+      <td class="amount-cell">${totalExpected ? formatCurrency(totalExpected) : "—"}</td>
+      <td class="amount-cell">${formatCurrency(totalDue)}</td>
+      <td></td>
+      <td>שולם ${formatCurrency(totalPaid)} · נשאר ${formatCurrency(Math.max(0, totalDue - totalPaid))}</td>
+      <td class="no-export"></td><td class="no-export"></td>
+    </tr>`;
+
+  const statsEl = document.getElementById("store-bills-stats");
+  if (statsEl) statsEl.innerHTML = [
+    { icon: "receipt_long", label: `לתשלום במחצית ${half}' (לפי קבלות)`, value: formatCurrency(totalDue), tone: "gold" },
+    { icon: "task_alt", label: "שולם", value: formatCurrency(totalPaid), tone: "success" },
+    { icon: "pending_actions", label: "נשאר לשלם", value: formatCurrency(Math.max(0, totalDue - totalPaid)), tone: "info" },
+  ].map(x => `<div class="grants-archive-stat ${x.tone}"><span class="material-icons-regular">${x.icon}</span><div><div class="grants-archive-stat-label">${x.label}</div><div class="grants-archive-stat-value">${x.value}</div></div></div>`).join("");
+
+  const foot = document.getElementById("store-bills-footnote");
+  if (foot) foot.textContent = `"צפי לפי חתנים" = ${groomsInHalf} חתנים שקיבלו מענק במחצית הזו × עלות החבילה בכל חנות. בפועל משלמים לפי הקבלות, ולכן הסכום בדרך כלל נמוך יותר (תלושים שלא מומשו).${grooms.none ? ` ${grooms.none} חתנים בלי תאריך בשנה הזו לא נכללו בצפי.` : ""}`;
+}
+
+let storeBillFileCleared = false;
+
+window.openStoreBillModal = function(billId, storeName = "") {
+  if (!canEditUser()) { showToast("אין לך הרשאת עריכה", "warning"); return; }
+  const archive = getGrantsArchive();
+  const year = state.grantsArchiveYear;
+  const bill = billId ? getStoreBills(archive, year).find(b => b.bid === billId) : null;
+  storeBillFileCleared = false;
+  setValue("store-bill-id", bill ? bill.bid : "");
+  setValue("store-bill-store", bill ? bill.store : storeName);
+  setValue("store-bill-half", bill ? bill.half : (state.billsHalf || "א"));
+  setValue("store-bill-amount", bill ? bill.amount : "");
+  setValue("store-bill-ref", bill ? (bill.reference || "") : "");
+  setValue("store-bill-notes", bill ? (bill.notes || "") : "");
+  const paid = document.getElementById("store-bill-paid");
+  if (paid) paid.checked = !!(bill && bill.paid);
+  setValue("store-bill-paid-date", bill && bill.paidDate ? toDateInputValue(bill.paidDate) : getTodayIsoDate());
+  setValue("store-bill-method", bill && bill.method ? bill.method : "העברה");
+  const file = document.getElementById("store-bill-file");
+  if (file) file.value = "";
+  renderStoreBillReceiptCurrent(bill);
+  updateStoreBillPaidFields();
+  setText("store-bill-title", bill ? `תשלום ל${bill.store} · ${year}` : `תשלום לחנות · ${year}`);
+  setText("store-bill-meta", bill && bill.updatedBy ? `עודכן ע"י ${bill.updatedBy}${bill.updatedAt ? ` ב-${formatDateDisplay(bill.updatedAt)}` : ""}` : "");
+  const del = document.getElementById("store-bill-delete");
+  if (del) del.style.display = bill ? "" : "none";
+  document.getElementById("store-bill-modal").classList.add("open");
+};
+
+window.closeStoreBillModal = function() { document.getElementById("store-bill-modal").classList.remove("open"); };
+
+function updateStoreBillPaidFields() {
+  const paid = document.getElementById("store-bill-paid");
+  const box = document.getElementById("store-bill-paid-fields");
+  if (box && paid) box.style.display = paid.checked ? "" : "none";
+}
+
+function renderStoreBillReceiptCurrent(bill) {
+  const el = document.getElementById("store-bill-receipt-current");
+  if (!el) return;
+  if (bill && bill.receipt && bill.receipt.path && !storeBillFileCleared) {
+    el.innerHTML = `<span class="material-icons-regular">attach_file</span> ${escapeHtml(bill.receipt.name || "קבלה")}
+      <button type="button" class="bill-receipt-link" onclick="viewStoreBillReceipt('${escapeHtml(dashboardJsString(bill.bid))}')">צפייה</button>
+      <button type="button" class="bill-receipt-link bill-receipt-remove" onclick="clearStoreBillReceipt()">הסר</button>`;
+  } else {
+    el.innerHTML = `<span style="color:var(--text-muted);">לא צורפה קבלה</span>`;
+  }
+}
+
+window.clearStoreBillReceipt = function() {
+  storeBillFileCleared = true;
+  const bid = getValue("store-bill-id");
+  renderStoreBillReceiptCurrent(getStoreBills(getGrantsArchive(), state.grantsArchiveYear).find(b => b.bid === bid));
+};
+
+window.viewStoreBillReceipt = async function(billId) {
+  const bill = getStoreBills(getGrantsArchive(), state.grantsArchiveYear).find(b => b.bid === billId);
+  if (!bill || !bill.receipt || !bill.receipt.path) return;
+  const win = window.open("", "_blank");
+  try {
+    const url = await SB.receiptUrl(bill.receipt.path);
+    if (win) win.location.href = url; else window.location.href = url;
+  } catch (e) {
+    if (win) win.close();
+    showToast(receiptErrorMessage(e), "danger");
+  }
+};
+
+function receiptErrorMessage(e) {
+  const msg = String((e && e.message) || "");
+  if (/Failed to fetch|NetworkError|Load failed/.test(msg)) return "אין חיבור לשרת. העלאה וצפייה בקבלות דורשות חיבור לאינטרנט";
+  if (e && (e.status === 400 || e.status === 403 || e.status === 404) && /bucket|Bucket|not found|policy/i.test(msg)) return "תיקיית הקבלות עוד לא הוגדרה בשרת. צריך להריץ פעם אחת את הקובץ supabase/security-update.sql ב-Supabase";
+  if (e && e.status === 413) return "הקובץ גדול מדי (עד 10MB)";
+  return `פעולת הקבלה נכשלה: ${msg || "שגיאה"}`;
+}
+
+window.saveStoreBill = async function() {
+  const year = state.grantsArchiveYear;
+  const bid = getValue("store-bill-id") || generateId("B");
+  const existing = getStoreBills(getGrantsArchive(), year).find(b => b.bid === bid) || null;
+  const store = getValue("store-bill-store").trim();
+  const amount = parseAmount(getValue("store-bill-amount"));
+  if (!store) { showToast("יש להזין שם חנות", "danger"); return; }
+  if (amount === null) { showToast("יש להזין סכום לתשלום גדול מ-0", "danger"); return; }
+  const paid = !!document.getElementById("store-bill-paid")?.checked;
+  const fileInput = document.getElementById("store-bill-file");
+  const file = fileInput && fileInput.files && fileInput.files[0];
+  if (file && file.size > 10 * 1024 * 1024) { showToast("הקובץ גדול מדי (עד 10MB)", "danger"); return; }
+
+  const saveBtn = document.getElementById("store-bill-save");
+  saveBtn.disabled = true; saveBtn.textContent = file ? "מעלה קבלה..." : "שומר...";
+  let receipt = existing && existing.receipt && !storeBillFileCleared ? existing.receipt : null;
+  const oldPath = existing && existing.receipt && existing.receipt.path;
+  try {
+    if (file) {
+      const ext = ((file.name.match(/\.([a-z0-9]{1,5})$/i) || [])[1] || "bin").toLowerCase();
+      const path = `bills/${bid.replace(/[^A-Za-z0-9-]/g, "")}-${Date.now()}.${ext}`;
+      await SB.uploadReceipt(path, file);
+      receipt = { path, name: file.name, size: file.size, uploadedAt: new Date().toISOString() };
+      logAudit("upload", "store-bill", bid, { store, file: file.name });
+    }
+  } catch (e) {
+    showToast(receiptErrorMessage(e), "danger");
+    saveBtn.disabled = false; saveBtn.textContent = "שמור";
+    return;
+  }
+
+  const bill = {
+    bid, store, half: getValue("store-bill-half") === "ב" ? "ב" : "א", amount,
+    reference: getValue("store-bill-ref").trim(), notes: getValue("store-bill-notes").trim(),
+    paid, paidDate: paid ? (getValue("store-bill-paid-date") || getTodayIsoDate()) : "", method: paid ? getValue("store-bill-method") : "",
+    receipt, createdAt: existing ? existing.createdAt : new Date().toISOString(), createdBy: existing ? existing.createdBy : (state.currentUser || ""),
+    updatedAt: new Date().toISOString(), updatedBy: state.currentUser || "",
+  };
+  const p = mutateGrantsArchive(archive => {
+    if (!archive.years[year]) archive.years[year] = { recipients: [] };
+    if (!Array.isArray(archive.years[year].storeBills)) archive.years[year].storeBills = [];
+    const list = archive.years[year].storeBills;
+    const i = list.findIndex(b => b.bid === bid);
+    if (i === -1) list.push({ ...bill }); else list[i] = { ...bill };
+  });
+  state.billsHalf = bill.half;
+  closeStoreBillModal();
+  renderGrantsArchive();
+  saveBtn.disabled = false; saveBtn.textContent = "שמור";
+  const saved = await p;
+  reportSave(saved, existing ? "✅ התשלום עודכן" : "✅ התשלום לחנות נשמר");
+  logAudit(existing ? "update" : "create", "store-bill", bid, { year, half: bill.half, store, amount, paid, reference: bill.reference });
+  if (existing && existing.paid !== paid && paid) logAudit("paid", "store-bill", bid, { store, amount, method: bill.method, date: bill.paidDate });
+  if (oldPath && (!receipt || receipt.path !== oldPath) && saved) SB.deleteReceipt(oldPath).catch(() => {});
+};
+
+window.deleteStoreBill = async function() {
+  const year = state.grantsArchiveYear;
+  const bid = getValue("store-bill-id");
+  const bill = getStoreBills(getGrantsArchive(), year).find(b => b.bid === bid);
+  if (!bill) return;
+  if (!confirm(`למחוק את התשלום ל${bill.store} על סך ${formatCurrency(bill.amount)}?`)) return;
+  const p = mutateGrantsArchive(archive => {
+    const list = archive.years[year] && archive.years[year].storeBills;
+    if (!list) return;
+    const i = list.findIndex(b => b.bid === bid);
+    if (i !== -1) list.splice(i, 1);
+  });
+  closeStoreBillModal();
+  renderGrantsArchive();
+  const saved = await p;
+  reportSave(saved, "התשלום נמחק");
+  logAudit("delete", "store-bill", bid, { year, store: bill.store, amount: bill.amount });
+  if (saved && bill.receipt && bill.receipt.path) SB.deleteReceipt(bill.receipt.path).catch(() => {});
+};
+
+
+
+// מפתח קבוע לכל קבוצת פורים, כדי שכפתורים יעבדו גם כשבשם העיר/הקבוצה יש גרש או גרשיים
+const purimGroupRegistry = new Map();
+function getPurimGroup(key) { return purimGroupRegistry.get(key) || null; }
+function getPurimRowsFor(city, group) {
+    return (state.purimAddresses || []).filter(row =>
+        String(row["עיר"] || "ללא עיר").trim() === city && String(row["קבוצה"] || "ללא שיוך").trim() === group);
+}
+function getPurimYearsToShow() {
+    const currentYear = getCampaignYear();
+    let currentIdx = HEBREW_YEARS_ORDER.indexOf(currentYear);
+    if (currentIdx === -1) currentIdx = HEBREW_YEARS_ORDER.indexOf('תשפ"ו');
+    const allYears = HEBREW_YEARS_ORDER.slice(Math.max(0, currentIdx - 7), currentIdx + 1);
+    return state.purimShowAllYears ? allYears : allYears.slice(-4);
+}
 
 function renderPurimGroups() {
     const container = document.getElementById("purim-tabs-container"); 
     if (!container) return;
     container.innerHTML = ""; 
+    purimGroupRegistry.clear();
 
     const currentYear = getCampaignYear();
-    
-    const allPossibleYears = ['תשע"ה', 'תשע"ו', 'תשע"ז', 'תשע"ח', 'תשע"ט', 'תש"פ', 'תשפ"א', 'תשפ"ב', 'תשפ"ג', 'תשפ"ד', 'תשפ"ה', 'תשפ"ו', 'תשפ"ז', 'תשפ"ח', 'תשפ"ט', 'תש"צ'];
-    let currentIdx = allPossibleYears.indexOf(currentYear);
-    if (currentIdx === -1) currentIdx = allPossibleYears.indexOf('תשפ"ו');
-    const allYears = allPossibleYears.slice(Math.max(0, currentIdx - 7), currentIdx + 1);
-    const yearsToShow = state.purimShowAllYears ? allYears : allYears.slice(-4);
+    const yearsToShow = getPurimYearsToShow();
 
     const citiesMap = state.purimAddresses.reduce((acc, row) => {
         const city = String(row["עיר"] || "ללא עיר").trim();
@@ -3811,10 +4623,13 @@ function renderPurimGroups() {
         return acc;
     }, {});
 
+    // שומרים על העיר והקבוצה שנבחרו גם אחרי רענון התצוגה
+    const active = state.purimActive || {};
+    const activeCity = citiesMap[active.city] ? active.city : Object.keys(citiesMap)[0];
+
     const citiesNav = document.createElement("div");
     citiesNav.className = "purim-cities-nav";
     citiesNav.style.cssText = "display: flex; align-items: center; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; overflow-x: auto;";
-
 
     const groupsNavContainer = document.createElement("div");
     groupsNavContainer.className = "purim-groups-nav-container";
@@ -3822,35 +4637,38 @@ function renderPurimGroups() {
     const contentContainer = document.createElement("div");
     contentContainer.className = "purim-content-container";
 
-    let isFirstCity = true;
+    let groupCounter = 0;
 
     for (const [cityName, groups] of Object.entries(citiesMap)) {
+        const isActiveCity = cityName === activeCity;
         const cityBtn = document.createElement("button");
-        cityBtn.className = `btn ${isFirstCity ? "btn-solid-blue" : "btn-outline"}`;
+        cityBtn.className = `btn ${isActiveCity ? "btn-solid-blue" : "btn-outline"}`;
         cityBtn.innerText = cityName;
 
         const groupNav = document.createElement("div");
         groupNav.className = "purim-groups-nav";
-        groupNav.style.cssText = `display: ${isFirstCity ? "flex" : "none"};`; // העיצוב ירש מה-CSS המשופר ל-flex
+        groupNav.style.cssText = `display: ${isActiveCity ? "flex" : "none"};`;
 
         const cityContent = document.createElement("div");
         cityContent.className = "purim-city-content";
-        cityContent.style.cssText = `display: ${isFirstCity ? "block" : "none"};`;
+        cityContent.style.cssText = `display: ${isActiveCity ? "block" : "none"};`;
 
-        let isFirstGroup = true;
+        const activeGroup = isActiveCity && groups[active.group] ? active.group : Object.keys(groups)[0];
 
         for (const [groupName, addresses] of Object.entries(groups)) {
+            const key = `pg${++groupCounter}`;
+            purimGroupRegistry.set(key, { city: cityName, group: groupName });
+            const isActiveGroup = groupName === activeGroup;
+
             const groupBtn = document.createElement("button");
-            groupBtn.className = `purim-tab-btn ${isFirstGroup ? "active" : ""}`;
+            groupBtn.className = `purim-tab-btn ${isActiveGroup ? "active" : ""}`;
             groupBtn.innerText = `${groupName} (${addresses.length})`; 
             
             const groupPane = document.createElement("div");
-            groupPane.className = `purim-tab-pane ${isFirstGroup ? "active" : ""}`;
-            
-            const citySafe = escapeHtml(cityName);
-            const groupSafe = escapeHtml(groupName);
+            groupPane.className = `purim-tab-pane ${isActiveGroup ? "active" : ""}`;
+            groupPane.dataset.groupKey = key;
 
-            // --- בניית אזור הסכומים (תצוגה בלבד - העריכה עברה להגדרות המערכת) ---
+            // --- אזור הסכומים (תצוגה בלבד - העריכה בהגדרות המערכת) ---
             let sumsInner = "";
             yearsToShow.forEach(y => {
                 const manualSum = (state.settings.purimManualSums && state.settings.purimManualSums[groupName] && state.settings.purimManualSums[groupName][y]) || "";
@@ -3862,20 +4680,26 @@ function renderPurimGroups() {
             });
 
             const topBar = `
-                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; background:var(--surface-light); padding:7px 12px; border-radius:8px; margin-bottom:10px; border:1px solid var(--border-color);">
+                <div class="purim-group-toolbar" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; background:var(--surface-light); padding:7px 12px; border-radius:8px; margin-bottom:10px; border:1px solid var(--border-color);">
                     <span style="font-size:11px; font-weight:700; color:var(--text-muted); white-space:nowrap; text-transform:uppercase; letter-spacing:0.4px;">סכומים סופיים</span>
-                    <div id="sums-display-${citySafe}-${groupSafe}" style="display:flex; gap:6px; flex-wrap:wrap; flex:1; overflow-x:auto;">${sumsInner}</div>
-                    <div style="display:flex; gap:5px; flex-shrink:0; align-items:center; flex-wrap:wrap;">
-                        <button class="purim-action-btn" id="edit-group-btn-${citySafe}-${groupSafe}" onclick="togglePurimGroupEdit('${citySafe}', '${groupSafe}')">
+                    <div class="purim-sums-display" style="display:flex; gap:6px; flex-wrap:wrap; flex:1; overflow-x:auto;">${sumsInner}</div>
+                    <div class="purim-group-actions" style="display:flex; gap:5px; flex-shrink:0; align-items:center; flex-wrap:wrap;">
+                        <button class="purim-action-btn purim-edit-btn" onclick="togglePurimGroupEdit('${key}')">
                             <span class="material-icons-regular" style="font-size:14px;">edit</span> מצב עריכה
                         </button>
-                        <button class="purim-action-btn" onclick="printPurimGroup('${citySafe}', '${groupSafe}')" title="הדפסה">
+                        <button class="purim-action-btn purim-cancel-btn" onclick="cancelPurimGroupEdit('${key}')" style="display:none; border-color:#dc2626; color:#dc2626;">
+                            <span class="material-icons-regular" style="font-size:14px;">close</span> ביטול
+                        </button>
+                        <button class="purim-action-btn purim-save-btn" onclick="togglePurimGroupEdit('${key}')" style="display:none; border-color:#16a34a; color:#15803d; background:#f0fdf4;">
+                            <span class="material-icons-regular" style="font-size:14px;">save</span> שמור
+                        </button>
+                        <button class="purim-action-btn" onclick="printPurimGroup('${key}')" title="הדפסה">
                             <span class="material-icons-regular" style="font-size:14px;">print</span>
                         </button>
-                        <button class="purim-action-btn" onclick="exportPurimGroupToExcel('${citySafe}', '${groupSafe}')" title="הורדה לאקסל">
+                        <button class="purim-action-btn" onclick="exportPurimGroupToExcel('${key}')" title="הורדה לאקסל">
                             <svg width="18" height="18" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="4" fill="#217346"/><path d="M13 6h6v2h-6V6zm0 4h6v2h-6v-2zm0 4h6v2h-6v-2z" fill="#fff" opacity=".6"/><path d="M5 6l3 5-3 5h2.5l1.8-3.2L11 16h2.5l-3-5 3-5H11L9.3 9.2 7.5 6H5z" fill="#fff"/></svg>
                         </button>
-                        <button class="purim-action-btn" id="purim-spacing-btn-${citySafe}-${groupSafe}" onclick="togglePurimSpacing(this, '${citySafe}', '${groupSafe}')">
+                        <button class="purim-action-btn" onclick="togglePurimSpacing(this, '${key}')">
                             <span class="material-icons-regular" style="font-size:14px;">density_large</span> רווח
                         </button>
                         <button class="purim-action-btn" onclick="togglePurimYears()">
@@ -3888,7 +4712,7 @@ function renderPurimGroups() {
 
             let tableHtml = `
                 <div class="table-container">
-                    <table class="data-table compact-view" data-export-id="${citySafe}-${groupSafe}">
+                    <table class="data-table compact-view" data-export-id="${key}">
                         <thead>
                             <tr>
                                 <th>מס'</th>
@@ -3914,36 +4738,35 @@ function renderPurimGroups() {
                         <tbody>
             `;
 
-            const td = (row, field, isBold=false, extraStyle="") => {
+            const td = (rowIdx, row, field, isBold=false, extraStyle="") => {
                 const val = escapeHtml(row[field] || "");
-                const idSafe = escapeHtml(row["מס'"] || "");
                 const bold1 = isBold ? "<strong>" : "";
                 const bold2 = isBold ? "</strong>" : "";
-                return `<td data-id="${idSafe}" data-field="${field}" style="transition: all 0.3s; ${extraStyle}">${bold1}${val}${bold2}</td>`;
+                return `<td data-row="${rowIdx}" data-field="${escapeHtml(field)}" style="transition: all 0.3s; ${extraStyle}">${bold1}${val}${bold2}</td>`;
             };
 
             addresses.forEach(row => {
-                const idSafe = escapeHtml(row["מס'"] || "");
+                const rowIdx = state.purimAddresses.indexOf(row);
                 tableHtml += `
                     <tr>
-                        <td>${idSafe}</td>
-                        ${td(row, "משפחה", true)}
-                        ${td(row, "שם")}
-                        ${td(row, "רחוב")}
-                        ${td(row, "מספר")}
-                        ${td(row, "דירה")}
+                        <td>${escapeHtml(row["מס'"] || "")}</td>
+                        ${td(rowIdx, row, "משפחה", true)}
+                        ${td(rowIdx, row, "שם")}
+                        ${td(rowIdx, row, "רחוב")}
+                        ${td(rowIdx, row, "מספר")}
+                        ${td(rowIdx, row, "דירה")}
                 `;
                 
                 yearsToShow.forEach(y => {
                     if (y === currentYear) {
-                        tableHtml += td(row, y, false, "color: var(--gold-dark); font-weight: bold; background: rgba(212, 175, 55, 0.05);");
+                        tableHtml += td(rowIdx, row, y, false, "color: var(--gold-dark); font-weight: bold; background: rgba(212, 175, 55, 0.05);");
                     } else {
-                        tableHtml += td(row, y, false, "color: var(--text-secondary);");
+                        tableHtml += td(rowIdx, row, y, false, "color: var(--text-secondary);");
                     }
                 });
 
                 tableHtml += `
-                        ${td(row, "הערות")}
+                        ${td(rowIdx, row, "הערות")}
                     </tr>
                 `;
             });
@@ -3956,11 +4779,11 @@ function renderPurimGroups() {
                 cityContent.querySelectorAll(".purim-tab-pane").forEach(p => p.classList.remove("active"));
                 groupBtn.classList.add("active");
                 groupPane.classList.add("active");
+                state.purimActive = { city: cityName, group: groupName };
             });
 
             groupNav.appendChild(groupBtn);
             cityContent.appendChild(groupPane);
-            isFirstGroup = false;
         }
 
         cityBtn.addEventListener("click", () => {
@@ -3976,13 +4799,14 @@ function renderPurimGroups() {
 
             groupNav.style.display = "flex";
             cityContent.style.display = "block";
+            const activePane = cityContent.querySelector(".purim-tab-pane.active");
+            const g = activePane && getPurimGroup(activePane.dataset.groupKey);
+            state.purimActive = { city: cityName, group: g ? g.group : "" };
         });
 
         citiesNav.appendChild(cityBtn);
         groupsNavContainer.appendChild(groupNav);
         contentContainer.appendChild(cityContent);
-        
-        isFirstCity = false;
     }
 
     container.appendChild(citiesNav);
@@ -3990,130 +4814,68 @@ function renderPurimGroups() {
     container.appendChild(contentContainer);
 }
 
-
-
 let purimEditSnapshot = null;
 
+function getPurimPane(key) { return document.querySelector(`.purim-tab-pane[data-group-key="${key}"]`); }
 
-window.togglePurimGroupEdit = async function(city, group) {
-    const citySafe = escapeHtml(city);
-    const groupSafe = escapeHtml(group);
-    
-    const table = document.querySelector(`table[data-export-id="${citySafe}-${groupSafe}"]`);
-    const btn = document.getElementById(`edit-group-btn-${citySafe}-${groupSafe}`);
-    
-    if (!table || !btn) return;
+window.togglePurimGroupEdit = async function(key) {
+    const g = getPurimGroup(key);
+    const pane = getPurimPane(key);
+    const table = pane && pane.querySelector("table");
+    if (!g || !table) return;
+    state.purimActive = { city: g.city, group: g.group };
+    const setButtons = (editing) => {
+        pane.querySelector(".purim-edit-btn").style.display = editing ? "none" : "";
+        pane.querySelector(".purim-save-btn").style.display = editing ? "" : "none";
+        pane.querySelector(".purim-cancel-btn").style.display = editing ? "" : "none";
+    };
 
-    const isEditing = table.classList.contains("editing-mode");
-
-    if (!isEditing) {
+    if (!table.classList.contains("editing-mode")) {
         purimEditSnapshot = JSON.parse(JSON.stringify(state.purimAddresses));
         table.classList.add("editing-mode");
-        
-        btn.outerHTML = `
-            <button class="purim-action-btn" id="cancel-group-btn-${citySafe}-${groupSafe}" onclick="cancelPurimGroupEdit('${citySafe}', '${groupSafe}')" style="border-color:#dc2626; color:#dc2626;">
-                <span class="material-icons-regular" style="font-size:14px;">close</span> ביטול
-            </button>
-            <button class="purim-action-btn" id="edit-group-btn-${citySafe}-${groupSafe}" onclick="togglePurimGroupEdit('${citySafe}', '${groupSafe}')" style="border-color:#16a34a; color:#15803d; background:#f0fdf4;">
-                <span class="material-icons-regular" style="font-size:14px;">save</span> שמור
-            </button>
-        `;
-        
+        setButtons(true);
         table.querySelectorAll("td[data-field]").forEach(td => {
             td.setAttribute("contenteditable", "true");
             td.style.background = "#ffffff";
             td.style.border = "1px solid var(--gold-main)";
-            td.style.transition = "transform 0.1s";
-            td.addEventListener('focus', function() { this.style.transform = "scale(0.99)"; });
-            td.addEventListener('blur', function() { this.style.transform = "scale(1)"; });
         });
-    } else {
-        const newBtn = document.getElementById(`edit-group-btn-${citySafe}-${groupSafe}`);
-        const cancelBtn = document.getElementById(`cancel-group-btn-${citySafe}-${groupSafe}`);
-        newBtn.innerHTML = "⏳ שומר...";
-        newBtn.disabled = true;
-        if(cancelBtn) cancelBtn.style.display = "none";
-        
-        let changedRows = [];
-
-        const purimMap = new Map();
-        state.purimAddresses.forEach((row, idx) => {
-            if (String(row["עיר"]).trim() === city && String(row["קבוצה"]).trim() === group) {
-                purimMap.set(String(row["מס'"]).trim(), idx);
-            }
-        });
-
-        table.querySelectorAll("tbody tr").forEach(tr => {
-            const tds = tr.querySelectorAll("td[data-field]");
-            if(tds.length === 0) return;
-            
-            const id = tds[0].getAttribute("data-id");
-            const rowIndex = purimMap.get(id);
-
-            if (rowIndex !== undefined) {
-                const currentRow = state.purimAddresses[rowIndex];
-                let rowChanged = false;
-
-                tds.forEach(td => {
-                    const field = td.getAttribute("data-field");
-                    let newVal = td.innerText.replace(/<\/?[^>]+(>|$)/g, "").trim(); 
-                    
-                    if (String(currentRow[field] || "").trim() !== newVal) {
-                        currentRow[field] = newVal;
-                        rowChanged = true;
-                    }
-                    
-                    td.setAttribute("contenteditable", "false");
-                    td.style.background = "";
-                    td.style.border = "";
-                    if (field === "משפחה") td.innerHTML = `<strong>${escapeHtml(newVal)}</strong>`;
-                    else td.innerText = newVal;
-                });
-
-                if (rowChanged) {
-                    changedRows.push(currentRow);
-                }
-            }
-        });
-
-        table.classList.remove("editing-mode");
-        
-        newBtn.parentElement.innerHTML = `
-            <button class="purim-action-btn" id="edit-group-btn-${citySafe}-${groupSafe}" onclick="togglePurimGroupEdit('${citySafe}', '${groupSafe}')">
-                <span class="material-icons-regular" style="font-size:14px;">edit</span> מצב עריכה
-            </button>
-        `;
-
-        if (changedRows.length > 0) {
-            saveState();
-            
-            try {
-                table.style.opacity = "0.5";
-                await Promise.all(changedRows.map(row => SB.savePurim(row)));
-                table.style.opacity = "1";
-                showToast(`נשמרו בהצלחה ${changedRows.length} שורות!`, "success");
-            } catch (err) {
-                table.style.opacity = "1";
-                showToast("שגיאה בשמירת הנתונים לשרת", "danger");
-            }
-        } else {
-            showToast("לא בוצעו שינויים", "success");
-        }
+        return;
     }
+
+    const saveBtn = pane.querySelector(".purim-save-btn");
+    saveBtn.disabled = true;
+    const changedRows = [];
+    table.querySelectorAll("tbody tr").forEach(tr => {
+        const tds = tr.querySelectorAll("td[data-field]");
+        if (!tds.length) return;
+        const currentRow = state.purimAddresses[Number(tds[0].getAttribute("data-row"))];
+        if (!currentRow) return;
+        let rowChanged = false;
+        tds.forEach(td => {
+            const field = td.getAttribute("data-field");
+            const newVal = (td.innerText || "").trim();
+            if (String(currentRow[field] || "").trim() !== newVal) { currentRow[field] = newVal; rowChanged = true; }
+        });
+        if (rowChanged) changedRows.push(currentRow);
+    });
+    purimEditSnapshot = null;
+
+    if (!changedRows.length) { renderPurimGroups(); showToast("לא בוצעו שינויים", "success"); return; }
+    saveState();
+    renderPurimGroups();
+    const results = await Promise.all(changedRows.map(row => persist("savePurim", row)));
+    reportSave(results.every(Boolean), `נשמרו בהצלחה ${changedRows.length} שורות!`);
+    logAudit("update", "purim", `${g.city} / ${g.group}`, { rows: changedRows.length });
 };
 
-
-
-
-window.cancelPurimGroupEdit = function(citySafe, groupSafe) {
+window.cancelPurimGroupEdit = function() {
     if (purimEditSnapshot) {
         state.purimAddresses = JSON.parse(JSON.stringify(purimEditSnapshot));
         purimEditSnapshot = null;
-        renderPurimGroups(); 
-        showToast("השינויים בוטלו בהצלחה.", "success");
     }
+    renderPurimGroups(); 
+    showToast("השינויים בוטלו בהצלחה.", "success");
 };
-
 
 window.updateTypeFilter = function() {
   const small = document.getElementById("filter-type-small")?.checked;
@@ -4129,8 +4891,9 @@ window.togglePurimYears = function() {
     renderPurimGroups();
 };
 
-window.togglePurimSpacing = function(btn, citySafe, groupSafe) {
-    const table = document.querySelector(`table[data-export-id="${citySafe}-${groupSafe}"]`);
+window.togglePurimSpacing = function(btn, key) {
+    const pane = getPurimPane(key);
+    const table = pane && pane.querySelector("table");
     if (!table) return;
     const isCompact = table.classList.contains('compact-view');
     table.classList.toggle('compact-view');
@@ -4139,31 +4902,50 @@ window.togglePurimSpacing = function(btn, citySafe, groupSafe) {
     btn.childNodes[btn.childNodes.length - 1].textContent = isCompact ? ' צפוף' : ' רווח';
 };
 
-window.printPurimGroup = function(citySafe, groupSafe) {
-    const table = document.querySelector(`table[data-export-id="${citySafe}-${groupSafe}"]`);
-    if (!table) return;
+window.printPurimGroup = function(key) {
+    const g = getPurimGroup(key);
+    const pane = getPurimPane(key);
+    const table = pane && pane.querySelector("table");
+    if (!g || !table) return;
+    const clone = table.cloneNode(true);
+    clone.querySelectorAll("[contenteditable]").forEach(el => el.removeAttribute("contenteditable"));
+    const years = getPurimYearsToShow();
+    const sums = years.map(y => {
+        const v = state.settings.purimManualSums && state.settings.purimManualSums[g.group] && state.settings.purimManualSums[g.group][y];
+        return `<span class="sum"><b>${escapeHtml(y)}:</b> ${v ? formatCurrency(v) : "---"}</span>`;
+    }).join("");
+    const title = `תרומות פורים — ${escapeHtml(g.city)} / ${escapeHtml(g.group)}`;
     const win = window.open('', '_blank');
+    if (!win) { showToast("הדפדפן חסם את חלון ההדפסה. יש לאפשר חלונות קופצים לאתר", "warning"); return; }
     win.document.write(`
-        <html dir="rtl"><head><meta charset="UTF-8"><title>תרומות פורים — ${citySafe} / ${groupSafe}</title>
+        <html dir="rtl"><head><meta charset="UTF-8"><title>${title}</title>
         <style>
-            body { font-family: Arial, sans-serif; direction: rtl; font-size: 12px; color: #111; }
-            h2 { font-size: 15px; margin-bottom: 8px; }
+            body { font-family: Arial, sans-serif; direction: rtl; font-size: 12px; color: #111; margin: 16px; }
+            h2 { font-size: 16px; margin: 0 0 4px; }
+            .meta { color: #555; font-size: 11px; margin-bottom: 8px; }
+            .sums { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 10px; font-size: 12px; }
             table { border-collapse: collapse; width: 100%; }
+            thead { display: table-header-group; }
+            tr { page-break-inside: avoid; }
             th, td { border: 1px solid #ccc; padding: 5px 8px; text-align: right; }
             th { background: #f0f0f0; font-weight: bold; }
             tr:nth-child(even) td { background: #fafafa; }
             @media print { body { margin: 0; } }
         </style></head><body>
-        <h2>תרומות פורים — ${escapeHtml(citySafe)} / ${escapeHtml(groupSafe)}</h2>
-        ${table.outerHTML}
+        <h2>${title}</h2>
+        <div class="meta">צדקת רבי שמעון · ${getPurimRowsFor(g.city, g.group).length} כתובות · הודפס ${formatDateDisplay(new Date())}</div>
+        <div class="sums">סכומים סופיים: ${sums}</div>
+        ${clone.outerHTML}
         <script>window.onload = () => { window.print(); window.close(); }<\/script>
         </body></html>`);
     win.document.close();
 };
 
-window.exportPurimGroupToExcel = function(citySafe, groupSafe) {
-    const table = document.querySelector(`table[data-export-id="${citySafe}-${groupSafe}"]`);
-    if (!table) return;
+window.exportPurimGroupToExcel = function(key) {
+    const g = getPurimGroup(key);
+    const pane = getPurimPane(key);
+    const table = pane && pane.querySelector("table");
+    if (!g || !table) return;
 
     const cloneTable = table.cloneNode(true);
     cloneTable.style.borderCollapse = "collapse";
@@ -4172,6 +4954,7 @@ window.exportPurimGroupToExcel = function(citySafe, groupSafe) {
 
     const cells = cloneTable.querySelectorAll('td, th');
     cells.forEach(cell => {
+        cell.removeAttribute("contenteditable");
         cell.style.border = "1px solid #dddddd";
         cell.style.padding = "6px";
         cell.style.textAlign = "right";
@@ -4195,15 +4978,58 @@ window.exportPurimGroupToExcel = function(citySafe, groupSafe) {
         </html>
     `;
 
+    const safeName = s => String(s).replace(/["'\\/:*?<>|]/g, "").replace(/\s+/g, "_");
     const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `תרומות_פורים_${citySafe}_${groupSafe}.xls`;
+    a.download = `תרומות_פורים_${safeName(g.city)}_${safeName(g.group)}.xls`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
 };
+
+// ===== כותרת להדפסה: שם הדו"ח, הסינון שנבחר ותאריך ההדפסה =====
+function buildPrintHeader() {
+  const screen = state.activeScreen;
+  const meta = screenMeta[screen] || {};
+  let title = meta.title || "";
+  const parts = [];
+  const selText = id => { const el = document.getElementById(id); return el && el.selectedIndex >= 0 ? el.options[el.selectedIndex].text : ""; };
+  if (screen === "members-screen") {
+    const profileOpen = !document.getElementById("member-profile-section")?.classList.contains("hidden");
+    if (profileOpen) {
+      title = `כרטיס בחור: ${document.getElementById("profile-full-name")?.textContent || ""}`;
+      parts.push(`שנת ${getCampaignYear()}`);
+    } else {
+      const term = getValue("search-members-list").trim();
+      if (term) parts.push(`חיפוש: ${term}`);
+      if (state.filterYeshiva) parts.push(`ישיבה: ${state.filterYeshiva}`);
+      if (state.filterCity) parts.push(`עיר: ${state.filterCity}`);
+      if ((state.filterYeshivaTypes || []).length) parts.push(state.filterYeshivaTypes.join(" + "));
+      if (document.getElementById("filter-show-married")?.checked) parts.push("כולל נשואים");
+      parts.push(`${document.querySelectorAll("#members-table-body tr[data-member-id]").length} בחורים`);
+    }
+  } else if (screen === "daily-report-screen") {
+    const f = getValue("report-time-filter");
+    parts.push(`תקופה: ${f === "custom" ? formatDateDisplay(getValue("report-custom-date")) : selText("report-time-filter")}`);
+    if (f !== "all") parts.push(`שנת ${getCampaignYear()}`);
+  } else if (screen === "grants-screen") {
+    parts.push(`שנת ${state.grantsArchiveYear || ""}`);
+    parts.push(state.grantsActiveView === "payments" ? `תשלומים לחנויות · מחצית ${state.billsHalf || "א"}'` : "נתינת המענק");
+  } else if (screen === "expenses-summary-screen") {
+    parts.push(`שנת ניתוח: ${state.expensesViewYear || getCampaignYear()}`);
+  } else if (screen === "dashboard-screen") {
+    parts.push(`שנת ${getDashboardSelectedYear()}`);
+  } else if (screen === "purim-registration-screen" && state.purimActive) {
+    parts.push(`${state.purimActive.city || ""} / ${state.purimActive.group || ""}`);
+  }
+  const now = new Date();
+  parts.push(`הודפס ${formatDateDisplay(now)} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}${state.currentUser ? ` ע"י ${state.currentUser}` : ""}`);
+  setText("print-header-title", `צדקת רבי שמעון · ${title}`);
+  setText("print-header-meta", parts.filter(Boolean).join(" · "));
+}
+window.addEventListener("beforeprint", buildPrintHeader);
 
 function exportToCSV(tableBodyId, filename) {
   const tbody = document.getElementById(tableBodyId); if (!tbody) return; const table = tbody.closest("table"); let csv = []; const rows = table.querySelectorAll("tr");
@@ -4211,7 +5037,6 @@ function exportToCSV(tableBodyId, filename) {
   const BOM = "\uFEFF"; const csvFile = new Blob([BOM + csv.join("\n")], {type: "text/csv;charset=utf-8;"}); const downloadLink = document.createElement("a"); downloadLink.download = `${filename}_${getTodayIsoDate()}.csv`; downloadLink.href = window.URL.createObjectURL(csvFile); downloadLink.style.display = "none"; document.body.appendChild(downloadLink); downloadLink.click(); document.body.removeChild(downloadLink);
 }
 
-function applyGlobalSearch(rows) { const term = state.globalSearchTerm; if (!term) return rows; return rows.filter((row) => { return Object.values(row).join(" ").toLowerCase().includes(term); }); }
 
 function populateFilters() {
   const yeshivas = [...new Set(state.members.map(m => m.yeshiva).filter(Boolean))].sort();
@@ -4243,12 +5068,75 @@ function populateMemberSelect(selectedId = null) {
 
 function sumArray(arr, prop) { return arr.reduce((sum, item) => sum + (Number(item[prop]) || 0), 0); }
 
+// סכום תקין = מספר חיובי. מחזיר null אם לא תקין.
+function parseAmount(v) {
+  const n = Number(String(v ?? "").replace(/[,₪\s]/g, ""));
+  return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : null;
+}
+
+// ===== תאריכים =====
+// פענוח תאריך בפורמטים שקיימים במערכת: 2026-09-29, 29/09/2026, 29.09.2026, ותאריך-שעה מלא.
+// תאריך בלי שעה מפוענח לפי השעון המקומי (ולא UTC) כדי ש"היום" יהיה נכון גם אחרי חצות.
+function parseAppDate(val) {
+  if (!val) return null;
+  if (val instanceof Date) return Number.isNaN(val.getTime()) ? null : val;
+  const str = String(val).trim();
+  let m = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  m = str.match(/^(\d{1,2})[./](\d{1,2})[./](\d{2}|\d{4})$/);
+  if (m) { const y = m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3]); return new Date(y, Number(m[2]) - 1, Number(m[1])); }
+  if (/^\d{4}-\d{2}-\d{2}T/.test(str)) { const d = new Date(str); return Number.isNaN(d.getTime()) ? null : d; }
+  return null;
+}
+function dateKey(d) { return d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}` : ""; }
+function toDateInputValue(val) { return dateKey(parseAppDate(val)); }
+function compareDatesDesc(a, b) {
+  const da = parseAppDate(a), db = parseAppDate(b);
+  return (db ? db.getTime() : -Infinity) - (da ? da.getTime() : -Infinity);
+}
+
+// ===== לוח שנה עברי (לחצאי שנה ולשנה הנוכחית) =====
+const HEBREW_DATE_FMT = (() => { try { return new Intl.DateTimeFormat("en-u-ca-hebrew", { year: "numeric", month: "long", day: "numeric" }); } catch (e) { return null; } })();
+function getHebrewDateParts(date) {
+  if (!HEBREW_DATE_FMT || !date) return null;
+  try {
+    const parts = HEBREW_DATE_FMT.formatToParts(date);
+    const get = t => (parts.find(p => p.type === t) || {}).value;
+    return { year: Number(get("year")), month: get("month"), day: Number(get("day")) };
+  } catch (e) { return null; }
+}
+// מחצית א' = תשרי עד אדר, מחצית ב' = ניסן עד אלול
+function getHalfForDate(date) {
+  const p = getHebrewDateParts(date);
+  if (!p) return null;
+  return ["Nisan", "Iyar", "Sivan", "Tamuz", "Av", "Elul"].includes(p.month) ? "ב" : "א";
+}
+function hebrewYearNumberToLetters(num) {
+  let n = Number(num) % 1000;
+  const letters = [[400, "ת"], [300, "ש"], [200, "ר"], [100, "ק"], [90, "צ"], [80, "פ"], [70, "ע"], [60, "ס"], [50, "נ"], [40, "מ"], [30, "ל"], [20, "כ"], [10, "י"], [9, "ט"], [8, "ח"], [7, "ז"], [6, "ו"], [5, "ה"], [4, "ד"], [3, "ג"], [2, "ב"], [1, "א"]];
+  let out = "";
+  while (n >= 100) { const [val, ch] = letters.find(([v]) => v >= 100 && v <= n); out += ch; n -= val; }
+  if (n === 15) out += "טו";
+  else if (n === 16) out += "טז";
+  else while (n > 0) { const [val, ch] = letters.find(([v]) => v <= n); out += ch; n -= val; }
+  return out.length > 1 ? `${out.slice(0, -1)}"${out.slice(-1)}` : `${out}'`;
+}
+function getCurrentHebrewYearLabel() {
+  const p = getHebrewDateParts(new Date());
+  return p ? hebrewYearNumberToLetters(p.year) : null;
+}
+// המספר העברי של שנה (תשפ"ו -> 5786) לפי הסדר ברשימת השנים
+function hebrewYearLabelToNumber(label) {
+  const idx = HEBREW_YEARS_ORDER.indexOf(label);
+  return idx === -1 ? null : 5775 + idx;
+}
+
 function formatCurrency(value) { 
   return `₪${(Number(value) || 0).toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`; 
 }
 
 function getTodayIsoDate() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
-function formatDateDisplay(val) { if (!val) return ""; const d = new Date(val); return Number.isNaN(d.getTime()) ? val : `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`; }
+function formatDateDisplay(val) { if (!val) return ""; const d = parseAppDate(val); return !d ? String(val) : `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`; }
 function escapeHtml(val) { return String(val ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); }
 function setText(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
 function getValue(id) { const el = document.getElementById(id); return el ? String(el.value ?? "") : ""; }
@@ -4480,13 +5368,6 @@ function buildMemberSummaries(selectedYear = getCampaignYear()) {
     const isEligibleTiyul = gift1On && targetTiyul > 0 && collectedThisYear >= targetTiyul;
     const isEligibleShay = gift2On && targetShay > 0 && collectedThisYear >= targetShay;
 
-    let statusLabel, statusType;
-    if (isEligible && totalDebtFromPast === 0) { statusLabel = "זכאי למענק"; statusType = "success"; }
-    else if (totalDebtFromPast > 0 && !isEligible) { statusLabel = "חוב פתוח"; statusType = "danger"; }
-    else if (isEligible) { statusLabel = "זכאי למענק"; statusType = "success"; }
-    else if (collectedThisYear > 0) { statusLabel = "בתהליך"; statusType = "warning"; }
-    else { statusLabel = "טרם החל"; statusType = "danger"; }
-
     const yearlyDataArray = Object.values(yearlyDataMap).sort((a, b) => {
       const idxA = hebrewYearsForSort.indexOf(a.year);
       const idxB = hebrewYearsForSort.indexOf(b.year);
@@ -4497,7 +5378,7 @@ function buildMemberSummaries(selectedYear = getCampaignYear()) {
     return {
       ...member, fullName: `${member.firstName || ""} ${member.lastName || ""}`.trim(), currentYear,
       collectedThisYear, collectedAmount, currentYearTarget, currentYearType: currentStatusInfo.type, currentYearShiur: currentStatusInfo.shiur, totalDebtFromPast, openDebtNow, totalRequiredThisYear, missingAmount,
-      isEligible, isEligibleTiyul, isEligibleShay, statusLabel, statusType,
+      isEligible, isEligibleTiyul, isEligibleShay,
       yearlyData: yearlyDataArray
     };
   });
@@ -4512,7 +5393,6 @@ function renderAll() {
     renderMembersTable();
     renderDailyReport();
     renderExpensesSummaryTable();
-    renderEligibilityTable();
     renderGrantsLists();
     renderPurimGroups();
     if (state.activeScreen === "rules-screen") renderRulesScreen();
@@ -4575,27 +5455,55 @@ function showTimeoutWarning() {
 }
 
 function performLogout(isAuto = false) {
+    const pending = readPendingWrites().length;
+    if (!isAuto && pending && !confirm(`${pending} שינויים עדיין לא נשמרו בשרת (אין חיבור). הם יישארו שמורים במחשב הזה ויישלחו בכניסה הבאה. לצאת בכל זאת?`)) return;
+    if (isAuto) saveFormDraft();
     sessionStorage.removeItem("ezer_active_session");
     if (window.SB) { try { SB.signOut(); } catch (e) {} }
-    state.currentUser = null;
-    state.currentUserObj = null;
-    resetIdleTimer();
-
-    const pwdInput = document.getElementById("login-password");
-    if (pwdInput) pwdInput.value = "";
-
-    const mainScreen = document.getElementById("main-screen");
-    if (mainScreen) {
-        mainScreen.classList.remove("visible-layout");
-        mainScreen.classList.add("hidden-layout");
-    }
-
-    setTimeout(() => {
-        const loginScreen = document.getElementById("login-screen");
-        if (loginScreen) { loginScreen.classList.remove("hidden-login"); initLoginScreen(); }
-    }, 500);
-
-    if(isAuto) {
-        showToast("המערכת ננעלה אוטומטית עקב חוסר פעילות", "warning");
-    }
+    // מוחקים את העותק המקומי של הנתונים (שמות, טלפונים, כתובות, הפקדות) כדי שלא יישאר במחשב
+    clearLocalDataCache();
+    if (isAuto) { try { sessionStorage.setItem("ezer_logout_reason", "idle"); } catch (e) {} }
+    // טעינה מחדש מנקה גם את הזיכרון ואת המסכים, ומציגה מסך כניסה תקין
+    setTimeout(() => location.reload(), 150);
 }
+
+function clearLocalDataCache() {
+  try {
+    Object.values(STORAGE_KEYS).forEach(k => localStorage.removeItem(k));
+    localStorage.removeItem("ezer_last_sync");
+  } catch (e) {}
+}
+
+// ===== שמירת טופס פתוח כשהמערכת ננעלת עקב חוסר פעילות =====
+const FORM_DRAFT_KEY = "ezer_form_draft";
+const DRAFT_MODALS = {
+  "add-member-modal": ["edit-member-id", "member-first-name", "member-last-name", "member-father-name", "member-phone", "member-yeshiva", "member-yeshiva-type", "member-shiur", "member-marital-status", "member-address", "member-notes"],
+  "add-donation-modal": ["edit-donation-id", "donation-date", "donation-year", "donation-member-input", "donation-amount", "donation-notes"],
+  "add-expense-modal": ["edit-expense-id", "expense-date", "expense-year", "expense-category", "expense-description", "expense-amount"],
+};
+function saveFormDraft() {
+  const modalId = Object.keys(DRAFT_MODALS).find(id => document.getElementById(id)?.classList.contains("open"));
+  if (!modalId) return;
+  const values = {};
+  DRAFT_MODALS[modalId].forEach(id => { const el = document.getElementById(id); if (el) values[id] = el.value; });
+  const method = document.querySelector('input[name="donation_payment_method"]:checked');
+  if (modalId === "add-donation-modal" && method) values.__method = method.value;
+  try { sessionStorage.setItem(FORM_DRAFT_KEY, JSON.stringify({ modalId, values })); } catch (e) {}
+}
+function clearFormDraft() { try { sessionStorage.removeItem(FORM_DRAFT_KEY); } catch (e) {} }
+function restoreFormDraft() {
+  let draft = null;
+  try { draft = JSON.parse(sessionStorage.getItem(FORM_DRAFT_KEY) || "null"); } catch (e) {}
+  if (!draft || !DRAFT_MODALS[draft.modalId]) return;
+  const v = draft.values || {};
+  if (draft.modalId === "add-member-modal") openMemberModal(v["edit-member-id"] || null);
+  else if (draft.modalId === "add-donation-modal") openDonationModal(null, v["edit-donation-id"] || null);
+  else if (draft.modalId === "add-expense-modal") openExpenseModal(v["edit-expense-id"] || null);
+  DRAFT_MODALS[draft.modalId].forEach(id => { const el = document.getElementById(id); if (el && v[id] !== undefined) el.value = v[id]; });
+  if (v.__method) { const r = document.querySelector(`input[name="donation_payment_method"][value="${v.__method}"]`); if (r) r.checked = true; }
+  const typeSel = document.getElementById("member-yeshiva-type");
+  if (draft.modalId === "add-member-modal" && typeSel) typeSel.dispatchEvent(new Event("change"));
+  if (draft.modalId === "add-member-modal" && v["member-shiur"] !== undefined) setValue("member-shiur", v["member-shiur"]);
+  showToast("שחזרנו טופס שהיה פתוח לפני שהמערכת ננעלה. אפשר להמשיך ולשמור", "warning");
+}
+

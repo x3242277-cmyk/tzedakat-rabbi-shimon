@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="style.css">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
 
@@ -78,6 +78,10 @@
     </aside>
 
     <main class="main-content">
+      <div class="print-only print-header" id="print-header">
+        <div class="print-header-title" id="print-header-title"></div>
+        <div class="print-header-meta" id="print-header-meta"></div>
+      </div>
       
       <header class="content-header" id="main-content-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
         <div>
@@ -190,9 +194,9 @@
               <div class="dashboard-panel-head">
                 <div>
                   <h2>גבייה מול הוצאות</h2>
-                  <p>כל השנים: בחורים, פורים, הוצאות ומענקים</p>
+                  <p>לכל שנה: הכנסות (בחורים ופורים) מול הוצאות (כולל עלות המענקים)</p>
                 </div>
-                <span class="material-icons-regular">area_chart</span>
+                <span class="material-icons-regular">bar_chart</span>
               </div>
               <div id="dashboard-month-bars" class="dashboard-month-bars"></div>
             </section>
@@ -239,75 +243,6 @@
           </div>
         </div>
 
-        <div class="dashboard-legacy-hidden">
-
-        <div class="dashboard-topbar">
-          <div class="dashboard-topbar-title">
-            <span class="material-icons-regular" style="font-size:20px; color: var(--gold-main); vertical-align: middle; margin-left: 6px;">home</span>
-            לוח בקרה
-          </div>
-          <div class="dashboard-year-wrap">
-            <label for="dashboard-year-filter-legacy" class="dashboard-year-label">שנת פעילות:</label>
-            <select id="dashboard-year-filter-legacy" class="dashboard-year-select">
-              <option value='תשפ"ז'>תשפ"ז</option>
-              <option value='תשפ"ו' selected>תשפ"ו</option>
-              <option value='תשפ"ה'>תשפ"ה</option>
-              <option value='תשפ"ד'>תשפ"ד</option>
-              <option value='תשפ"ג'>תשפ"ג</option>
-              <option value='תשפ"ב'>תשפ"ב</option>
-              <option value='תשפ"א'>תשפ"א</option>
-              <option value='תש"פ'>תש"פ</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="metrics-row">
-          <div class="metric-card drill-down-card" id="box-purim-groups" data-drill="purim-registration-screen">
-            <div class="metric-label">הכנסות פורים</div>
-            <div id="display-purim-groups" class="metric-value">₪0</div>
-            <div class="metric-hint">לחץ לפירוט <span class="material-icons-regular" style="font-size:13px; vertical-align:middle;">arrow_outward</span></div>
-          </div>
-          <div class="metric-card drill-down-card" id="box-members-collection" data-drill="daily-report-screen">
-            <div class="metric-label">הכנסות איסוף בחורים</div>
-            <div id="display-members-collection" class="metric-value">₪0</div>
-            <div class="metric-hint">לחץ לפירוט <span class="material-icons-regular" style="font-size:13px; vertical-align:middle;">arrow_outward</span></div>
-          </div>
-          <div class="metric-card drill-down-card" id="box-expenses" data-drill="daily-report-screen">
-            <div class="metric-label">הוצאות קמפיין</div>
-            <div id="display-expenses" class="metric-value metric-danger">₪0</div>
-            <div class="metric-hint">לחץ לפירוט <span class="material-icons-regular" style="font-size:13px; vertical-align:middle;">arrow_outward</span></div>
-          </div>
-        </div>
-
-        <div class="dashboard-body">
-          <div class="card-panel quick-actions-panel">
-            <div class="quick-actions-title">פעולות מהירות</div>
-            <div class="quick-actions-list">
-              <button class="quick-action-item" id="quick-add-donation-legacy">
-                <span class="material-icons-regular qa-icon">payments</span>
-                <div class="qa-text"><span class="qa-main">רישום תרומה</span><span class="qa-sub">הכנסת קמפיין</span></div>
-                <span class="material-icons-regular qa-arrow">chevron_left</span>
-              </button>
-              <button class="quick-action-item" id="quick-add-expense-legacy">
-                <span class="material-icons-regular qa-icon">receipt_long</span>
-                <div class="qa-text"><span class="qa-main">רישום הוצאה</span><span class="qa-sub">תשלום לספק</span></div>
-                <span class="material-icons-regular qa-arrow">chevron_left</span>
-              </button>
-              <button class="quick-action-item" id="quick-add-member-legacy">
-                <span class="material-icons-regular qa-icon">person_add</span>
-                <div class="qa-text"><span class="qa-main">הוספת בחור</span><span class="qa-sub">יצירת פרופיל</span></div>
-                <span class="material-icons-regular qa-arrow">chevron_left</span>
-              </button>
-              <button class="quick-action-item" id="quick-open-nedarim-legacy" onclick="openNedarimModal()">
-                <span class="material-icons-regular qa-icon">credit_card</span>
-                <div class="qa-text"><span class="qa-main">סליקת אשראי</span><span class="qa-sub">נדרים פלוס</span></div>
-                <span class="material-icons-regular qa-arrow">chevron_left</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        </div>
       </section>
 
       <section id="members-screen" class="content-screen">
@@ -422,6 +357,19 @@
             </div>
           </div>
           
+          <div class="profile-donations">
+            <div class="profile-donations-head">
+              <h3 class="page-title small">הפקדות של הבחור</h3>
+              <span id="profile-donations-count" class="profile-donations-count"></span>
+            </div>
+            <div class="table-container">
+              <table class="data-table compact-view">
+                <thead><tr><th>תאריך</th><th>שנה</th><th>סכום</th><th>הערות</th></tr></thead>
+                <tbody id="profile-donations-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+
           <div style="margin-top: 24px; text-align: right;">
             <button class="btn btn-danger-outline" id="btn-back-to-search">חזור לרשימה</button>
           </div>
@@ -439,6 +387,7 @@
                   <option value="yesterday">אתמול</option>
                   <option value="week">השבוע</option>
                   <option value="year">השנה</option>
+                  <option value="all">כל התקופות (כל השנים)</option>
                   <option value="custom">תאריך ספציפי...</option>
                 </select>
               </div>
@@ -583,18 +532,24 @@
                 </div>
               </div>
               <div id="grants-archive-add-form" class="grants-archive-add-form hidden">
-                <input type="text" id="grants-add-name" class="ui-input" placeholder="שם ומשפחה">
-                <input type="text" id="grants-add-id" class="ui-input" placeholder="תעודת זהות" inputmode="numeric">
-                <input type="text" id="grants-add-phone" class="ui-input" placeholder="טלפון" inputmode="numeric">
-                <input type="date" id="grants-add-date" class="ui-input">
-                <button class="btn btn-solid-blue" onclick="submitGrantsAddRecipient()"><span class="material-icons-regular" style="font-size:15px;vertical-align:middle;">check</span> הוסף</button>
-                <button class="btn btn-outline" onclick="toggleGrantsAddForm(false)">ביטול</button>
+                <input type="hidden" id="grants-edit-rid" value="">
+                <div class="form-group grants-add-name-group">
+                  <label for="grants-add-name">שם ומשפחה <span class="field-hint">(אפשר לבחור מרשימת הבחורים)</span></label>
+                  <input type="text" id="grants-add-name" class="ui-input" list="members-datalist" placeholder="הקלד שם..." autocomplete="off">
+                </div>
+                <div class="form-group"><label for="grants-add-id">תעודת זהות</label><input type="text" id="grants-add-id" class="ui-input" inputmode="numeric" style="direction:ltr; text-align:right;"></div>
+                <div class="form-group"><label for="grants-add-phone">טלפון</label><input type="text" id="grants-add-phone" class="ui-input" inputmode="tel" style="direction:ltr; text-align:right;"></div>
+                <div class="form-group"><label for="grants-add-date">תאריך</label><input type="date" id="grants-add-date" class="ui-input"></div>
+                <div class="grants-add-actions">
+                  <button class="btn btn-solid-blue" id="grants-add-submit" onclick="submitGrantsAddRecipient()"><span class="material-icons-regular" style="font-size:15px;vertical-align:middle;">check</span> הוסף</button>
+                  <button class="btn btn-outline" onclick="toggleGrantsAddForm(false)">ביטול</button>
+                </div>
               </div>
               <div id="grants-archive-recipients-note" class="grants-archive-note"></div>
               <div class="table-container table-sticky grants-recipients-table">
                 <table class="data-table compact-view">
                   <thead>
-                    <tr><th>#</th><th>שם ומשפחה</th><th>תעודת זהות</th><th>טלפון</th><th>תאריך</th><th class="no-export"></th></tr>
+                    <tr><th>#</th><th>שם ומשפחה</th><th>תעודת זהות</th><th>טלפון</th><th>תאריך</th><th class="no-export"></th><th class="no-export"></th></tr>
                   </thead>
                   <tbody id="grants-archive-recipients-tbody"></tbody>
                 </table>
@@ -618,56 +573,54 @@
         </div>
 
         <div id="grants-payments-view" class="grants-page-view hidden">
-          <div class="grants-payments-grid">
-            <div class="card-panel">
-              <h3 class="page-title small" style="margin:0 0 4px;">תשלומים לחנויות <span id="grants-payment-year-label"></span></h3>
-              <p class="settings-card-sub" style="margin:0 0 12px;">תשלומים בפועל לפי כרטיסיות האקסל</p>
-              <div class="grants-payment-add-form">
-                <input type="text" id="grants-payment-store" class="ui-input" placeholder="חנות / ספק">
-                <input type="text" id="grants-payment-date" class="ui-input" placeholder="תאריך">
-                <input type="text" id="grants-payment-description" class="ui-input" placeholder="הוצאה / חשבונית">
-                <input type="text" id="grants-payment-method" class="ui-input" placeholder="אמצעי תשלום">
-                <input type="number" id="grants-payment-amount" class="ui-input" placeholder="סכום" min="0" step="0.01">
-                <button class="btn btn-solid-blue" onclick="submitGrantPayment()"><span class="material-icons-regular" style="font-size:15px;vertical-align:middle;">add</span> הוסף</button>
+          <div class="card-panel store-bills-panel">
+            <div class="grants-archive-panel-head store-bills-head">
+              <div>
+                <h3 class="page-title small" style="margin:0 0 4px;">תשלומים לחנויות <span id="grants-payment-year-label"></span></h3>
+                <p class="settings-card-sub" style="margin:0;">בכל מחצית משלמים לכל חנות לפי הקבלות על מה שמומש באותה מחצית</p>
               </div>
-              <div class="table-container table-sticky grants-actual-payments-table">
-                <table class="data-table compact-view">
-                  <thead>
-                    <tr>
-                      <th>חנות / ספק</th>
-                      <th>תאריך</th>
-                      <th>הוצאה / חשבונית</th>
-                      <th>אמצעי</th>
-                      <th>סכום ששולם</th>
-                    </tr>
-                  </thead>
-                  <tbody id="grants-payments-tbody"></tbody>
-                  <tfoot>
-                    <tr style="background: var(--text-main);">
-                      <td colspan="4" style="font-weight:bold; color:#fff;">סה"כ שולם בפועל</td>
-                      <td id="grants-payments-total" style="font-weight:bold; color: var(--gold-main);">₪0</td>
-                    </tr>
-                  </tfoot>
-                </table>
+              <div class="grants-view-toggle" id="bills-half-toggle">
+                <button type="button" class="grants-view-btn active" data-half="א" onclick="switchBillsHalf('א')">מחצית א' · תשרי–אדר</button>
+                <button type="button" class="grants-view-btn" data-half="ב" onclick="switchBillsHalf('ב')">מחצית ב' · ניסן–אלול</button>
               </div>
             </div>
+            <div class="grants-archive-stats store-bills-stats" id="store-bills-stats"></div>
+            <div class="table-container">
+              <table class="data-table compact-view store-bills-table">
+                <thead>
+                  <tr>
+                    <th>חנות</th>
+                    <th>צפי לפי חתנים</th>
+                    <th>לתשלום לפי קבלות</th>
+                    <th>מס' קבלה / חשבונית</th>
+                    <th>סטטוס</th>
+                    <th class="no-export">קבלה</th>
+                    <th class="no-export"></th>
+                  </tr>
+                </thead>
+                <tbody id="store-bills-tbody"></tbody>
+                <tfoot id="store-bills-tfoot"></tfoot>
+              </table>
+            </div>
+            <div class="store-bills-footnote" id="store-bills-footnote"></div>
+            <button type="button" class="grants-pkg-add-row-btn store-bills-add" onclick="openStoreBillModal(null)"><span class="material-icons-regular">add_business</span> הוסף תשלום לחנות אחרת</button>
+          </div>
 
-            <div class="card-panel grants-products-panel">
-              <h3 class="page-title small" style="margin:0 0 12px;">מחירון מוצרים</h3>
-              <div class="table-container table-sticky grants-products-table">
-                <table class="data-table compact-view">
-                  <thead>
-                    <tr>
-                      <th>חנות</th>
-                      <th>מוצר</th>
-                      <th>כמות לחתן</th>
-                      <th>מחיר בחנות</th>
-                      <th>מחיר לארגון</th>
-                    </tr>
-                  </thead>
-                  <tbody id="grants-payment-products-tbody"></tbody>
-                </table>
-              </div>
+          <div class="card-panel legacy-payments-panel hidden" id="legacy-payments-panel">
+            <h3 class="page-title small" style="margin:0 0 4px;">תשלומים שנרשמו בשיטה הקודמת <span id="legacy-payments-year-label"></span></h3>
+            <p class="settings-card-sub" style="margin:0 0 10px;">רשומות ישנות שעוד לא שויכו למחצית. תשלום מאדר משויך אוטומטית למחצית א' ותשלום מאלול למחצית ב'</p>
+            <div class="table-container">
+              <table class="data-table compact-view">
+                <thead><tr><th>חנות / ספק</th><th>תאריך</th><th>הוצאה / חשבונית</th><th>אמצעי</th><th>סכום ששולם</th><th class="no-export"></th></tr></thead>
+                <tbody id="grants-payments-tbody"></tbody>
+                <tfoot>
+                  <tr class="legacy-total-row">
+                    <td colspan="4">סה"כ לא משויך</td>
+                    <td id="grants-payments-total">₪0</td>
+                    <td class="no-export"></td>
+                  </tr>
+                </tfoot>
+              </table>
             </div>
           </div>
         </div>
@@ -686,6 +639,7 @@
           <button class="settings-tab" data-tab="backup"><span class="material-icons-regular">cloud_sync</span> גיבוי וסנכרון</button>
           <button class="settings-tab" data-tab="users"><span class="material-icons-regular">manage_accounts</span> משתמשים</button>
           <button class="settings-tab" data-tab="purim-sums"><span class="material-icons-regular">redeem</span> סכומי פורים</button>
+          <button class="settings-tab" data-tab="audit"><span class="material-icons-regular">history</span> יומן פעולות</button>
         </nav>
 
         <div class="settings-pane active" data-pane="targets">
@@ -773,23 +727,27 @@
 
         <div class="settings-pane" data-pane="users">
           <div class="card-panel">
-            <div class="settings-card-head"><span class="material-icons-regular">manage_accounts</span><div><h3 class="page-title small">משתמשים והרשאות</h3><p class="settings-card-sub">לחיצה על שורה טוענת את המשתמש לעריכה</p></div></div>
-            <div class="table-container" style="margin-bottom: 20px;"><table class="data-table compact-view"><thead><tr><th>שם משתמש</th><th>הרשאות</th><th>פעולה</th></tr></thead><tbody id="users-table-body"></tbody></table></div>
-            <div class="form-grid" style="background: var(--surface-light); padding: 20px; border-radius: 8px;">
-              <div class="form-group"><label>שם משתמש</label><input type="text" id="new-username" class="ui-input" placeholder="חדש או קיים לעריכה"></div>
-              <div class="form-group"><label>סיסמה</label><input type="text" id="new-password" class="ui-input"></div>
-              <div class="form-group" style="grid-column: 1 / -1;">
-                <label style="font-weight: 800; color: var(--gold-dark); margin-bottom: 12px; display: block;">הרשאות גישה:</label>
-                <div style="display: flex; gap: 20px; flex-wrap: wrap;">
-                  <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;"><input type="checkbox" id="perm-edit" checked> הוספה ועריכת נתונים</label>
-                  <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;"><input type="checkbox" id="perm-income" checked> צפייה בהכנסות כלליות</label>
-                  <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;"><input type="checkbox" id="perm-expenses" checked> צפייה בהוצאות</label>
-                  <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;"><input type="checkbox" id="perm-grants" checked> צפייה במענקים</label>
-                  <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;"><input type="checkbox" id="perm-history" checked> צפייה בהיסטוריה</label>
-                </div>
-              </div>
-              <div class="form-group" style="display: flex; align-items: flex-end; grid-column: 1 / -1;"><button class="btn btn-solid-blue" id="btn-add-user" style="width: 100%;">הוסף / עדכן משתמש</button></div>
+            <div class="settings-card-head"><span class="material-icons-regular">manage_accounts</span><div><h3 class="page-title small">משתמשים והרשאות</h3><p class="settings-card-sub">סמנו מה כל משתמש רשאי לראות ולעשות, ולחצו "שמור". ההרשאות נאכפות גם בשרת.</p></div></div>
+            <div class="table-container" style="margin-bottom: 16px;">
+              <table class="data-table compact-view users-perm-table">
+                <thead><tr><th>שם משתמש</th><th>הוספה ועריכה</th><th>הכנסות ופורים</th><th>הוצאות</th><th>מענקים</th><th>היסטוריית זכאות</th><th class="no-export"></th></tr></thead>
+                <tbody id="users-table-body"></tbody>
+              </table>
             </div>
+            <div class="users-help">
+              <span class="material-icons-regular">info</span>
+              <div>
+                <strong>הוספת משתמש חדש או איפוס סיסמה</strong> נעשים בלוח הבקרה של Supabase: Authentication → Users → Add user (מייל בסגנון <span dir="ltr">name@tzedaka.local</span> וסיסמה).
+                כדי שהשם יופיע ברשימת הכניסה, צריך להוסיף אותו גם לקוד (USER_EMAIL_MAP).
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-pane" data-pane="audit">
+          <div class="card-panel">
+            <div class="settings-card-head"><span class="material-icons-regular">history</span><div><h3 class="page-title small">יומן פעולות</h3><p class="settings-card-sub">מי רשם, שינה או מחק - ומתי. 300 הפעולות האחרונות.</p></div></div>
+            <div id="audit-log-list"></div>
           </div>
         </div>
 
@@ -812,9 +770,14 @@
     <div class="modal-content app-modal" style="max-width: 550px;">
       <button class="modal-close" id="close-add-donation-modal">✖</button>
       <div class="modal-inner">
-        <h3 class="page-title small" style="margin-bottom: 24px;">רישום הפקדה חדשה</h3>
-        <div class="form-grid" style="grid-template-columns: 1fr;">
+        <h3 class="page-title small" id="donation-modal-title" style="margin-bottom: 6px;">רישום הפקדה חדשה</h3>
+        <div id="donation-meta" class="modal-meta"></div>
+        <input type="hidden" id="edit-donation-id" value="">
+        <div class="form-grid" style="grid-template-columns: 1fr 1fr; margin-top: 18px;">
           <div class="form-group"><label>תאריך</label><input type="date" id="donation-date" class="ui-input"></div>
+          <div class="form-group"><label>שייך לשנת</label><select id="donation-year" class="ui-select"></select></div>
+        </div>
+        <div class="form-grid" style="grid-template-columns: 1fr; margin-top: 14px;">
           
           <div class="form-group">
             <label>בחור מזוכה (הקלד לחיפוש)</label>
@@ -828,12 +791,13 @@
               <label style="cursor: pointer; color: var(--text-main);"><input type="radio" name="donation_payment_method" value="credit"> אשראי</label>
             </div>
           </div>
-          <div class="form-group"><label>סכום הפקדה</label><input type="number" id="donation-amount" class="ui-input" placeholder="0"></div>
+          <div class="form-group"><label>סכום הפקדה</label><input type="number" id="donation-amount" class="ui-input" placeholder="0" min="0" step="any"></div>
           <div class="form-group"><label>הערות</label><input type="text" id="donation-notes" class="ui-input" placeholder="לדוגמה: שם תורם"></div>
         </div>
         <div class="form-actions-row" style="margin-top: 20px;">
           <button class="btn btn-outline" id="cancel-add-donation">ביטול</button>
           <button class="btn btn-solid-blue" id="save-donation-btn">שמור הפקדה</button>
+          <button class="btn btn-danger-outline" id="delete-donation-btn" style="display:none; margin-right:auto;">מחק הפקדה</button>
         </div>
       </div>
     </div>
@@ -843,16 +807,22 @@
     <div class="modal-content app-modal" style="max-width: 550px;">
       <button class="modal-close" id="close-add-expense-modal">✖</button>
       <div class="modal-inner">
-        <h3 class="page-title small" style="margin-bottom: 24px;">הוספת הוצאה</h3>
-        <div class="form-grid" style="grid-template-columns: 1fr;">
+        <h3 class="page-title small" id="expense-modal-title" style="margin-bottom: 6px;">הוספת הוצאה</h3>
+        <div id="expense-meta" class="modal-meta"></div>
+        <input type="hidden" id="edit-expense-id" value="">
+        <div class="form-grid" style="grid-template-columns: 1fr 1fr; margin-top: 18px;">
           <div class="form-group"><label>תאריך</label><input type="date" id="expense-date" class="ui-input"></div>
+          <div class="form-group"><label>שייך לשנת</label><select id="expense-year" class="ui-select"></select></div>
+        </div>
+        <div class="form-grid" style="grid-template-columns: 1fr; margin-top: 14px;">
           <div class="form-group"><label>שם הקטגוריה</label><select id="expense-category" class="ui-select"><option value="הדפסות">הדפסות</option><option value="כנסים">כנסים ואירועים</option><option value="סעודות">סעודות ואוכל</option><option value="מתנות">מתנות ופרסים</option><option value="תפעול">תפעול ופרסום</option><option value="שונות">שונות</option></select></div>
           <div class="form-group"><label>שם הפירוט</label><input type="text" id="expense-description" class="ui-input" placeholder="לדוגמה: דפוס איכות"></div>
-          <div class="form-group"><label>סכום ההוצאה</label><input type="number" id="expense-amount" class="ui-input" placeholder="0"></div>
+          <div class="form-group"><label>סכום ההוצאה</label><input type="number" id="expense-amount" class="ui-input" placeholder="0" min="0" step="any"></div>
         </div>
         <div class="form-actions-row" style="margin-top: 20px;">
           <button class="btn btn-outline" id="cancel-add-expense">ביטול</button>
           <button class="btn btn-solid-blue" id="save-expense-btn">הוסף הוצאה</button>
+          <button class="btn btn-danger-outline" id="delete-expense-btn" style="display:none; margin-right:auto;">מחק הוצאה</button>
         </div>
       </div>
     </div>
@@ -953,7 +923,12 @@
         
         <div class="form-group" style="margin-bottom: 20px;">
           <label>סכום (₪) ששולם *</label>
-          <input type="number" id="nedarim-amount" class="ui-input" placeholder="הזן את הסכום שהועבר" style="font-size: 16px; padding: 12px;">
+          <input type="number" id="nedarim-amount" class="ui-input" placeholder="הזן את הסכום שהועבר" min="0" step="any" style="font-size: 16px; padding: 12px;">
+        </div>
+
+        <div class="form-group" style="margin-bottom: 20px;">
+          <label>מספר אישור עסקה (מנדרים פלוס)</label>
+          <input type="text" id="nedarim-confirmation" class="ui-input" placeholder="מופיע במסך האישור של נדרים פלוס" style="direction: ltr; text-align: right;">
         </div>
 
         <div class="form-group" style="margin-bottom: 30px;">
@@ -971,6 +946,66 @@
 
     </div>
   </div>
+
+  <div id="legacy-assign-modal" class="modal-overlay">
+    <div class="modal-content app-modal" style="max-width: 460px;">
+      <button class="modal-close" type="button" onclick="closeLegacyAssign()">✖</button>
+      <div class="modal-inner">
+        <h3 class="page-title small" style="margin-bottom: 6px;">שיוך תשלום ישן למחצית</h3>
+        <div id="legacy-assign-desc" class="modal-meta"></div>
+        <div class="legacy-assign-options">
+          <button type="button" class="legacy-assign-option" data-half="א" onclick="saveLegacyAssign('א')"><strong>מחצית א'</strong><span>תשרי–אדר</span></button>
+          <button type="button" class="legacy-assign-option" data-half="ב" onclick="saveLegacyAssign('ב')"><strong>מחצית ב'</strong><span>ניסן–אלול</span></button>
+          <button type="button" class="legacy-assign-option" data-half="none" onclick="saveLegacyAssign('none')"><strong>לא משויך</strong><span>להשאיר ברשימת התשלומים הישנים</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="store-bill-modal" class="modal-overlay">
+    <div class="modal-content app-modal" style="max-width: 600px;">
+      <button class="modal-close" type="button" onclick="closeStoreBillModal()">✖</button>
+      <div class="modal-inner">
+        <h3 class="page-title small" id="store-bill-title" style="margin-bottom: 6px;">תשלום לחנות</h3>
+        <div id="store-bill-meta" class="modal-meta"></div>
+        <input type="hidden" id="store-bill-id" value="">
+        <div class="form-grid" style="grid-template-columns: 1fr 1fr; margin-top: 18px;">
+          <div class="form-group"><label for="store-bill-store">חנות</label><input type="text" id="store-bill-store" class="ui-input" list="store-names-datalist"></div>
+          <div class="form-group"><label for="store-bill-half">מחצית</label>
+            <select id="store-bill-half" class="ui-select"><option value="א">מחצית א' · תשרי–אדר</option><option value="ב">מחצית ב' · ניסן–אלול</option></select>
+          </div>
+          <div class="form-group"><label for="store-bill-amount">סכום לתשלום לפי הקבלות (₪)</label><input type="number" id="store-bill-amount" class="ui-input" min="0" step="any"></div>
+          <div class="form-group"><label for="store-bill-ref">מס' קבלה / חשבונית</label><input type="text" id="store-bill-ref" class="ui-input"></div>
+        </div>
+
+        <div class="store-bill-paid-box">
+          <label class="store-bill-paid-toggle"><input type="checkbox" id="store-bill-paid"> שולם</label>
+          <div class="form-grid" id="store-bill-paid-fields" style="grid-template-columns: 1fr 1fr;">
+            <div class="form-group"><label for="store-bill-paid-date">תאריך תשלום</label><input type="date" id="store-bill-paid-date" class="ui-input"></div>
+            <div class="form-group"><label for="store-bill-method">אמצעי תשלום</label>
+              <select id="store-bill-method" class="ui-select"><option value="העברה">העברה בנקאית</option><option value="צ'ק">צ'ק</option><option value="מזומן">מזומן</option><option value="אשראי">אשראי</option><option value="אחר">אחר</option></select>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-top: 14px;">
+          <label>קבלה (PDF או תמונה, עד 10MB)</label>
+          <div class="store-bill-receipt">
+            <div id="store-bill-receipt-current" class="store-bill-receipt-current"></div>
+            <input type="file" id="store-bill-file" accept="application/pdf,image/*">
+          </div>
+        </div>
+        <div class="form-group" style="margin-top: 14px;"><label for="store-bill-notes">הערות</label><input type="text" id="store-bill-notes" class="ui-input"></div>
+
+        <div class="form-actions-row" style="margin-top: 20px;">
+          <button class="btn btn-outline" type="button" onclick="closeStoreBillModal()">ביטול</button>
+          <button class="btn btn-solid-blue" type="button" id="store-bill-save" onclick="saveStoreBill()">שמור</button>
+          <button class="btn btn-danger-outline" type="button" id="store-bill-delete" onclick="deleteStoreBill()" style="display:none; margin-right:auto;">מחק</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <datalist id="store-names-datalist"></datalist>
 
   <div id="timeout-warning-modal" class="modal-overlay" style="z-index: 10000;">
     <div class="modal-content app-modal" style="max-width: 400px; text-align: center;">

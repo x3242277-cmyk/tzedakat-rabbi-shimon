@@ -11,6 +11,8 @@
   const SESSION_KEY = "ezer_sb_session";
   const REST = SUPABASE_URL + "/rest/v1/";
   const AUTH = SUPABASE_URL + "/auth/v1/";
+  const STORAGE = SUPABASE_URL + "/storage/v1/";
+  const RECEIPTS_BUCKET = "receipts";
 
   // ---------- ניהול סשן (נשמר ב-localStorage) ----------
   function getSession() {
@@ -70,12 +72,13 @@
     return data;
   }
 
+  // מנקים את הסשן מיד (גם אם אין אינטרנט), ואז מודיעים לשרת
   async function signOut() {
     const tok = accessToken();
-    if (tok) {
-      try { await fetch(AUTH + "logout", { method: "POST", headers: baseHeaders(true) }); } catch (e) {}
-    }
     setSession(null);
+    if (tok) {
+      try { await fetch(AUTH + "logout", { method: "POST", headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + tok }, keepalive: true }); } catch (e) {}
+    }
   }
 
   // ---------- REST עם ניסיון רענון אוטומטי ב-401 ----------
@@ -89,7 +92,9 @@
     }
     if (!r.ok && r.status !== 206) {
       const t = await r.text().catch(() => "");
-      throw new Error(`שגיאת שרת (${r.status}): ${t.slice(0, 160)}`);
+      const err = new Error(`שגיאת שרת (${r.status}): ${t.slice(0, 160)}`);
+      err.status = r.status;
+      throw err;
     }
     const txt = await r.text();
     const json = txt ? JSON.parse(txt) : null;
@@ -120,6 +125,15 @@
   }
   function remove(table, filter) {
     return request("DELETE", `${table}?${filter}`, { prefer: "return=minimal" });
+  }
+  // שמירה במנות (לייבוא גיבוי גדול)
+  async function upsertChunked(table, rows, size = 500) {
+    for (let i = 0; i < rows.length; i += size) await upsert(table, rows.slice(i, i + size));
+  }
+  // קריאת שורה יחידה (הגדרות / מענקים) - לצורך מיזוג לפני שמירה
+  async function fetchSingleton(table) {
+    const { json } = await request("GET", `${table}?select=data&id=eq.true`);
+    return json && json[0] ? json[0].data : null;
   }
 
   // ---------- מיפוי שדות: אפליקציה (camelCase) ↔ מסד (snake_case) ----------
@@ -193,14 +207,57 @@
   const deleteDonation = (id) => remove("donations", `id=eq.${encodeURIComponent(id)}`);
   const deleteExpense  = (id) => remove("expenses", `id=eq.${encodeURIComponent(id)}`);
 
+  // ---------- משתמשים והרשאות (עדכון ע"י מנהל) ----------
+  const updateProfile = (id, patch) => request("PATCH", `profiles?id=eq.${encodeURIComponent(id)}`, {
+    body: clean({
+      can_edit: patch.canEdit, can_view_income: patch.canViewIncome, can_view_expenses: patch.canViewExpenses,
+      can_view_grants: patch.canViewGrants, can_view_history: patch.canViewHistory,
+    }),
+    prefer: "return=representation",
+  }).then(({ json }) => {
+    if (!json || !json.length) { const e = new Error("אין הרשאה לעדכן משתמשים"); e.status = 403; throw e; }
+    return json[0];
+  });
+
+  // ---------- יומן פעולות ----------
+  const insertAudit = (entry) => request("POST", "audit_log", { body: [entry], prefer: "return=minimal" });
+  const selectAudit = (limit = 300) => request("GET", `audit_log?select=*&order=created_at.desc&limit=${limit}`).then(({ json }) => json || []);
+
+  // ---------- קבלות (Supabase Storage) ----------
+  async function storageFetch(method, path, { body, contentType, json } = {}, _retried) {
+    const tok = accessToken();
+    const headers = { apikey: SUPABASE_KEY, Authorization: "Bearer " + (tok || SUPABASE_KEY) };
+    if (contentType) headers["Content-Type"] = contentType;
+    if (json !== undefined) headers["Content-Type"] = "application/json";
+    if (method === "POST" && body instanceof Blob) headers["x-upsert"] = "true";
+    const r = await fetch(STORAGE + path, { method, headers, body: json !== undefined ? JSON.stringify(json) : body });
+    if (r.status === 401 && !_retried && getSession()) {
+      try { await refresh(); return storageFetch(method, path, { body, contentType, json }, true); } catch (e) { setSession(null); throw new Error("ההתחברות פגה - יש להתחבר מחדש"); }
+    }
+    const txt = await r.text().catch(() => "");
+    if (!r.ok) { const err = new Error(`שגיאת אחסון (${r.status}): ${txt.slice(0, 160)}`); err.status = r.status; throw err; }
+    try { return txt ? JSON.parse(txt) : null; } catch (e) { return null; }
+  }
+  const objectPath = (path) => path.split("/").map(encodeURIComponent).join("/");
+  const uploadReceipt = (path, file) => storageFetch("POST", `object/${RECEIPTS_BUCKET}/${objectPath(path)}`, { body: file, contentType: file.type || "application/octet-stream" });
+  const receiptUrl = async (path) => {
+    const res = await storageFetch("POST", `object/sign/${RECEIPTS_BUCKET}/${objectPath(path)}`, { json: { expiresIn: 600 } });
+    const signed = res && (res.signedURL || res.signedUrl);
+    if (!signed) throw new Error("לא התקבל קישור לקבלה");
+    return SUPABASE_URL + "/storage/v1" + (signed.startsWith("/") ? signed : "/" + signed);
+  };
+  const deleteReceipt = (path) => storageFetch("DELETE", `object/${RECEIPTS_BUCKET}`, { json: { prefixes: [path] } });
+
   window.SB = {
     URL: SUPABASE_URL,
     getSession, setSession, isLoggedIn, currentUser: () => { const s = getSession(); return s && s.user; },
     signIn, signOut, refresh,
-    request, selectAll, upsert, remove,
+    request, selectAll, upsert, remove, upsertChunked, fetchSingleton,
     loadAll,
     saveMember, saveDonation, saveExpense, savePurim, saveSettings, saveGrantsArchive,
     deleteMember, deleteDonation, deleteExpense,
+    updateProfile, insertAudit, selectAudit,
+    uploadReceipt, receiptUrl, deleteReceipt,
     map: { memberToDb, memberFromDb, donationToDb, donationFromDb, expenseToDb, expenseFromDb, purimToDb, purimFromDb, profileFromDb },
   };
 })();
