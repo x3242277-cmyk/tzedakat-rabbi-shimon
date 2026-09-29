@@ -2504,70 +2504,173 @@ function renderDashboardMonthBars() {
   });
   if (!years.length) years.push(campaignYear);
 
-  const membersIncome = years.map(year => (state.donations || []).filter(d => d.year === year).reduce((sum, d) => sum + (Number(d.amount) || 0), 0));
-  const purimIncome = years.map(year => getDashboardPurimTotal(year));
-  const expenses = years.map(year => (state.expenses || []).filter(e => e.year === year).reduce((sum, e) => sum + (Number(e.amount) || 0), 0));
-  // עלות מענקים מחושבת רק לשנת הפעילות הנוכחית - שחזור אחורה לשנים עברו אינו אמין
-  // (getHistoricalStatus מקבע בחורים לחיידר בשנים רחוקות, מה שהופך את כולם ל"זכאים" באופן שגוי)
-  const grantsCost = years.map(year => year === campaignYear ? getDashboardGrantCostForMonth(year, 11) : 0);
+  const sumBy = (list, year) => (list || []).filter(x => x.year === year).reduce((sum, x) => sum + (Number(x.amount) || 0), 0);
+  const rows = years.map(year => {
+    const grant = getDashboardYearGrantCost(year, campaignYear);
+    const members = sumBy(state.donations, year);
+    const purim = getDashboardPurimTotal(year);
+    const expenses = sumBy(state.expenses, year);
+    return { year, members, purim, expenses, grants: grant.cost, grantNote: grant.note, income: members + purim, outgoing: expenses + grant.cost };
+  });
+  renderFinanceChart(el, rows);
+}
 
-  const series = [
-    { key: "members", label: "בחורים", tone: "members", values: membersIncome },
-    { key: "purim", label: "פורים", tone: "purim", values: purimIncome },
-    { key: "expenses", label: "הוצאות", tone: "expenses", values: expenses },
-    { key: "grants", label: "עלות מענקים", tone: "grants", values: grantsCost }
-  ];
-  const maxValue = Math.max(1, ...series.flatMap(item => item.values));
-  const width = 640;
-  const height = 230;
-  const padX = 34;
-  const padY = 18;
-  const chartWidth = width - padX * 2;
-  const chartHeight = height - padY * 2;
-  const xFor = i => years.length === 1 ? width / 2 : padX + (chartWidth * i / (years.length - 1));
-  const yFor = value => padY + chartHeight - (Math.max(0, value) / maxValue) * chartHeight;
-  const baseY = padY + chartHeight;
-  const areaPath = values => {
-    const points = values.map((value, index) => `${xFor(index)},${yFor(value)}`).join(" L ");
-    return `M ${xFor(0)},${baseY} L ${points} L ${xFor(values.length - 1)},${baseY} Z`;
+// עלות המענקים לשנה: בשנת הפעילות - צפי לפי הזכאים; בשנים קודמות - לפי מקבלי המענק בפועל במסך המענקים
+function getDashboardYearGrantCost(year, campaignYear) {
+  const packageCost = getDashboardGrantPackageCost(year);
+  if (year === campaignYear) {
+    const cost = getDashboardGrantCostForMonth(year, 11);
+    const count = packageCost ? Math.round(cost / packageCost) : 0;
+    return { cost, note: count ? `צפי לפי ${count} זכאים השנה` : "" };
+  }
+  const archive = getGrantsArchive();
+  const recipients = (archive.years && archive.years[year] && archive.years[year].recipients) || [];
+  if (!recipients.length || !packageCost) return { cost: 0, note: "אין נתוני מענקים לשנה זו" };
+  return { cost: packageCost * recipients.length, note: `לפי ${recipients.length} מקבלי מענק` };
+}
+
+const FINANCE_SERIES = [
+  { key: "members", label: "בחורים", group: "income" },
+  { key: "purim", label: "פורים", group: "income" },
+  { key: "expenses", label: "הוצאות", group: "outgoing" },
+  { key: "grants", label: "עלות מענקים", group: "outgoing" },
+];
+
+function formatCompactCurrency(value) {
+  const v = Math.abs(Number(value) || 0);
+  if (v < 1000) return formatCurrency(value);
+  const k = v / 1000;
+  return `${value < 0 ? "-" : ""}₪${k >= 100 ? Math.round(k) : Math.round(k * 10) / 10}K`;
+}
+
+// גרף עמודות: לכל שנה עמודת הכנסות (בחורים + פורים) ליד עמודת הוצאות (הוצאות + עלות מענקים)
+function renderFinanceChart(el, rows) {
+  const width = Math.max(300, Math.round(el.clientWidth || 640));
+  const height = 236;
+  const compact = width < 520;
+  const padL = compact ? 40 : 50, padR = 12, padTop = 24, baseY = height - 44;
+  const plotW = width - padL - padR, plotH = baseY - padTop;
+  const band = plotW / rows.length;
+  const barW = Math.min(24, Math.max(12, band * 0.22));
+  const pairGap = Math.min(40, Math.max(8, band * 0.3));
+  const maxRaw = Math.max(1, ...rows.map(r => Math.max(r.income, r.outgoing)));
+  const step = (() => { const raw = maxRaw / 4; const mag = Math.pow(10, Math.floor(Math.log10(raw))); return [1, 2, 2.5, 5, 10].map(m => m * mag).find(m => m >= raw); })();
+  const niceMax = step * Math.ceil(maxRaw / step);
+  const y = v => baseY - (v / niceMax) * plotH;
+  const GAP = 2, R = 4;
+  const capLabel = v => (band < 150 || compact) ? formatCompactCurrency(v) : formatCurrency(v);
+
+  // מלבן עם פינות מעוגלות רק למעלה (הקצה של הנתון), ישר בבסיס
+  const topRounded = (x, top, w, h) => {
+    const r = Math.min(R, h, w / 2);
+    return `M${x},${top + h} L${x},${top + r} Q${x},${top} ${x + r},${top} L${x + w - r},${top} Q${x + w},${top} ${x + w},${top + r} L${x + w},${top + h} Z`;
   };
-  const linePath = values => `M ${values.map((value, index) => `${xFor(index)},${yFor(value)}`).join(" L ")}`;
+  const column = (x, segments) => {
+    let acc = 0; const parts = [];
+    const visible = segments.filter(s => s.value > 0);
+    visible.forEach((seg, i) => {
+      const bottom = y(acc) - (i > 0 ? GAP : 0);
+      acc += seg.value;
+      const top = y(acc);
+      const h = Math.max(0, bottom - top);
+      if (h <= 0) return;
+      parts.push(i === visible.length - 1
+        ? `<path class="fin-seg fin-${seg.key}" d="${topRounded(x, top, barW, h)}"></path>`
+        : `<rect class="fin-seg fin-${seg.key}" x="${x}" y="${top}" width="${barW}" height="${h}"></rect>`);
+    });
+    return parts.join("");
+  };
 
-  const svgAreas = series.map(item => `
-    <path class="dashboard-mountain-area ${item.tone}" d="${areaPath(item.values)}"></path>
-    <path class="dashboard-mountain-line ${item.tone}" d="${linePath(item.values)}"></path>
-  `).join("");
+  let ticks = "";
+  for (let v = 0; v <= niceMax + 1e-6; v += step) {
+    const ty = y(v);
+    ticks += `<line class="fin-grid${v === 0 ? " fin-base" : ""}" x1="${padL}" x2="${width - padR}" y1="${ty}" y2="${ty}"></line>
+      <text class="fin-tick" x="${padL - 6}" y="${ty + 3.5}" text-anchor="end">${escapeHtml(formatCompactCurrency(v))}</text>`;
+  }
 
-  const points = series.map(item => item.values.map((value, index) => `
-    <circle class="dashboard-mountain-dot ${item.tone}" cx="${xFor(index)}" cy="${yFor(value)}" r="3.5">
-      <title>${item.label} ${years[index]}: ${formatCurrency(value)}</title>
-    </circle>
-  `).join("")).join("");
+  const groups = rows.map((r, i) => {
+    const cx = padL + band * i + band / 2;
+    const xInc = cx + pairGap / 2, xOut = cx - pairGap / 2 - barW; // הכנסות מימין (נקראות ראשונות)
+    const inc = [{ key: "members", value: r.members }, { key: "purim", value: r.purim }];
+    const out = [{ key: "expenses", value: r.expenses }, { key: "grants", value: r.grants }];
+    const hit = (x, kind) => `<rect class="fin-hit" data-i="${i}" data-kind="${kind}" tabindex="0" role="img" aria-label="${escapeHtml(`${r.year} ${kind === "income" ? "הכנסות" : "הוצאות"} ${formatCurrency(kind === "income" ? r.income : r.outgoing)}`)}" x="${x - 6}" y="${padTop - 18}" width="${barW + 12}" height="${baseY - padTop + 18}"></rect>`;
+    return `<g class="fin-col" data-i="${i}" data-kind="income">${column(xInc, inc)}</g>
+      <g class="fin-col" data-i="${i}" data-kind="outgoing">${column(xOut, out)}</g>
+      <text class="fin-cap" x="${xInc + barW / 2}" y="${y(r.income) - 6}" text-anchor="middle">${escapeHtml(r.income ? capLabel(r.income) : "—")}</text>
+      <text class="fin-cap" x="${xOut + barW / 2}" y="${y(r.outgoing) - 6}" text-anchor="middle">${escapeHtml(r.outgoing ? capLabel(r.outgoing) : "—")}</text>
+      <text class="fin-sub" x="${xInc + barW / 2}" y="${baseY + 14}" text-anchor="middle">הכנסות</text>
+      <text class="fin-sub" x="${xOut + barW / 2}" y="${baseY + 14}" text-anchor="middle">הוצאות</text>
+      <text class="fin-year" x="${cx}" y="${baseY + 32}" text-anchor="middle">${escapeHtml(r.year)}</text>
+      ${hit(xInc, "income")}${hit(xOut, "outgoing")}`;
+  }).join("");
 
-  const yearLabels = years.map((year, index) => `
-    <span style="right:${100 - ((xFor(index) / width) * 100)}%">${year}</span>
-  `).join("");
+  const legend = FINANCE_SERIES.map(s => `<span class="fin-legend-item"><i class="fin-swatch fin-${s.key}"></i>${escapeHtml(s.label)}</span>`).join("");
+  const table = `<table class="fin-table">
+      <thead><tr><th>שנה</th><th>הכנסות</th><th>הוצאות</th><th>פער</th></tr></thead>
+      <tbody>${rows.slice().reverse().map(r => {
+        const net = r.income - r.outgoing;
+        return `<tr><td>${escapeHtml(r.year)}</td><td>${formatCurrency(r.income)}</td><td>${formatCurrency(r.outgoing)}</td>
+          <td class="${net >= 0 ? "fin-net-up" : "fin-net-down"}"><span aria-hidden="true">${net >= 0 ? "▲" : "▼"}</span> ${net >= 0 ? "עודף" : "גירעון"} ${formatCurrency(Math.abs(net))}</td></tr>`;
+      }).join("")}</tbody>
+    </table>`;
 
   el.innerHTML = `
-    <div class="dashboard-mountain-chart">
-      <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="גרף הר גבייה מול הוצאות">
-        <line class="dashboard-mountain-axis" x1="${padX}" y1="${baseY}" x2="${width - padX}" y2="${baseY}"></line>
-        ${svgAreas}
-        ${points}
+    <div class="fin-legend">${legend}</div>
+    <div class="dashboard-mountain-chart fin-chart">
+      <svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="group" aria-label="גרף הכנסות מול הוצאות לפי שנה">
+        ${ticks}${groups}
       </svg>
-      <div class="dashboard-mountain-months">${yearLabels}</div>
+      <div class="fin-tooltip" hidden></div>
     </div>
-    <div class="dashboard-mountain-legend">
-      ${series.map(item => `
-        <div class="dashboard-mountain-chip ${item.tone}">
-          <span></span>
-          <strong>${item.label}</strong>
-          <em>${formatCurrency(item.values.reduce((sum, value) => sum + value, 0))}</em>
-        </div>
-      `).join("")}
-    </div>
-  `;
+    ${table}`;
+  el.dataset.renderWidth = String(width);
+
+  const tip = el.querySelector(".fin-tooltip");
+  const chart = el.querySelector(".fin-chart");
+  const show = target => {
+    const r = rows[Number(target.dataset.i)], kind = target.dataset.kind;
+    el.querySelectorAll(".fin-col").forEach(g => g.classList.toggle("is-dim", !(g.dataset.i === target.dataset.i && g.dataset.kind === kind)));
+    tip.textContent = "";
+    const head = document.createElement("div"); head.className = "fin-tip-head";
+    head.textContent = `${r.year} · ${kind === "income" ? "הכנסות" : "הוצאות"}`;
+    tip.appendChild(head);
+    FINANCE_SERIES.filter(s => s.group === kind).forEach(s => {
+      const row = document.createElement("div"); row.className = "fin-tip-row";
+      const key = document.createElement("i"); key.className = `fin-tip-key fin-${s.key}`;
+      const val = document.createElement("strong"); val.textContent = formatCurrency(r[s.key]);
+      const name = document.createElement("span"); name.textContent = s.label;
+      row.append(key, val, name); tip.appendChild(row);
+      if (s.key === "grants" && r.grantNote) { const note = document.createElement("div"); note.className = "fin-tip-note"; note.textContent = r.grantNote; tip.appendChild(note); }
+    });
+    const total = document.createElement("div"); total.className = "fin-tip-total";
+    total.textContent = `סה"כ ${formatCurrency(kind === "income" ? r.income : r.outgoing)}`;
+    tip.appendChild(total);
+    tip.hidden = false;
+    const cb = chart.getBoundingClientRect(), tb = target.getBoundingClientRect();
+    const tw = tip.offsetWidth;
+    let left = tb.left - cb.left + tb.width / 2 - tw / 2;
+    left = Math.max(4, Math.min(cb.width - tw - 4, left));
+    tip.style.left = `${left}px`;
+    tip.style.top = `${Math.max(4, tb.top - cb.top + 8)}px`;
+  };
+  const hide = () => { tip.hidden = true; el.querySelectorAll(".fin-col").forEach(g => g.classList.remove("is-dim")); };
+  el.querySelectorAll(".fin-hit").forEach(h => {
+    h.addEventListener("pointerenter", () => show(h));
+    h.addEventListener("focus", () => show(h));
+    h.addEventListener("pointerleave", hide);
+    h.addEventListener("blur", hide);
+  });
 }
+
+// הגרף נבנה לפי רוחב המסך - מציירים מחדש כשהרוחב משתנה
+let financeChartResizeTimer = null;
+window.addEventListener("resize", () => {
+  clearTimeout(financeChartResizeTimer);
+  financeChartResizeTimer = setTimeout(() => {
+    const el = document.getElementById("dashboard-month-bars");
+    if (el && el.clientWidth && Math.abs(el.clientWidth - Number(el.dataset.renderWidth || 0)) > 8) renderDashboardMonthBars();
+  }, 150);
+});
 
 // עלות חבילה לחתן (לארגון) לפי תכולת החבילה שמוגדרת במסך מענקים לשנה הזו
 function getDashboardGrantPackageCost(year = getCampaignYear()) {
@@ -3771,7 +3874,6 @@ function renderGrantsArchive() {
   const perGroomRetail = getGrantPackageRetailTotal(packageGroups); // שווי אמיתי (מחיר מלא) - זה מה שמודגש
   const totalYearValue = perGroomRetail * recipientsCount; // שווי המענקים שניתנו השנה, בסך הכל
   const payments = getGrantPaymentsForYear(archive, activeYear);
-  const paymentsTotal = payments.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
 
   // --- בורר שנה (קומפקטי, בתוך הטולבר) ---
   const yearSelectEl = document.getElementById("grants-year-select");
@@ -3879,22 +3981,27 @@ function renderGrantsArchive() {
   renderStoreBills(archive, activeYear);
 
   // --- תשלומים ישנים (לפני החלוקה למחציות) ---
+  // רק תשלומים שעוד לא שויכו למחצית (המשויכים מופיעים בטבלת המחצית)
+  const unassigned = payments.filter(p => !getLegacyPaymentHalf(archive, activeYear, p));
+  const unassignedTotal = unassigned.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
   const legacyPanel = document.getElementById("legacy-payments-panel");
-  if (legacyPanel) legacyPanel.classList.toggle("hidden", !payments.length);
+  if (legacyPanel) legacyPanel.classList.toggle("hidden", !unassigned.length);
   setText("legacy-payments-year-label", `· ${activeYear}`);
+  const canEditLegacy = canEditUser();
   const paymentsTbody = document.getElementById("grants-payments-tbody");
   if (paymentsTbody) {
-    paymentsTbody.innerHTML = payments.map(payment => `
+    paymentsTbody.innerHTML = unassigned.map(payment => `
       <tr>
         <td style="font-weight:700;">${escapeHtml(payment.store || "—")}</td>
         <td>${escapeHtml(payment.date || "—")}</td>
         <td>${escapeHtml(payment.description || "—")}</td>
         <td>${escapeHtml(payment.method || "—")}</td>
         <td class="amount-cell" style="font-weight:800;">${formatCurrency(payment.amount)}</td>
+        <td class="no-export">${canEditLegacy ? `<button type="button" class="btn btn-outline bill-row-btn" onclick="openLegacyAssign('${escapeHtml(dashboardJsString(legacyPaymentKey(payment)))}')">שייך למחצית</button>` : ""}</td>
       </tr>`).join("");
   }
   const paymentsTotalEl = document.getElementById("grants-payments-total");
-  if (paymentsTotalEl) paymentsTotalEl.textContent = formatCurrency(paymentsTotal);
+  if (paymentsTotalEl) paymentsTotalEl.textContent = formatCurrency(unassignedTotal);
 }
 
 // ==========================================
@@ -4154,6 +4261,81 @@ function getStoreBills(archive, year) {
   return (y && Array.isArray(y.storeBills)) ? y.storeBills : [];
 }
 
+// ===== תשלומים מהשיטה הקודמת: שיוך למחצית =====
+// תשלום שנרשם באדר שייך למחצית א' (תשרי-אדר), ותשלום באלול למחצית ב' (ניסן-אלול).
+// אפשר לשנות ידנית בכפתור "שיוך"; הבחירה נשמרת ב-years[year].legacyHalves
+function legacyPaymentKey(p) {
+  return [p.store, p.date, p.amount, p.description].map(x => String(x == null ? "" : x).trim()).join("|");
+}
+
+function guessLegacyPaymentHalf(p, year) {
+  const text = String(p.date || "").trim();
+  if (!text) return null;
+  const yearInText = (text.match(/תש[א-ת]*["״][א-ת]/) || [])[0];
+  if (yearInText && yearInText.replace("״", '"') !== year) return null;
+  if (/אדר/.test(text)) return "א";
+  if (/אלול/.test(text)) return "ב";
+  const d = parseAppDate(text);
+  const parts = d ? getHebrewDateParts(d) : null;
+  if (!parts || parts.year !== hebrewYearLabelToNumber(year)) return null;
+  if (/^Adar/.test(parts.month)) return "א";
+  if (parts.month === "Elul") return "ב";
+  return null;
+}
+
+function getLegacyPaymentHalf(archive, year, p) {
+  const saved = (archive.years && archive.years[year] && archive.years[year].legacyHalves) || {};
+  const choice = saved[legacyPaymentKey(p)];
+  if (choice === "א" || choice === "ב") return choice;
+  if (choice === "none") return null;
+  return guessLegacyPaymentHalf(p, year);
+}
+
+// שם החנות בתשלום הישן לפי שם החנות בחבילה ("אווניו 13 ביתר" -> "אווניו 13")
+function matchLegacyStoreName(name, storeNames) {
+  const n = String(name || "").trim();
+  if (storeNames.includes(n)) return n;
+  const hits = storeNames.filter(s => s && (n.startsWith(s) || s.startsWith(n)));
+  return hits.sort((a, b) => b.length - a.length)[0] || n;
+}
+
+function getLegacyBillsForHalf(archive, year, half, storeNames) {
+  return getGrantPaymentsForYear(archive, year)
+    .filter(p => getLegacyPaymentHalf(archive, year, p) === half)
+    .map(p => ({ legacy: true, key: legacyPaymentKey(p), store: matchLegacyStoreName(p.store, storeNames), originalStore: p.store,
+      amount: Number(p.amount) || 0, reference: p.description || "", paid: true, legacyDate: p.date || "", method: p.method || "" }));
+}
+
+window.openLegacyAssign = function(key) {
+  if (!canEditUser()) { showToast("אין לך הרשאת עריכה", "warning"); return; }
+  const archive = getGrantsArchive();
+  const year = state.grantsArchiveYear;
+  const p = getGrantPaymentsForYear(archive, year).find(x => legacyPaymentKey(x) === key);
+  if (!p) return;
+  state.legacyAssignKey = key;
+  setText("legacy-assign-desc", `${p.store || ""} · ${p.date || ""} · ${formatCurrency(p.amount)}${p.description ? ` · ${p.description}` : ""}`);
+  const current = getLegacyPaymentHalf(archive, year, p);
+  document.querySelectorAll("#legacy-assign-modal [data-half]").forEach(b => b.classList.toggle("active", (b.dataset.half === "none" ? null : b.dataset.half) === current));
+  document.getElementById("legacy-assign-modal").classList.add("open");
+};
+
+window.closeLegacyAssign = function() { document.getElementById("legacy-assign-modal").classList.remove("open"); };
+
+window.saveLegacyAssign = function(choice) {
+  const key = state.legacyAssignKey;
+  const year = state.grantsArchiveYear;
+  if (!key || !year) return;
+  closeLegacyAssign();
+  const p = mutateGrantsArchive(a => {
+    if (!a.years[year]) a.years[year] = { recipients: [] };
+    a.years[year].legacyHalves = { ...(a.years[year].legacyHalves || {}), [key]: choice };
+  });
+  if (choice === "א" || choice === "ב") { state.billsHalf = choice; }
+  renderGrantsArchive();
+  const label = choice === "none" ? "הרשומה חזרה לרשימת התשלומים הישנים" : `התשלום שויך למחצית ${choice}'`;
+  p.then(saved => { reportSave(saved, label); logAudit("update", "store-bill", key, { שנה: year, שיוך: choice === "none" ? "ללא" : `מחצית ${choice}` }); });
+};
+
 // עלות לארגון לחתן בכל חנות, לפי תכולת החבילה של השנה
 function getStoreCostPerGroom(archive, year) {
   const map = {};
@@ -4184,8 +4366,8 @@ function renderStoreBills(archive, year) {
   if (!tbody || !year) return;
   const half = state.billsHalf || "א";
   document.querySelectorAll("#bills-half-toggle .grants-view-btn").forEach(b => b.classList.toggle("active", b.dataset.half === half));
-  const bills = getStoreBills(archive, year).filter(b => b.half === half);
   const costPerGroom = getStoreCostPerGroom(archive, year);
+  const bills = [...getStoreBills(archive, year).filter(b => b.half === half), ...getLegacyBillsForHalf(archive, year, half, Object.keys(costPerGroom))];
   const grooms = countGroomsByHalf(archive, year);
   const groomsInHalf = grooms[half];
 
@@ -4203,16 +4385,20 @@ function renderStoreBills(archive, year) {
 
   const canEdit = canEditUser();
   tbody.innerHTML = rows.length ? rows.map(({ store, bill, first }) => {
-    const expected = first && costPerGroom[store] ? costPerGroom[store] * groomsInHalf : null;
+    const expected = first && costPerGroom[store] && groomsInHalf ? costPerGroom[store] * groomsInHalf : null;
     const status = !bill
       ? `<span class="bill-status bill-status--empty">טרם הוזן חיוב</span>`
+      : bill.legacy
+        ? `<span class="bill-status bill-status--paid">שולם · ${escapeHtml(bill.legacyDate || "")}${bill.method ? ` · ${escapeHtml(bill.method)}` : ""}</span><div class="bill-notes">נרשם בשיטה הקודמת${bill.originalStore && bill.originalStore !== bill.store ? ` (${escapeHtml(bill.originalStore)})` : ""}</div>`
       : bill.paid
         ? `<span class="bill-status bill-status--paid">שולם${bill.paidDate ? ` ב-${escapeHtml(formatDateDisplay(bill.paidDate))}` : ""}${bill.method ? ` · ${escapeHtml(bill.method)}` : ""}</span>`
         : `<span class="bill-status bill-status--due">ממתין לתשלום</span>`;
     const receipt = bill && bill.receipt && bill.receipt.path
       ? `<button type="button" class="bill-receipt-link" onclick="viewStoreBillReceipt('${escapeHtml(dashboardJsString(bill.bid))}')"><span class="material-icons-regular">attach_file</span> צפייה</button>`
       : `<span style="color:var(--text-muted);">—</span>`;
-    const action = !canEdit ? "" : bill
+    const action = !canEdit ? "" : bill && bill.legacy
+      ? `<button type="button" class="btn btn-outline bill-row-btn" onclick="openLegacyAssign('${escapeHtml(dashboardJsString(bill.key))}')">שיוך</button>`
+      : bill
       ? `<button type="button" class="btn btn-outline bill-row-btn" onclick="openStoreBillModal('${escapeHtml(dashboardJsString(bill.bid))}')">עריכה</button>`
       : `<button type="button" class="btn btn-outline bill-row-btn" onclick="openStoreBillModal(null, '${escapeHtml(dashboardJsString(store))}')">הזן חיוב</button>`;
     return `<tr class="${bill && bill.paid ? "bill-row--paid" : ""}">

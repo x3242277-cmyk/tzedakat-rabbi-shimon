@@ -194,9 +194,9 @@
               <div class="dashboard-panel-head">
                 <div>
                   <h2>גבייה מול הוצאות</h2>
-                  <p>כל השנים: בחורים, פורים, הוצאות ומענקים</p>
+                  <p>לכל שנה: הכנסות (בחורים ופורים) מול הוצאות (כולל עלות המענקים)</p>
                 </div>
-                <span class="material-icons-regular">area_chart</span>
+                <span class="material-icons-regular">bar_chart</span>
               </div>
               <div id="dashboard-month-bars" class="dashboard-month-bars"></div>
             </section>
@@ -608,15 +608,16 @@
 
           <div class="card-panel legacy-payments-panel hidden" id="legacy-payments-panel">
             <h3 class="page-title small" style="margin:0 0 4px;">תשלומים שנרשמו בשיטה הקודמת <span id="legacy-payments-year-label"></span></h3>
-            <p class="settings-card-sub" style="margin:0 0 10px;">רשומות ישנות, לפני החלוקה למחציות. מוצגות לעיון בלבד</p>
+            <p class="settings-card-sub" style="margin:0 0 10px;">רשומות ישנות שעוד לא שויכו למחצית. תשלום מאדר משויך אוטומטית למחצית א' ותשלום מאלול למחצית ב'</p>
             <div class="table-container">
               <table class="data-table compact-view">
-                <thead><tr><th>חנות / ספק</th><th>תאריך</th><th>הוצאה / חשבונית</th><th>אמצעי</th><th>סכום ששולם</th></tr></thead>
+                <thead><tr><th>חנות / ספק</th><th>תאריך</th><th>הוצאה / חשבונית</th><th>אמצעי</th><th>סכום ששולם</th><th class="no-export"></th></tr></thead>
                 <tbody id="grants-payments-tbody"></tbody>
                 <tfoot>
                   <tr class="legacy-total-row">
-                    <td colspan="4">סה"כ שולם</td>
+                    <td colspan="4">סה"כ לא משויך</td>
                     <td id="grants-payments-total">₪0</td>
+                    <td class="no-export"></td>
                   </tr>
                 </tfoot>
               </table>
@@ -943,6 +944,21 @@
         </div>
       </div>
 
+    </div>
+  </div>
+
+  <div id="legacy-assign-modal" class="modal-overlay">
+    <div class="modal-content app-modal" style="max-width: 460px;">
+      <button class="modal-close" type="button" onclick="closeLegacyAssign()">✖</button>
+      <div class="modal-inner">
+        <h3 class="page-title small" style="margin-bottom: 6px;">שיוך תשלום ישן למחצית</h3>
+        <div id="legacy-assign-desc" class="modal-meta"></div>
+        <div class="legacy-assign-options">
+          <button type="button" class="legacy-assign-option" data-half="א" onclick="saveLegacyAssign('א')"><strong>מחצית א'</strong><span>תשרי–אדר</span></button>
+          <button type="button" class="legacy-assign-option" data-half="ב" onclick="saveLegacyAssign('ב')"><strong>מחצית ב'</strong><span>ניסן–אלול</span></button>
+          <button type="button" class="legacy-assign-option" data-half="none" onclick="saveLegacyAssign('none')"><strong>לא משויך</strong><span>להשאיר ברשימת התשלומים הישנים</span></button>
+        </div>
+      </div>
     </div>
   </div>
 
