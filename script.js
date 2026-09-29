@@ -4594,7 +4594,11 @@ function performLogout(isAuto = false) {
 
     setTimeout(() => {
         const loginScreen = document.getElementById("login-screen");
-        if (loginScreen) { loginScreen.classList.remove("hidden-login"); initLoginScreen(); }
+        if (loginScreen) {
+            loginScreen.classList.remove("hidden-login");
+            // מציג את טופס הכניסה גם כשנכנסו קודם דרך סשן שמור (אז הטופס מעולם לא הוצג)
+            showLoginForm(document.getElementById("login-loader-area"), document.getElementById("login-logo"), document.getElementById("login-form-area"));
+        }
     }, 500);
 
     if(isAuto) {
