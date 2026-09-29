@@ -756,10 +756,17 @@ button.dashboard-segment-item:hover {
   font-weight: 700;
 }
 
-/* ===== גרף הכנסות מול הוצאות (לוח בקרה) ===== */
 .dashboard-month-bars {
   min-height: 250px;
   padding-top: 2px;
+}
+
+/* ===== גרפי הכנסות / הוצאות לפי שנה (לוח בקרה ודו"ח תנועות) ===== */
+.report-finance-panel { margin-bottom: 20px; padding: 16px; break-inside: avoid; }
+.report-finance-head { margin-bottom: 10px; }
+.report-finance-head h3 { margin: 0; font-size: 13px; font-weight: 700; color: var(--text-secondary); }
+.report-finance-head p { margin: 2px 0 0; font-size: 12px; color: var(--text-muted); }
+.fin-root {
   /* זהב = הכנסות, כחול = הוצאות. נבדק להבחנה גם בעיוורון צבעים */
   --fin-members: #946500;
   --fin-purim: #d6a52a;

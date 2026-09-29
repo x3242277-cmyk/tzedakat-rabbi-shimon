@@ -193,12 +193,12 @@
             <section class="dashboard-panel dashboard-panel--chart">
               <div class="dashboard-panel-head">
                 <div>
-                  <h2>גבייה מול הוצאות</h2>
-                  <p>לכל שנה: הכנסות (בחורים ופורים) מול הוצאות (כולל עלות המענקים)</p>
+                  <h2>הכנסות לפי שנה</h2>
+                  <p>שלוש השנים האחרונות: בחורים ופורים</p>
                 </div>
                 <span class="material-icons-regular">bar_chart</span>
               </div>
-              <div id="dashboard-month-bars" class="dashboard-month-bars"></div>
+              <div id="dashboard-month-bars" class="dashboard-month-bars fin-root"></div>
             </section>
 
             <section class="dashboard-panel dashboard-panel--actions">
@@ -406,6 +406,14 @@
           <div class="card-panel" id="box-chart" style="margin-bottom: 20px; padding: 16px;">
             <div style="font-size: 13px; font-weight: 700; color: var(--text-secondary); margin-bottom: 12px;">גרף פריסת הכנסות שנתי</div>
             <canvas id="incomeChart" style="max-height: 220px;"></canvas>
+          </div>
+
+          <div class="card-panel report-finance-panel" id="box-finance-chart">
+            <div class="report-finance-head">
+              <h3>גבייה מול הוצאות</h3>
+              <p>לכל שנה: הכנסות (בחורים ופורים) מול הוצאות (כולל עלות המענקים)</p>
+            </div>
+            <div id="report-finance-chart" class="fin-root"></div>
           </div>
 
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; margin-top: 20px;">

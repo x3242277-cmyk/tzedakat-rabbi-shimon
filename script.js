@@ -500,6 +500,8 @@ function applyPermissions() {
   
   const chartBox = document.getElementById("box-chart");
   if (chartBox) chartBox.style.display = canViewIncome ? "" : "none";
+  const financeBox = document.getElementById("box-finance-chart");
+  if (financeBox) financeBox.style.display = canViewIncome && canViewExpenses ? "" : "none";
 
   const navExpSum = document.querySelector('.nav-item[data-screen="expenses-summary-screen"]');
   if (navExpSum) navExpSum.style.display = canViewExpenses ? "" : "none";
@@ -2491,10 +2493,8 @@ function getDashboardExpenseCategoryAlert(currentYear) {
   };
 }
 
-function renderDashboardMonthBars() {
-  const el = document.getElementById("dashboard-month-bars");
-  if (!el) return;
-
+// שנים שיש בהן נתונים (או שנת הפעילות), מהישנה לחדשה
+function getFinanceYears() {
   const campaignYear = getCampaignYear();
   const years = HEBREW_YEARS_ORDER.filter(year => {
     const hasDonations = (state.donations || []).some(d => d.year === year);
@@ -2503,16 +2503,33 @@ function renderDashboardMonthBars() {
     return hasDonations || hasExpenses || hasPurim || year === campaignYear;
   });
   if (!years.length) years.push(campaignYear);
+  return years;
+}
 
+function buildFinanceRows(years) {
+  const campaignYear = getCampaignYear();
   const sumBy = (list, year) => (list || []).filter(x => x.year === year).reduce((sum, x) => sum + (Number(x.amount) || 0), 0);
-  const rows = years.map(year => {
+  return years.map(year => {
     const grant = getDashboardYearGrantCost(year, campaignYear);
     const members = sumBy(state.donations, year);
     const purim = getDashboardPurimTotal(year);
     const expenses = sumBy(state.expenses, year);
     return { year, members, purim, expenses, grants: grant.cost, grantNote: grant.note, income: members + purim, outgoing: expenses + grant.cost };
   });
-  renderFinanceChart(el, rows);
+}
+
+// לוח בקרה: הכנסות בלבד, שלוש השנים האחרונות
+function renderDashboardMonthBars() {
+  const el = document.getElementById("dashboard-month-bars");
+  if (!el) return;
+  renderFinanceChart(el, buildFinanceRows(getFinanceYears().slice(-3)), "income");
+}
+
+// דו"ח תנועות מרוכז: הכנסות מול הוצאות בכל השנים
+function renderReportFinanceChart() {
+  const el = document.getElementById("report-finance-chart");
+  if (!el) return;
+  renderFinanceChart(el, buildFinanceRows(getFinanceYears()), "compare");
 }
 
 // עלות המענקים לשנה: בשנת הפעילות - צפי לפי הזכאים; בשנים קודמות - לפי מקבלי המענק בפועל במסך המענקים
@@ -2543,22 +2560,29 @@ function formatCompactCurrency(value) {
   return `${value < 0 ? "-" : ""}₪${k >= 100 ? Math.round(k) : Math.round(k * 10) / 10}K`;
 }
 
-// גרף עמודות: לכל שנה עמודת הכנסות (בחורים + פורים) ליד עמודת הוצאות (הוצאות + עלות מענקים)
-function renderFinanceChart(el, rows) {
+// גרף עמודות לפי שנה.
+// mode "compare": עמודת הכנסות (בחורים + פורים) ליד עמודת הוצאות (הוצאות + עלות מענקים)
+// mode "income": עמודת הכנסות בלבד
+function renderFinanceChart(el, rows, mode = "compare") {
+  const compare = mode === "compare";
+  const kinds = compare ? ["income", "outgoing"] : ["income"];
+  const series = FINANCE_SERIES.filter(sr => kinds.includes(sr.group));
   const width = Math.max(300, Math.round(el.clientWidth || 640));
-  const height = 236;
-  const compact = width < 520;
-  const padL = compact ? 40 : 50, padR = 12, padTop = 24, baseY = height - 44;
+  const height = compare ? 236 : 220;
+  const narrow = width < 520;
+  const padL = narrow ? 40 : 50, padR = 12, padTop = 24, baseY = height - (compare ? 44 : 30);
   const plotW = width - padL - padR, plotH = baseY - padTop;
   const band = plotW / rows.length;
   const barW = Math.min(24, Math.max(12, band * 0.22));
   const pairGap = Math.min(40, Math.max(8, band * 0.3));
-  const maxRaw = Math.max(1, ...rows.map(r => Math.max(r.income, r.outgoing)));
+  const maxRaw = Math.max(1, ...rows.map(r => compare ? Math.max(r.income, r.outgoing) : r.income));
   const step = (() => { const raw = maxRaw / 4; const mag = Math.pow(10, Math.floor(Math.log10(raw))); return [1, 2, 2.5, 5, 10].map(m => m * mag).find(m => m >= raw); })();
   const niceMax = step * Math.ceil(maxRaw / step);
   const y = v => baseY - (v / niceMax) * plotH;
   const GAP = 2, R = 4;
-  const capLabel = v => (band < 150 || compact) ? formatCompactCurrency(v) : formatCurrency(v);
+  const capLabel = v => ((compare && band < 150) || narrow) ? formatCompactCurrency(v) : formatCurrency(v);
+  const kindLabel = kind => kind === "income" ? "הכנסות" : "הוצאות";
+  const totalOf = (r, kind) => kind === "income" ? r.income : r.outgoing;
 
   // מלבן עם פינות מעוגלות רק למעלה (הקצה של הנתון), ישר בבסיס
   const topRounded = (x, top, w, h) => {
@@ -2567,7 +2591,7 @@ function renderFinanceChart(el, rows) {
   };
   const column = (x, segments) => {
     let acc = 0; const parts = [];
-    const visible = segments.filter(s => s.value > 0);
+    const visible = segments.filter(sg => sg.value > 0);
     visible.forEach((seg, i) => {
       const bottom = y(acc) - (i > 0 ? GAP : 0);
       acc += seg.value;
@@ -2590,40 +2614,47 @@ function renderFinanceChart(el, rows) {
 
   const groups = rows.map((r, i) => {
     const cx = padL + band * i + band / 2;
-    const xInc = cx + pairGap / 2, xOut = cx - pairGap / 2 - barW; // הכנסות מימין (נקראות ראשונות)
-    const inc = [{ key: "members", value: r.members }, { key: "purim", value: r.purim }];
-    const out = [{ key: "expenses", value: r.expenses }, { key: "grants", value: r.grants }];
-    const hit = (x, kind) => `<rect class="fin-hit" data-i="${i}" data-kind="${kind}" tabindex="0" role="img" aria-label="${escapeHtml(`${r.year} ${kind === "income" ? "הכנסות" : "הוצאות"} ${formatCurrency(kind === "income" ? r.income : r.outgoing)}`)}" x="${x - 6}" y="${padTop - 18}" width="${barW + 12}" height="${baseY - padTop + 18}"></rect>`;
-    return `<g class="fin-col" data-i="${i}" data-kind="income">${column(xInc, inc)}</g>
-      <g class="fin-col" data-i="${i}" data-kind="outgoing">${column(xOut, out)}</g>
-      <text class="fin-cap" x="${xInc + barW / 2}" y="${y(r.income) - 6}" text-anchor="middle">${escapeHtml(r.income ? capLabel(r.income) : "—")}</text>
-      <text class="fin-cap" x="${xOut + barW / 2}" y="${y(r.outgoing) - 6}" text-anchor="middle">${escapeHtml(r.outgoing ? capLabel(r.outgoing) : "—")}</text>
-      <text class="fin-sub" x="${xInc + barW / 2}" y="${baseY + 14}" text-anchor="middle">הכנסות</text>
-      <text class="fin-sub" x="${xOut + barW / 2}" y="${baseY + 14}" text-anchor="middle">הוצאות</text>
-      <text class="fin-year" x="${cx}" y="${baseY + 32}" text-anchor="middle">${escapeHtml(r.year)}</text>
-      ${hit(xInc, "income")}${hit(xOut, "outgoing")}`;
+    // בהשוואה: הכנסות מימין (נקראות ראשונות), הוצאות משמאל. בהכנסות בלבד: עמודה אחת במרכז
+    const xs = compare ? { income: cx + pairGap / 2, outgoing: cx - pairGap / 2 - barW } : { income: cx - barW / 2 };
+    const segs = {
+      income: [{ key: "members", value: r.members }, { key: "purim", value: r.purim }],
+      outgoing: [{ key: "expenses", value: r.expenses }, { key: "grants", value: r.grants }],
+    };
+    return kinds.map(kind => {
+      const x = xs[kind], total = totalOf(r, kind);
+      return `<g class="fin-col" data-i="${i}" data-kind="${kind}">${column(x, segs[kind])}</g>
+        <text class="fin-cap" x="${x + barW / 2}" y="${y(total) - 6}" text-anchor="middle">${escapeHtml(total ? capLabel(total) : "—")}</text>
+        ${compare ? `<text class="fin-sub" x="${x + barW / 2}" y="${baseY + 14}" text-anchor="middle">${kindLabel(kind)}</text>` : ""}
+        <rect class="fin-hit" data-i="${i}" data-kind="${kind}" tabindex="0" role="img" aria-label="${escapeHtml(`${r.year} ${kindLabel(kind)} ${formatCurrency(total)}`)}" x="${x - 6}" y="${padTop - 18}" width="${barW + 12}" height="${baseY - padTop + 18}"></rect>`;
+    }).join("") + `<text class="fin-year" x="${cx}" y="${baseY + (compare ? 32 : 18)}" text-anchor="middle">${escapeHtml(r.year)}</text>`;
   }).join("");
 
-  const legend = FINANCE_SERIES.map(s => `<span class="fin-legend-item"><i class="fin-swatch fin-${s.key}"></i>${escapeHtml(s.label)}</span>`).join("");
-  const table = `<table class="fin-table">
+  const legend = series.map(sr => `<span class="fin-legend-item"><i class="fin-swatch fin-${sr.key}"></i>${escapeHtml(sr.label)}</span>`).join("");
+  const table = compare
+    ? `<table class="fin-table">
       <thead><tr><th>שנה</th><th>הכנסות</th><th>הוצאות</th><th>פער</th></tr></thead>
       <tbody>${rows.slice().reverse().map(r => {
         const net = r.income - r.outgoing;
         return `<tr><td>${escapeHtml(r.year)}</td><td>${formatCurrency(r.income)}</td><td>${formatCurrency(r.outgoing)}</td>
           <td class="${net >= 0 ? "fin-net-up" : "fin-net-down"}"><span aria-hidden="true">${net >= 0 ? "▲" : "▼"}</span> ${net >= 0 ? "עודף" : "גירעון"} ${formatCurrency(Math.abs(net))}</td></tr>`;
       }).join("")}</tbody>
+    </table>`
+    : `<table class="fin-table">
+      <thead><tr><th>שנה</th><th>בחורים</th><th>פורים</th><th>סה"כ הכנסות</th></tr></thead>
+      <tbody>${rows.slice().reverse().map(r => `<tr><td>${escapeHtml(r.year)}</td><td>${formatCurrency(r.members)}</td><td>${formatCurrency(r.purim)}</td><td style="font-weight:800;">${formatCurrency(r.income)}</td></tr>`).join("")}</tbody>
     </table>`;
 
   el.innerHTML = `
     <div class="fin-legend">${legend}</div>
     <div class="dashboard-mountain-chart fin-chart">
-      <svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="group" aria-label="גרף הכנסות מול הוצאות לפי שנה">
+      <svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="group" aria-label="${compare ? "גרף הכנסות מול הוצאות לפי שנה" : "גרף הכנסות לפי שנה"}">
         ${ticks}${groups}
       </svg>
       <div class="fin-tooltip" hidden></div>
     </div>
     ${table}`;
   el.dataset.renderWidth = String(width);
+  watchFinanceChartWidth(el, () => renderFinanceChart(el, rows, mode));
 
   const tip = el.querySelector(".fin-tooltip");
   const chart = el.querySelector(".fin-chart");
@@ -2632,18 +2663,18 @@ function renderFinanceChart(el, rows) {
     el.querySelectorAll(".fin-col").forEach(g => g.classList.toggle("is-dim", !(g.dataset.i === target.dataset.i && g.dataset.kind === kind)));
     tip.textContent = "";
     const head = document.createElement("div"); head.className = "fin-tip-head";
-    head.textContent = `${r.year} · ${kind === "income" ? "הכנסות" : "הוצאות"}`;
+    head.textContent = `${r.year} · ${kindLabel(kind)}`;
     tip.appendChild(head);
-    FINANCE_SERIES.filter(s => s.group === kind).forEach(s => {
+    FINANCE_SERIES.filter(sr => sr.group === kind).forEach(sr => {
       const row = document.createElement("div"); row.className = "fin-tip-row";
-      const key = document.createElement("i"); key.className = `fin-tip-key fin-${s.key}`;
-      const val = document.createElement("strong"); val.textContent = formatCurrency(r[s.key]);
-      const name = document.createElement("span"); name.textContent = s.label;
+      const key = document.createElement("i"); key.className = `fin-tip-key fin-${sr.key}`;
+      const val = document.createElement("strong"); val.textContent = formatCurrency(r[sr.key]);
+      const name = document.createElement("span"); name.textContent = sr.label;
       row.append(key, val, name); tip.appendChild(row);
-      if (s.key === "grants" && r.grantNote) { const note = document.createElement("div"); note.className = "fin-tip-note"; note.textContent = r.grantNote; tip.appendChild(note); }
+      if (sr.key === "grants" && r.grantNote) { const note = document.createElement("div"); note.className = "fin-tip-note"; note.textContent = r.grantNote; tip.appendChild(note); }
     });
     const total = document.createElement("div"); total.className = "fin-tip-total";
-    total.textContent = `סה"כ ${formatCurrency(kind === "income" ? r.income : r.outgoing)}`;
+    total.textContent = `סה"כ ${formatCurrency(totalOf(r, kind))}`;
     tip.appendChild(total);
     tip.hidden = false;
     const cb = chart.getBoundingClientRect(), tb = target.getBoundingClientRect();
@@ -2662,15 +2693,16 @@ function renderFinanceChart(el, rows) {
   });
 }
 
-// הגרף נבנה לפי רוחב המסך - מציירים מחדש כשהרוחב משתנה
-let financeChartResizeTimer = null;
-window.addEventListener("resize", () => {
-  clearTimeout(financeChartResizeTimer);
-  financeChartResizeTimer = setTimeout(() => {
-    const el = document.getElementById("dashboard-month-bars");
-    if (el && el.clientWidth && Math.abs(el.clientWidth - Number(el.dataset.renderWidth || 0)) > 8) renderDashboardMonthBars();
-  }, 150);
-});
+// הגרף נבנה לפי הרוחב בפועל: מציירים מחדש כשהרוחב משתנה (גם כשמסך מוסתר נפתח)
+function watchFinanceChartWidth(el, redraw) {
+  el.__financeRedraw = redraw;
+  if (el.__financeObserver || typeof ResizeObserver === "undefined") return;
+  el.__financeObserver = new ResizeObserver(() => {
+    const w = el.clientWidth;
+    if (w && Math.abs(w - Number(el.dataset.renderWidth || 0)) > 8 && el.__financeRedraw) el.__financeRedraw();
+  });
+  el.__financeObserver.observe(el);
+}
 
 // עלות חבילה לחתן (לארגון) לפי תכולת החבילה שמוגדרת במסך מענקים לשנה הזו
 function getDashboardGrantPackageCost(year = getCampaignYear()) {
@@ -3353,6 +3385,7 @@ window.saveMembersEdit = function() {
 };
 
 function renderDailyReport() {
+    renderReportFinanceChart();
     const incTbody = document.getElementById("report-income-tbody");
     const expTbody = document.getElementById("report-expense-tbody");
     if (!incTbody || !expTbody) return;
