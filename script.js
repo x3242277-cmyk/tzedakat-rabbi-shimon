@@ -231,6 +231,7 @@ function applyPendingWritesToState() {
 
 function updatePendingBanner() {
   const count = readPendingWrites().length;
+  if (typeof updateSyncStatus === "function") updateSyncStatus();
   let el = document.getElementById("pending-writes-banner");
   if (!count) { if (el) el.remove(); return; }
   if (!el) {
@@ -305,13 +306,13 @@ function logAudit(action, entity, entityId, details) {
 
 const screenMeta = {
   "dashboard-screen": { title: "לוח בקרה", subtitle: "שליטה על גבייה, עמידה ביעדים וזכאות למענק" },
-  "members-screen": { title: "ניהול בחורים", subtitle: "רשימת בחורים, סטטוס גבייה ופרופיל אישי" },
-  "daily-report-screen": { title: "דו\"ח תנועות מרוכז", subtitle: "מעקב הכנסות והוצאות לפי חיתוך זמן" },
-  "expenses-summary-screen": { title: "סיכום הוצאות", subtitle: "ניתוח תקציבי רב-שנתי והשוואה בין קמפיינים" },
-  "grants-screen": { title: "מענקים", subtitle: "נתינת המענק, תכולת החבילה ותשלומים לחנויות לפי שנה" },
-  "purim-registration-screen": { title: "תרומות פורים", subtitle: "מאגר נתונים וסיכום היסטורי של בתי התורמים" },
-  "rules-screen": { title: "תקנון", subtitle: "תקנון המערכת וכללי חלוקת המענקים" },
-  "settings-screen": { title: "הגדרות מערכת", subtitle: "ניהול יעדים שנתיים, הגדרות שנת פעילות והרשאות משתמשים" },
+  "members-screen": { eyebrow: "המאגר המרכזי", title: "ניהול בחורים", subtitle: "רשימת בחורים, סטטוס גבייה ופרופיל אישי" },
+  "daily-report-screen": { eyebrow: "תנועות", title: "דו\"ח תנועות מרוכז", subtitle: "מעקב הכנסות והוצאות לפי חיתוך זמן" },
+  "expenses-summary-screen": { eyebrow: "תקציב", title: "סיכום הוצאות", subtitle: "ניתוח תקציבי רב-שנתי והשוואה בין קמפיינים" },
+  "grants-screen": { eyebrow: "חתנים וחנויות", title: "מענקים", subtitle: "נתינת המענק, תכולת החבילה ותשלומים לחנויות לפי שנה" },
+  "purim-registration-screen": { eyebrow: "פורים", title: "תרומות פורים", subtitle: "מאגר נתונים וסיכום היסטורי של בתי התורמים" },
+  "rules-screen": { eyebrow: "כללים ויעדים", title: "תקנון", subtitle: "תקנון המערכת וכללי חלוקת המענקים" },
+  "settings-screen": { eyebrow: "ניהול המערכת", title: "הגדרות מערכת", subtitle: "ניהול יעדים שנתיים, הגדרות שנת פעילות והרשאות משתמשים" },
 };
 
 
@@ -516,6 +517,7 @@ function applyPermissions() {
   
   const navSettings = document.getElementById("nav-settings");
   if (navSettings) navSettings.style.display = isVIP ? "" : "none";
+  syncPortalCardPermissions();
 }
 
 async function initApp() {
@@ -553,6 +555,7 @@ async function fetchDataFromServer(isSilent = false) {
     invalidateCache();
     saveState();
     try { localStorage.setItem("ezer_last_sync", new Date().toISOString()); } catch (e) {}
+    updateSyncStatus();
 
     if (!document.getElementById("login-screen").classList.contains("hidden-login")) {
       initLoginScreen();
@@ -615,13 +618,7 @@ function bindEvents() {
   bindMemberSearch();
   bindUXEnhancements();
 
-  // ניווט ללוח בקרה בלחיצה על הלוגו בצד
-  const sidebarLogo = document.getElementById("sidebar-logo");
-  if (sidebarLogo) {
-      sidebarLogo.addEventListener("click", () => {
-          switchScreen("dashboard-screen", true);
-      });
-  }
+  bindPortal();
 
   const btnRefresh = document.getElementById("btn-refresh-data");
   if (btnRefresh) {
@@ -2264,7 +2261,7 @@ function switchScreen(screenId, pushToHistory = true) {
   // -- מעלים את הכותרת בלוח הבקרה כדי לחסוך שטח --
   const headerEl = document.getElementById("main-content-header");
   if (headerEl) {
-      headerEl.style.display = screenId === "dashboard-screen" ? "none" : "flex";
+      headerEl.style.display = screenId === "dashboard-screen" ? "none" : "";
   }
 
   // ריענון גרפים בכניסה למסכים עם canvas (Chart.js לא מודד נכון כשמוסתר)
@@ -2283,7 +2280,7 @@ function switchScreen(screenId, pushToHistory = true) {
   }
 
   document.querySelectorAll(".nav-item").forEach((btn) => { if (btn.dataset.screen === screenId) btn.classList.add("active"); else btn.classList.remove("active"); });
-  const meta = screenMeta[screenId]; if (meta) { setText("page-title", meta.title); setText("page-subtitle", meta.subtitle); }
+  const meta = screenMeta[screenId]; if (meta) { setText("page-title", meta.title); setText("page-subtitle", meta.subtitle); setText("page-eyebrow", meta.eyebrow || "צדקת רבי שמעון"); }
   if (pushToHistory) { try { history.pushState({ screen: screenId }, "", `#${screenId}`); } catch (error) {} }
 }
 
@@ -2327,6 +2324,118 @@ window.renderDashboard = function() {
   renderDashboardMonthBars();
   renderDashboardActivity(currentYear, summaries);
   renderDashboardSegments(summaries);
+  renderPortal(currentYear, summaries, totalExpenses);
+}
+
+// ===== עמוד הבית: כרטיסי הכניסה, ספירה לאחור ותנועה =====
+function renderPortal(currentYear, summaries, totalExpenses) {
+  setText("portal-year", currentYear);
+  const now = new Date();
+  const monthIncome = (state.donations || []).reduce((sum, d) => {
+    const dt = parseAppDate(d.date);
+    return dt && dt.getFullYear() === now.getFullYear() && dt.getMonth() === now.getMonth() ? sum + (Number(d.amount) || 0) : sum;
+  }, 0);
+  const grantsYear = getGrantsArchive().years[currentYear];
+  setText("pc-members", summaries.length.toLocaleString("he-IL"));
+  setText("pc-month", formatCurrency(monthIncome));
+  setText("pc-grants", ((grantsYear && grantsYear.recipients) || []).length.toLocaleString("he-IL"));
+  setText("pc-expenses", formatCurrency(totalExpenses));
+  setText("pc-purim", (state.purimAddresses || []).length.toLocaleString("he-IL"));
+  setText("pc-rules", formatCurrency(Number(state.settings.targetKtana) || 0));
+  syncPortalCardPermissions();
+  updatePortalCountdown();
+}
+
+// כרטיס מוצג רק אם למשתמש יש גישה למסך (כמו בתפריט העליון)
+function syncPortalCardPermissions() {
+  document.querySelectorAll(".portal-card[data-screen]").forEach(card => {
+    const nav = document.querySelector(`.mainnav .nav-item[data-screen="${card.dataset.screen}"]`);
+    card.style.display = nav && nav.style.display === "none" ? "none" : "";
+  });
+}
+
+// סוף המחצית הנוכחית: מחצית א' נגמרת בסוף אדר, מחצית ב' בסוף אלול
+function getCurrentHalfEnd(now = new Date()) {
+  const half = getHalfForDate(now);
+  const parts = getHebrewDateParts(now);
+  if (!half || !parts) return null;
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  for (let i = 0; i < 220; i++) {
+    d.setDate(d.getDate() + 1);
+    if (getHalfForDate(d) !== half) {
+      return { end: new Date(d), half, closing: half === "א" ? "אדר" : "אלול", year: hebrewYearNumberToLetters(parts.year) };
+    }
+  }
+  return null;
+}
+
+let portalCountdownTarget = null;
+function updatePortalCountdown() {
+  const info = getCurrentHalfEnd();
+  portalCountdownTarget = info ? info.end : null;
+  setText("portal-countdown-label", info ? `עד סוף מחצית ${info.half}' · ${info.closing} ${info.year} · תשלומים לחנויות` : "");
+  tickPortalCountdown();
+}
+function tickPortalCountdown() {
+  if (!portalCountdownTarget) return;
+  const ms = Math.max(0, portalCountdownTarget - Date.now());
+  const pad = n => String(n).padStart(2, "0");
+  setText("cd-days", pad(Math.floor(ms / 86400000)));
+  setText("cd-hours", pad(Math.floor(ms / 3600000) % 24));
+  setText("cd-minutes", pad(Math.floor(ms / 60000) % 60));
+  setText("cd-seconds", pad(Math.floor(ms / 1000) % 60));
+  if (ms === 0) updatePortalCountdown();
+}
+setInterval(() => { if (state.activeScreen === "dashboard-screen" && !document.hidden) tickPortalCountdown(); }, 1000);
+
+// מצב הסנכרון בסרגל העליון
+function updateSyncStatus() {
+  const el = document.getElementById("sync-status");
+  const text = document.getElementById("sync-status-text");
+  if (!el || !text) return;
+  const pending = readPendingWrites().length;
+  let last = null;
+  try { last = localStorage.getItem("ezer_last_sync"); } catch (e) {}
+  const t = last ? new Date(last) : null;
+  el.classList.toggle("is-pending", pending > 0);
+  if (pending) text.textContent = `${pending} ממתינים לשמירה`;
+  else if (t && !Number.isNaN(t.getTime())) text.textContent = `עודכן ${formatDateDisplay(t)} ${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")}`;
+  else text.textContent = "מסונכרן";
+}
+
+function bindPortal() {
+  // כרטיסי הכניסה: מעבר למסך, והטיה עדינה לכיוון הסמן
+  const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  document.querySelectorAll(".portal-card[data-screen]").forEach(card => {
+    card.addEventListener("click", e => { e.preventDefault(); switchScreen(card.dataset.screen, true); });
+    if (reduceMotion) return;
+    card.addEventListener("pointermove", e => {
+      const r = card.getBoundingClientRect(), x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+      card.style.setProperty("--tilt-x", `${((y - 0.5) * 6).toFixed(2)}deg`);
+      card.style.setProperty("--tilt-y", `${((0.5 - x) * 8).toFixed(2)}deg`);
+      card.style.setProperty("--glare-x", `${(x * 100).toFixed(1)}%`);
+      card.style.setProperty("--glare-y", `${(y * 100).toFixed(1)}%`);
+    });
+    card.addEventListener("pointerleave", () => { card.style.removeProperty("--tilt-x"); card.style.removeProperty("--tilt-y"); });
+  });
+
+  // לוגו = חזרה ללוח הבקרה
+  const brand = document.getElementById("brand-home");
+  if (brand) {
+    brand.addEventListener("click", () => switchScreen("dashboard-screen", true));
+    brand.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); switchScreen("dashboard-screen", true); } });
+  }
+
+  // תפריט בטלפון
+  const masthead = document.getElementById("masthead");
+  const toggle = document.getElementById("menu-toggle");
+  if (masthead && toggle) {
+    const setOpen = open => { masthead.classList.toggle("nav-open", open); toggle.setAttribute("aria-expanded", open ? "true" : "false"); };
+    toggle.addEventListener("click", () => setOpen(!masthead.classList.contains("nav-open")));
+    document.querySelectorAll("#mainnav .nav-item").forEach(btn => btn.addEventListener("click", () => setOpen(false)));
+    document.addEventListener("keydown", e => { if (e.key === "Escape") setOpen(false); });
+  }
+  updateSyncStatus();
 }
 
 // התקדמות = כמה מהחובה כוסה בפועל (עודף של בחור אחד לא נספר לטובת אחר)

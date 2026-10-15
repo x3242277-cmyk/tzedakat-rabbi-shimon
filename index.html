@@ -51,31 +51,42 @@
 
   <div class="screen active-screen app-layout hidden-layout" id="main-screen">
     
-    <aside class="sidebar">
-      <div class="sidebar-header" style="display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px; margin-bottom: 24px; padding-top: 10px;">
-        <img src="https://i.ibb.co/35GFFgB9/1-optimized.png" alt="לוגו צדקת רבי שמעון" id="sidebar-logo" style="width: 126px; height: auto; cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
-        <div>
-          <h2 style="font-size: 22px; color: var(--gold-main); margin: 0; font-weight: 800;">צדקת רבי שמעון</h2>
-          <div class="brand-subtitle" style="font-size: 12px; color: var(--text-sidebar);">ניהול גבייה, זכאות ומענקים</div>
-          <div id="user-role-indicator" style="margin-top: 8px; display: inline-block; font-size: 11px; font-weight: bold; background: rgba(212, 175, 55, 0.15); color: var(--gold-light); padding: 4px 10px; border-radius: 12px; border: 1px solid rgba(212, 175, 55, 0.3);">
-          </div>
+    <header class="masthead" id="masthead">
+      <div class="masthead-in">
+        <div class="brand" id="brand-home" role="button" tabindex="0" title="לוח בקרה">
+          <img src="https://i.ibb.co/35GFFgB9/1-optimized.png" alt="לוגו צדקת רבי שמעון" id="sidebar-logo">
+          <span class="brand-text">
+            <strong>צדקת רבי שמעון</strong>
+            <small>ניהול גבייה, זכאות ומענקים</small>
+          </span>
+        </div>
+
+        <nav class="mainnav" id="mainnav" aria-label="ניווט ראשי">
+          <button class="nav-item" data-screen="dashboard-screen">לוח בקרה</button>
+          <button class="nav-item" data-screen="members-screen">בחורים</button>
+          <button class="nav-item" data-screen="daily-report-screen">דו"ח תנועות מרוכז</button>
+          <button class="nav-item" data-screen="expenses-summary-screen">סיכום הוצאות</button>
+          <button class="nav-item" data-screen="purim-registration-screen">כתובות פורים</button>
+          <button class="nav-item" data-screen="grants-screen">מענקים</button>
+          <button class="nav-item" data-screen="rules-screen">תקנון</button>
+          <button class="nav-item" data-screen="settings-screen" id="nav-settings">הגדרות</button>
+        </nav>
+
+        <div class="masthead-side">
+          <span class="sync-status" id="sync-status" title="מצב הסנכרון עם השרת"><i aria-hidden="true"></i><span id="sync-status-text">מסונכרן</span></span>
+          <div id="user-role-indicator" class="role-pill"></div>
+          <button id="btn-refresh-data" class="masthead-icon" title="רענן נתונים מהשרת" type="button">
+            <span class="material-icons-regular" id="refresh-icon">refresh</span>
+          </button>
+          <button id="btn-logout-top" class="masthead-icon masthead-icon--danger" title="התנתקות ונעילה" type="button">
+            <span class="material-icons-regular">logout</span>
+          </button>
+          <button type="button" class="menu-toggle" id="menu-toggle" aria-expanded="false" aria-controls="mainnav">
+            <span class="material-icons-regular" aria-hidden="true">menu</span><span class="menu-toggle-text">תפריט</span>
+          </button>
         </div>
       </div>
-
-      <nav class="sidebar-nav">
-        <button class="nav-item" data-screen="members-screen">בחורים</button>
-        <button class="nav-item" data-screen="daily-report-screen">דו"ח תנועות מרוכז</button>
-        <button class="nav-item" data-screen="expenses-summary-screen">סיכום הוצאות</button>
-        <button class="nav-item" data-screen="purim-registration-screen">כתובות פורים</button>
-        <button class="nav-item" data-screen="rules-screen">תקנון</button>
-        <button class="nav-item" data-screen="grants-screen">מענקים</button>
-      </nav>
-
-      <div class="sidebar-footer">
-        <button class="nav-item" data-screen="settings-screen" style="margin-bottom: 12px; width: 100%; justify-content: flex-start;" id="nav-settings">הגדרות מערכת</button>
-        
-      </div>
-    </aside>
+    </header>
 
     <main class="main-content">
       <div class="print-only print-header" id="print-header">
@@ -83,32 +94,32 @@
         <div class="print-header-meta" id="print-header-meta"></div>
       </div>
       
-      <header class="content-header" id="main-content-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
-        <div>
-          <h1 class="page-title" id="page-title">לוח בקרה</h1>
-          <div class="page-subtitle" id="page-subtitle">שליטה על גבייה, עמידה ביעדים וזכאות למענק</div>
-        </div>
-        <div id="header-top-actions" style="display: flex; gap: 8px;">
-          <button id="btn-refresh-data" class="header-icon-btn" title="רענן נתונים מהשרת">
-            <span class="material-icons-regular" id="refresh-icon" style="font-size: 19px;">refresh</span>
-          </button>
-          <button id="btn-logout-top" class="header-icon-btn header-icon-btn--danger" title="התנתקות ונעילה">
-            <span class="material-icons-regular" style="font-size: 19px;">logout</span>
-          </button>
-        </div>
+      <header class="content-header" id="main-content-header">
+        <span class="page-eyebrow" id="page-eyebrow">צדקת רבי שמעון</span>
+        <h1 class="page-title" id="page-title">לוח בקרה</h1>
+        <div class="page-subtitle" id="page-subtitle">שליטה על גבייה, עמידה ביעדים וזכאות למענק</div>
       </header>
 
       <section id="dashboard-screen" class="content-screen active-content-screen">
-
-        <div class="dashboard-command-center">
-          <div class="dashboard-hero-panel">
-            <div class="dashboard-hero-copy">
-              <span class="dashboard-eyebrow">חדר מצב</span>
-              <h1>לוח בקרה</h1>
-              <p>תמונת מצב שנתית, טיפול מיידי ופעולות ניהול במקום אחד.</p>
-            </div>
-            <div class="dashboard-hero-controls">
-              <div class="dashboard-year-card">
+        <div class="portal">
+          <section class="portal-hero" id="portal-hero">
+            <div class="portal-copy">
+              <div class="portal-countdown" id="portal-countdown" title="הזמן שנותר עד סוף המחצית (תשלומים לחנויות)">
+                <div><b id="cd-days">--</b><small>ימים</small></div><i>:</i>
+                <div><b id="cd-hours">--</b><small>שעות</small></div><i>:</i>
+                <div><b id="cd-minutes">--</b><small>דקות</small></div><i>:</i>
+                <div><b id="cd-seconds">--</b><small>שניות</small></div>
+              </div>
+              <div class="portal-countdown-label" id="portal-countdown-label">עד סוף המחצית</div>
+              <h1 class="portal-title">קמפיין <em id="portal-year">תשפ"ו</em><span>תמונת המצב</span></h1>
+              <p class="portal-lead">גבייה, יעדים ומענקים: כל מה שקורה בקמפיין, במקום אחד.</p>
+              <div class="portal-actions">
+                <button class="portal-primary" id="quick-add-donation" type="button">רישום הפקדה <span aria-hidden="true">←</span></button>
+                <button class="portal-secondary" id="quick-add-member" type="button"><span class="material-icons-regular" aria-hidden="true">person_add</span> הוספת בחור</button>
+                <button class="portal-secondary" id="quick-add-expense" type="button"><span class="material-icons-regular" aria-hidden="true">receipt_long</span> הוספת הוצאה</button>
+                <button class="portal-secondary" onclick="openNedarimModal()" type="button"><span class="material-icons-regular" aria-hidden="true">credit_card</span> סליקת אשראי</button>
+              </div>
+              <div class="portal-year">
                 <label for="dashboard-year-filter">שנת פעילות</label>
                 <select id="dashboard-year-filter" onchange="renderDashboard()" class="dashboard-year-select">
                   <option value='תשפ"ז'>תשפ"ז</option>
@@ -121,18 +132,21 @@
                   <option value='תש"פ'>תש"פ</option>
                 </select>
               </div>
-              <div class="dashboard-session-tools">
-                <button id="dashboard-refresh-data" class="dashboard-session-btn" type="button" title="רענן נתונים">
-                  <span class="material-icons-regular" id="dashboard-refresh-icon">refresh</span>
-                </button>
-                <button id="dashboard-logout" class="dashboard-session-btn dashboard-session-btn--danger" type="button" title="יציאה ונעילה">
-                  <span class="material-icons-regular">logout</span>
-                </button>
-              </div>
             </div>
-          </div>
 
-          <div class="dashboard-kpi-grid">
+            <section class="portal-flash" aria-labelledby="portal-flash-title">
+              <div class="portal-flash-head">
+                <h2 id="portal-flash-title">פעילות אחרונה</h2>
+                <span class="live-dot">מתעדכן</span>
+              </div>
+              <div id="dashboard-recent-activity" class="dashboard-activity-list"></div>
+              <div class="portal-flash-foot">
+                <button type="button" class="drill-down-card" data-drill="daily-report-screen">לדו"ח התנועות המלא <span aria-hidden="true">←</span></button>
+              </div>
+            </section>
+          </section>
+
+          <div class="dashboard-kpi-grid portal-kpis">
             <button class="dashboard-kpi-card" onclick="openDashboardDrill('collected')" type="button">
               <span class="material-icons-regular">account_balance_wallet</span>
               <div>
@@ -178,10 +192,66 @@
             </button>
           </div>
 
-          <div class="dashboard-main-grid">
-            <section class="dashboard-panel dashboard-panel--attention">
+          <div class="portal-section-head">
+            <span class="portal-kicker">שישה מסכים במערכת</span>
+            <h2>לאן ממשיכים?</h2>
+          </div>
+          <div class="portal-grid" id="portal-grid">
+          <a class="portal-card portal-card--gold" href="#members-screen" data-screen="members-screen">
+            <span class="portal-card-top"><span class="portal-card-tag">המאגר המרכזי</span><b>01</b></span>
+            <span class="portal-card-title"><span class="material-icons-regular" aria-hidden="true">groups</span><h3>בחורים</h3></span>
+            <h4>מי עומד ביעד ומי צריך תזכורת?</h4>
+            <p>כל הבחורים, ההפקדות והיעדים, עם כרטיס אישי ותזכורות למי שמתעכב.</p>
+            <span class="portal-card-fact"><strong id="pc-members">—</strong><span>בחורים פעילים</span></span>
+            <span class="portal-card-link">לרשימת הבחורים <span aria-hidden="true">←</span></span>
+          </a>
+          <a class="portal-card portal-card--ink" href="#daily-report-screen" data-screen="daily-report-screen">
+            <span class="portal-card-top"><span class="portal-card-tag">תנועות</span><b>02</b></span>
+            <span class="portal-card-title"><span class="material-icons-regular" aria-hidden="true">insert_chart_outlined</span><h3>דו"ח תנועות מרוכז</h3></span>
+            <h4>מה נכנס ומה יצא?</h4>
+            <p>הפקדות והוצאות לפי יום, שבוע ושנה, וגבייה מול הוצאות לאורך השנים.</p>
+            <span class="portal-card-fact"><strong id="pc-month">—</strong><span>נגבה החודש</span></span>
+            <span class="portal-card-link">לדו"ח התנועות <span aria-hidden="true">←</span></span>
+          </a>
+          <a class="portal-card portal-card--bronze" href="#grants-screen" data-screen="grants-screen">
+            <span class="portal-card-top"><span class="portal-card-tag">חתנים וחנויות</span><b>03</b></span>
+            <span class="portal-card-title"><span class="material-icons-regular" aria-hidden="true">workspace_premium</span><h3>מענקים</h3></span>
+            <h4>מי קיבל, ומה נשאר לשלם לחנויות?</h4>
+            <p>מקבלי המענק, תכולת החבילה ותשלומים לחנויות בכל מחצית, עם קבלות.</p>
+            <span class="portal-card-fact"><strong id="pc-grants">—</strong><span>מקבלי מענק השנה</span></span>
+            <span class="portal-card-link">למסך המענקים <span aria-hidden="true">←</span></span>
+          </a>
+          <a class="portal-card portal-card--ink" href="#expenses-summary-screen" data-screen="expenses-summary-screen">
+            <span class="portal-card-top"><span class="portal-card-tag">תקציב</span><b>04</b></span>
+            <span class="portal-card-title"><span class="material-icons-regular" aria-hidden="true">analytics</span><h3>סיכום הוצאות</h3></span>
+            <h4>לאן הולך הכסף?</h4>
+            <p>הוצאות לפי קטגוריה ושנה, ממוצע חודשי ויחס ההוצאות להכנסות.</p>
+            <span class="portal-card-fact"><strong id="pc-expenses">—</strong><span>הוצאות השנה</span></span>
+            <span class="portal-card-link">לסיכום ההוצאות <span aria-hidden="true">←</span></span>
+          </a>
+          <a class="portal-card portal-card--gold" href="#purim-registration-screen" data-screen="purim-registration-screen">
+            <span class="portal-card-top"><span class="portal-card-tag">פורים</span><b>05</b></span>
+            <span class="portal-card-title"><span class="material-icons-regular" aria-hidden="true">celebration</span><h3>כתובות פורים</h3></span>
+            <h4>מי התרים ובאיזו קבוצה?</h4>
+            <p>מאגר הבתים לפי עיר וקבוצה, עם סכומי פורים מכל השנים.</p>
+            <span class="portal-card-fact"><strong id="pc-purim">—</strong><span>כתובות במאגר</span></span>
+            <span class="portal-card-link">לכתובות פורים <span aria-hidden="true">←</span></span>
+          </a>
+          <a class="portal-card portal-card--bronze" href="#rules-screen" data-screen="rules-screen">
+            <span class="portal-card-top"><span class="portal-card-tag">כללים ויעדים</span><b>06</b></span>
+            <span class="portal-card-title"><span class="material-icons-regular" aria-hidden="true">menu_book</span><h3>תקנון</h3></span>
+            <h4>מה היעד של כל שלב?</h4>
+            <p>יעדי הגבייה לכל מסגרת, מתנות וזכאויות, ובדיקת מצב אישית לבחור.</p>
+            <span class="portal-card-fact"><strong id="pc-rules">—</strong><span>יעד שנתי לישי"ק</span></span>
+            <span class="portal-card-link">לתקנון <span aria-hidden="true">←</span></span>
+          </a>
+          </div>
+
+          <div class="portal-news">
+            <section class="dashboard-panel bracket-panel dashboard-panel--attention">
               <div class="dashboard-panel-head">
                 <div>
+                  <span class="portal-kicker portal-kicker--ink">עכשיו</span>
                   <h2>דורש טיפול</h2>
                   <p>הנקודות החשובות ביותר לפתיחה עכשיו</p>
                 </div>
@@ -190,9 +260,10 @@
               <div id="dashboard-attention-list" class="dashboard-attention-list"></div>
             </section>
 
-            <section class="dashboard-panel dashboard-panel--chart">
+            <section class="dashboard-panel bracket-panel dashboard-panel--chart">
               <div class="dashboard-panel-head">
                 <div>
+                  <span class="portal-kicker portal-kicker--ink">שלוש שנים</span>
                   <h2>הכנסות לפי שנה</h2>
                   <p>שלוש השנים האחרונות: בחורים ופורים</p>
                 </div>
@@ -200,49 +271,20 @@
               </div>
               <div id="dashboard-month-bars" class="dashboard-month-bars fin-root"></div>
             </section>
-
-            <section class="dashboard-panel dashboard-panel--actions">
-              <div class="dashboard-panel-head">
-                <div>
-                  <h2>פעולות מהירות</h2>
-                  <p>התחלות עבודה נפוצות</p>
-                </div>
-                <span class="material-icons-regular">apps</span>
-              </div>
-              <div class="dashboard-action-grid">
-                <button class="dashboard-action-btn" id="quick-add-donation" type="button"><span class="qa-icon-badge"><span class="material-icons-regular">payments</span></span><strong>רישום הפקדה</strong></button>
-                <button class="dashboard-action-btn" id="quick-add-member" type="button"><span class="qa-icon-badge"><span class="material-icons-regular">person_add</span></span><strong>הוספת בחור</strong></button>
-                <button class="dashboard-action-btn" id="quick-add-expense" type="button"><span class="qa-icon-badge"><span class="material-icons-regular">receipt_long</span></span><strong>הוספת הוצאה</strong></button>
-                <button class="dashboard-action-btn" onclick="openNedarimModal()" type="button"><span class="qa-icon-badge"><span class="material-icons-regular">credit_card</span></span><strong>סליקת אשראי</strong></button>
-                <button class="dashboard-action-btn drill-down-card" data-drill="daily-report-screen" type="button"><span class="qa-icon-badge"><span class="material-icons-regular">summarize</span></span><strong>דוח יומי</strong></button>
-                <button class="dashboard-action-btn drill-down-card" data-drill="grants-screen" type="button"><span class="qa-icon-badge"><span class="material-icons-regular">redeem</span></span><strong>מענקים</strong></button>
-              </div>
-            </section>
-
-            <section class="dashboard-panel dashboard-panel--activity">
-              <div class="dashboard-panel-head">
-                <div>
-                  <h2>פעילות אחרונה</h2>
-                  <p>הפקדות והוצאות אחרונות</p>
-                </div>
-                <span class="material-icons-regular">history</span>
-              </div>
-              <div id="dashboard-recent-activity" class="dashboard-activity-list"></div>
-            </section>
-
-            <section class="dashboard-panel dashboard-panel--segments">
-              <div class="dashboard-panel-head">
-                <div>
-                  <h2>מסגרות</h2>
-                  <p>התקדמות לפי סוג מסגרת</p>
-                </div>
-                <span class="material-icons-regular">donut_large</span>
-              </div>
-              <div id="dashboard-segments" class="dashboard-segment-list"></div>
-            </section>
           </div>
-        </div>
 
+          <section class="dashboard-panel bracket-panel dashboard-panel--segments">
+            <div class="dashboard-panel-head">
+              <div>
+                <span class="portal-kicker portal-kicker--ink">לפי מסגרת</span>
+                <h2>מסגרות</h2>
+                <p>כמה מהחייבים בכל מסגרת כבר הגיעו ליעד</p>
+              </div>
+              <span class="material-icons-regular">donut_large</span>
+            </div>
+            <div id="dashboard-segments" class="dashboard-segment-list"></div>
+          </section>
+        </div>
       </section>
 
       <section id="members-screen" class="content-screen">
@@ -449,7 +491,7 @@
 
       <section id="expenses-summary-screen" class="content-screen">
         <div class="exp-year-bar">
-          <label for="expenses-year-filter" style="font-size:13px; font-weight:700; color:var(--text-secondary);">שנת ניתוח:</label>
+          <label for="expenses-year-filter" style="font-size:13px; font-weight:700;">שנת ניתוח:</label>
           <select id="expenses-year-filter" class="ui-select" style="min-width:130px;" onchange="onExpensesYearChange()"></select>
         </div>
         <div class="metrics-row metrics-row-4">
@@ -486,7 +528,7 @@
           </div>
         </div>
 
-        <div style="display:flex;justify-content:space-between;align-items:center;margin:20px 0 12px;">
+        <div class="exp-section-head" style="display:flex;justify-content:space-between;align-items:center;margin:20px 0 12px;">
           <h3 class="page-title small">פירוט לפי קטגוריה ושנה</h3>
           <button class="btn btn-outline" style="font-size:12px;padding:5px 12px;" onclick="toggleExpenseYears()">
             <span id="exp-years-btn-text">הצג כל השנים</span>
