@@ -14,13 +14,16 @@
   const STORAGE = SUPABASE_URL + "/storage/v1/";
   const RECEIPTS_BUCKET = "receipts";
 
-  // ---------- ניהול סשן (נשמר ב-localStorage) ----------
+  // ---------- ניהול סשן ----------
+  // הסשן נשמר ב-sessionStorage: רענון דף משאיר את המשתמש מחובר, סגירת הדפדפן מנתקת.
+  // ניקוי חד-פעמי של סשן שנשמר ב-localStorage בגרסאות קודמות (נשאר גם אחרי סגירת הדפדפן).
+  try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
   function getSession() {
-    try { const raw = localStorage.getItem(SESSION_KEY); return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
+    try { const raw = sessionStorage.getItem(SESSION_KEY); return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
   }
   function setSession(s) {
-    if (s) localStorage.setItem(SESSION_KEY, JSON.stringify(s));
-    else localStorage.removeItem(SESSION_KEY);
+    if (s) sessionStorage.setItem(SESSION_KEY, JSON.stringify(s));
+    else sessionStorage.removeItem(SESSION_KEY);
   }
   function accessToken() { const s = getSession(); return s && s.access_token; }
   function isLoggedIn() { return !!accessToken(); }
@@ -42,7 +45,9 @@
     const data = await r.json().catch(() => ({}));
     if (!r.ok) {
       const msg = data.msg || data.error_description || data.error || "פרטי התחברות שגויים";
-      throw new Error(msg);
+      const err = new Error(msg);
+      err.status = r.status;
+      throw err;
     }
     setSession({
       access_token: data.access_token,
