@@ -80,6 +80,21 @@ let incomeChartInstance = null;
 let expenseCategoryChartInstance = null;
 let expenseTrendChartInstance = null;
 
+// ===== פלטת הגרפים =====
+// מוגדרת במקום אחד: המשתנים --chart-1 עד --chart-8 ב-style.css. כל הגרפים במערכת קוראים אותה מכאן.
+let chartThemeCache = null;
+function chartTheme() {
+  if (chartThemeCache) return chartThemeCache;
+  const cs = getComputedStyle(document.documentElement);
+  const v = name => cs.getPropertyValue(name).trim();
+  chartThemeCache = {
+    series: [1, 2, 3, 4, 5, 6, 7, 8].map(i => v(`--chart-${i}`)),
+    grid: v("--chart-grid"), text: v("--text-secondary"), textMuted: v("--text-muted"),
+    ink: v("--ink"), onDark: v("--text-on-dark"), surface: v("--surface"),
+  };
+  return chartThemeCache;
+}
+
 // --- מנגנוני ביצועים ומיון ---
 let membersSortCol = null;
 let membersSortAsc = true;
@@ -144,6 +159,8 @@ const UI_ACTION_NAMES = new Set([
   "takanonShowMember", "toggleExpenseYears", "toggleGrantsAddForm", "toggleGrantsPackageEditMode", "toggleMembersDensity",
   "togglePurimGroupEdit", "togglePurimSpacing", "togglePurimYears", "updateGrantsPkgGroupField", "updateGrantsPkgItemField",
   "updateTypeFilter", "viewStoreBillReceipt",
+  "openMemberRowMenu", "openMemberFromMenu", "openDonationFromMenu", "openMemberEditFromMenu", "clearMembersFilters",
+  "openMemberModal", "switchScreenAction", "openSettingsTab", "syncNow",
 ]);
 
 function uiAttr(attr, name, args) {
@@ -192,6 +209,119 @@ function applyHealthFixFromInput(memberId, field) {
   const input = document.getElementById(`fix-${memberId}`);
   applyHealthFix(memberId, field, input ? input.value : "");
 }
+function switchScreenAction(screenId) { switchScreen(screenId, true); }
+function openSettingsTab(tabName) { switchScreen("settings-screen", true); switchSettingsTab(tabName); }
+
+// ==========================================
+// דיאלוג אחיד במקום confirm / prompt של הדפדפן
+// uiConfirm מחזיר true / false. uiPrompt מחזיר את הטקסט שהוקלד, או null אם בוטל.
+// ==========================================
+function uiDialog({ title = "", message = "", confirmLabel = "אישור", cancelLabel = "ביטול", danger = false, input = false, value = "" } = {}) {
+  return new Promise((resolve) => {
+    const previousFocus = document.activeElement;
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay ui-dialog open";
+    overlay.innerHTML = `<div class="modal-content app-modal" role="${input ? "dialog" : "alertdialog"}" aria-modal="true" aria-labelledby="ui-dialog-title" aria-describedby="ui-dialog-message">
+      <div class="modal-inner">
+        <h3 class="ui-dialog-title" id="ui-dialog-title"></h3>
+        <div class="ui-dialog-message" id="ui-dialog-message"></div>
+        ${input ? `<input type="text" class="ui-input ui-dialog-input" aria-labelledby="ui-dialog-title">` : ""}
+        <div class="ui-dialog-actions">
+          <button type="button" class="btn ${danger ? "btn-secondary btn-danger" : "btn-primary"}" data-dialog="ok"></button>
+          <button type="button" class="btn btn-secondary" data-dialog="cancel"></button>
+        </div>
+      </div>
+    </div>`;
+    overlay.querySelector(".ui-dialog-title").textContent = title;
+    overlay.querySelector(".ui-dialog-message").textContent = message;
+    const okBtn = overlay.querySelector('[data-dialog="ok"]');
+    const cancelBtn = overlay.querySelector('[data-dialog="cancel"]');
+    const inputEl = overlay.querySelector(".ui-dialog-input");
+    okBtn.textContent = confirmLabel;
+    cancelBtn.textContent = cancelLabel;
+    if (inputEl) inputEl.value = value;
+
+    const close = (result) => {
+      document.removeEventListener("keydown", onKey, true);
+      overlay.remove();
+      if (previousFocus && typeof previousFocus.focus === "function") { try { previousFocus.focus(); } catch (e) {} }
+      resolve(result);
+    };
+    const cancelValue = input ? null : false;
+    const okValue = () => (input ? inputEl.value : true);
+    const onKey = (ev) => {
+      if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); close(cancelValue); return; }
+      if (ev.key === "Enter" && inputEl && document.activeElement === inputEl) { ev.preventDefault(); close(okValue()); return; }
+      if (ev.key === "Tab") {
+        // לכידת פוקוס בתוך הדיאלוג
+        const focusable = [inputEl, okBtn, cancelBtn].filter(Boolean);
+        const i = focusable.indexOf(document.activeElement);
+        ev.preventDefault();
+        focusable[(i + (ev.shiftKey ? -1 : 1) + focusable.length) % focusable.length].focus();
+      }
+    };
+    okBtn.addEventListener("click", () => close(okValue()));
+    cancelBtn.addEventListener("click", () => close(cancelValue));
+    overlay.addEventListener("click", (ev) => { if (ev.target === overlay) close(cancelValue); });
+    document.addEventListener("keydown", onKey, true);
+    document.body.appendChild(overlay);
+    (inputEl || (danger ? cancelBtn : okBtn)).focus();
+    if (inputEl) inputEl.select();
+  });
+}
+function uiConfirm(options) { return uiDialog({ ...options, input: false }); }
+function uiPrompt(options) { return uiDialog({ ...options, input: true }); }
+
+// ==========================================
+// מחיקה עם "בטל פעולה"
+// הרשומה נעלמת מהמסך מיד, אבל המחיקה נשלחת לשרת רק אחרי כמה שניות. עד אז אפשר לבטל.
+// job: { message, apply(), undo(), commit(), exists?(), queueOnExit?() }
+//   apply       - מסיר מהמסך ומהזיכרון המקומי
+//   undo        - מחזיר את הרשומה
+//   commit      - שולח את המחיקה לשרת (דרך תור השמירה הרגיל)
+//   exists      - אם הרשומה חזרה בינתיים (למשל אחרי רענון מהשרת), מסירים אותה שוב לפני השליחה
+//   queueOnExit - אם סוגרים את הדף באמצע ההמתנה: מכניס את המחיקה לתור השמירה כדי שלא תאבד
+// ==========================================
+const UNDO_DELAY_MS = 6000;
+const pendingDeletes = new Set();
+
+function scheduleUndoableDelete(job) {
+  flushPendingDeletes(); // מחיקה חדשה מאשרת את הקודמת
+  job.apply();
+  const toast = document.createElement("div");
+  toast.className = "app-toast app-toast--undo";
+  toast.setAttribute("role", "status");
+  toast.innerHTML = `<span class="material-icons-regular" aria-hidden="true">delete_outline</span><span class="toast-text"></span><button type="button" class="toast-undo-btn">בטל פעולה</button>`;
+  toast.querySelector(".toast-text").textContent = job.message || "נמחק";
+  job.finish = (undone) => {
+    if (job.finished) return;
+    job.finished = true;
+    clearTimeout(job.timer);
+    pendingDeletes.delete(job);
+    toast.remove();
+    if (undone) { job.undo(); showToast("הפעולה בוטלה, הרשומה הוחזרה", "success"); return; }
+    try { if (job.exists && job.exists()) job.apply(); } catch (e) {}
+    job.commit();
+  };
+  toast.querySelector(".toast-undo-btn").addEventListener("click", () => job.finish(true));
+  job.timer = setTimeout(() => job.finish(false), UNDO_DELAY_MS);
+  pendingDeletes.add(job);
+  document.body.appendChild(toast);
+}
+
+// שולח מיד את כל המחיקות שממתינות (לפני התנתקות)
+function flushPendingDeletes() {
+  [...pendingDeletes].forEach(job => job.finish(false));
+}
+
+// סגירת הדף בזמן ההמתנה: המחיקה נכנסת לתור השמירה (נשמר בדפדפן) ותישלח בכניסה הבאה
+window.addEventListener("pagehide", () => {
+  pendingDeletes.forEach(job => {
+    if (job.finished) return;
+    job.finished = true;
+    try { if (job.queueOnExit) job.queueOnExit(); } catch (e) {}
+  });
+});
 
 // ==========================================
 // שמירה לשרת עם תור ממתינים
@@ -318,7 +448,7 @@ function updatePendingBanner() {
     el = document.createElement("div");
     el.id = "pending-writes-banner";
     el.className = "pending-writes-banner";
-    el.innerHTML = `<span class="material-icons-regular">cloud_off</span><span class="pending-writes-text"></span><button type="button" class="btn btn-outline pending-writes-retry">נסה עכשיו</button>`;
+    el.innerHTML = `<span class="material-icons-regular">cloud_off</span><span class="pending-writes-text"></span><button type="button" class="btn btn-secondary pending-writes-retry">נסה עכשיו</button>`;
     el.querySelector(".pending-writes-retry").addEventListener("click", async () => {
       const ok = await flushPendingWrites();
       showToast(ok ? "כל השינויים נשמרו בשרת" : "עדיין אין חיבור לשרת. ננסה שוב אוטומטית", ok ? "success" : "warning");
@@ -385,14 +515,14 @@ function logAudit(action, entity, entityId, details) {
 }
 
 const screenMeta = {
-  "dashboard-screen": { title: "לוח בקרה", subtitle: "שליטה על גבייה, עמידה ביעדים וזכאות למענק" },
-  "members-screen": { title: "ניהול בחורים", subtitle: "רשימת בחורים, סטטוס גבייה ופרופיל אישי" },
-  "daily-report-screen": { title: "דו\"ח תנועות מרוכז", subtitle: "מעקב הכנסות והוצאות לפי חיתוך זמן" },
-  "expenses-summary-screen": { title: "סיכום הוצאות", subtitle: "ניתוח תקציבי רב-שנתי והשוואה בין קמפיינים" },
-  "grants-screen": { title: "מענקים", subtitle: "נתינת המענק, תכולת החבילה ותשלומים לחנויות לפי שנה" },
-  "purim-registration-screen": { title: "תרומות פורים", subtitle: "מאגר נתונים וסיכום היסטורי של בתי התורמים" },
-  "rules-screen": { title: "תקנון", subtitle: "תקנון המערכת וכללי חלוקת המענקים" },
-  "settings-screen": { title: "הגדרות מערכת", subtitle: "ניהול יעדים שנתיים, הגדרות שנת פעילות והרשאות משתמשים" },
+  "dashboard-screen": { title: "לוח בקרה", subtitle: "תמונת מצב שנתית, טיפול מיידי ופעולות ניהול" },
+  "members-screen": { title: "בחורים", subtitle: "רשימת הבחורים, יעד, פער וסטטוס לכל אחד" },
+  "daily-report-screen": { title: "דו\"ח תנועות", subtitle: "הכנסות והוצאות לפי תקופה" },
+  "expenses-summary-screen": { title: "סיכום הוצאות", subtitle: "הוצאות לפי קטגוריה והשוואה בין שנים" },
+  "purim-registration-screen": { title: "כתובות פורים", subtitle: "כתובות התורמים לפי עיר וקבוצה, וסכומים לפי שנה" },
+  "grants-screen": { title: "מענקים", subtitle: "מקבלי המענק, תכולת החבילה ותשלומים לחנויות" },
+  "rules-screen": { title: "תקנון", subtitle: "יעדים, מתנות וכללי הזכאות" },
+  "settings-screen": { title: "הגדרות", subtitle: "יעדים, קטגוריות, משתמשים, גיבוי ויומן פעולות" },
 };
 
 
@@ -554,7 +684,7 @@ function applyPermissions() {
   if (roleIndicator) {
       let roleName = state.currentUser || "אורח";
       let iconName = isVIP ? "admin_panel_settings" : "person";
-      roleIndicator.innerHTML = `<span class="material-icons-regular" style="font-size: 14px; vertical-align: middle; margin-left: 3px;">${iconName}</span> פרופיל: ${escapeHtml(roleName)}`;
+      roleIndicator.innerHTML = `<span class="material-icons-regular" aria-hidden="true">${iconName}</span>${escapeHtml(roleName)}`;
   }
 
   const editButtons = [
@@ -828,16 +958,16 @@ function bindEvents() {
           let notes = document.getElementById("nedarim-notes").value.trim();
 
           if (!memberId || amount === null) {
-              showToast("⚠️ חובה לחפש בחור מתוך הרשימה ולהזין סכום ששולם (גדול מ-0)", "danger");
+              showToast("חובה לחפש בחור מתוך הרשימה ולהזין סכום ששולם (גדול מ-0)", "danger");
               return;
           }
 
           const member = getMemberSummaries().find((m) => String(m.id).trim() === String(memberId).trim()); 
           if (!member) {
-              showToast("⚠️ הבחור לא אותר. אנא בחר מהרשימה התואמת", "danger");
+              showToast("הבחור לא אותר. אנא בחר מהרשימה התואמת", "danger");
               return;
           }
-          if (!confirmation && !confirm("לא הוזן מספר אישור עסקה מנדרים פלוס. לשמור בכל זאת?")) return;
+          if (!confirmation && !(await uiConfirm({ title: "לא הוזן מספר אישור עסקה", message: "מספר האישור מנדרים פלוס עוזר לאתר את התשלום אחר כך. לשמור בלי מספר אישור?", confirmLabel: "שמור בלי מספר אישור" }))) return;
           if (confirmation) notes = `${notes} | אישור עסקה: ${confirmation}`.replace(/^ \| /, "");
 
           const newDonation = {
@@ -853,7 +983,7 @@ function bindEvents() {
 
           const saveBtn = document.getElementById("btn-save-nedarim-final");
           saveBtn.disabled = true; 
-          saveBtn.innerHTML = "⏳ שומר...";
+          saveBtn.innerHTML = "שומר...";
 
           try {
               state.donations.push(newDonation); 
@@ -863,11 +993,11 @@ function bindEvents() {
               
               document.getElementById("nedarim-modal").classList.remove("open"); 
               const saved = await persist("saveDonation", newDonation);
-              reportSave(saved, "✅ התרומה נרשמה בהצלחה לזכות הבחור!");
+              reportSave(saved, "התרומה נרשמה בהצלחה לזכות הבחור!");
               logAudit("create", "donation", newDonation.id, { amount, member: member.fullName, via: "נדרים פלוס", confirmation });
           } finally { 
               saveBtn.disabled = false; 
-              saveBtn.innerHTML = `שמור במערכת <span class="material-icons-regular" style="font-size: 18px; margin-right: 8px;">check_circle</span>`;
+              saveBtn.innerHTML = `<span class="material-icons-regular" aria-hidden="true">check_circle</span> שמור במערכת`;
           }
       });
   }
@@ -1021,11 +1151,10 @@ function loadMemberProfile(memberId) {
   const iconsContainer = document.getElementById("profile-eligibility-icons");
   if (iconsContainer) {
     let iconsHtml = "";
-    if (member.isEligible) iconsHtml += `<div title="זכאי למענק חתונה!" style="background: #16a34a; color: #fff; padding: 6px 14px; border-radius: 20px; font-size: 14px; font-weight: bold; display: flex; align-items: center; gap: 6px;">✅ זכאי למענק</div>`;
-    const gift1Name = escapeHtml(state.settings.gift1Name || "טיול");
-    const gift2Name = escapeHtml(state.settings.gift2Name || "מתנה");
-    if (member.isEligibleTiyul) iconsHtml += `<div style="background: #15803d; color: #fff; padding: 6px 14px; border-radius: 20px; font-size: 14px; font-weight: bold; display: flex; align-items: center; gap: 6px;">🚌 זכאי ל${gift1Name}</div>`;
-    if (member.isEligibleShay) iconsHtml += `<div style="background: #991b1b; color: #fff; padding: 6px 14px; border-radius: 20px; font-size: 14px; font-weight: bold; display: flex; align-items: center; gap: 6px;">🎁 זכאי ל${gift2Name}</div>`;
+    const st = getMemberStatus(member);
+    iconsHtml += statusBadgeHtml(st.label, st.tone);
+    if (member.isEligibleTiyul) iconsHtml += statusBadgeHtml(`זכאי ל${state.settings.gift1Name || "טיול"}`, "success", "directions_bus");
+    if (member.isEligibleShay) iconsHtml += statusBadgeHtml(`זכאי ל${state.settings.gift2Name || "מתנה"}`, "success", "card_giftcard");
     iconsContainer.innerHTML = iconsHtml;
   }
 
@@ -1037,13 +1166,16 @@ function loadMemberProfile(memberId) {
   const missingEl = document.getElementById("profile-bar-missing");
   if(missingEl) {
     if (member.missingAmount > 0) {
-      missingEl.textContent = `חסר ${formatCurrency(member.missingAmount)}`; missingEl.style.color = "var(--danger)";
+      missingEl.textContent = `חסר ${formatCurrency(member.missingAmount)}`;
     } else {
       const surplus = member.collectedThisYear - member.totalRequiredThisYear;
       missingEl.textContent = surplus > 0 ? `עודף ${formatCurrency(surplus)}` : "הושלם בדיוק";
-      missingEl.style.color = "var(--success)";
     }
+    missingEl.classList.toggle("is-danger", member.missingAmount > 0);
+    missingEl.classList.toggle("is-success", !(member.missingAmount > 0));
   }
+  const debtEl = document.getElementById("profile-bar-debt");
+  if (debtEl) debtEl.classList.toggle("is-danger", (member.openDebtNow != null ? member.openDebtNow : member.totalDebtFromPast) > 0);
 
   const req = member.totalRequiredThisYear;
   const col = member.collectedThisYear;
@@ -1055,7 +1187,7 @@ function loadMemberProfile(memberId) {
   if (progBar && progText) {
     progBar.style.width = percent + "%";
     progText.textContent = percent + "%";
-    progBar.style.background = percent === 100 ? "var(--success)" : "var(--gold-main)";
+    progBar.parentElement.classList.toggle("progress--done", percent === 100);
   }
 
   // רשימת ההפקדות של הבחור (לחיצה על שורה פותחת עריכה)
@@ -1070,10 +1202,40 @@ function loadMemberProfile(memberId) {
       <tr${canEdit ? ` class="clickable-row" ${uiAct("openDonationModal", null, d.id)} title="לחיצה לעריכה"` : ""}>
         <td>${escapeHtml(formatDateDisplay(d.date) || "—")}</td>
         <td>${escapeHtml(d.year || "")}</td>
-        <td class="amount-cell" style="font-weight:bold; color: var(--success);">${escapeHtml(formatCurrency(d.amount))}</td>
-        <td style="white-space:normal; color: var(--text-secondary);">${escapeHtml(d.notes || "")}</td>
-      </tr>`).join("") : `<tr><td colspan="4" class="empty-cell" style="padding:18px!important;">אין עדיין הפקדות לבחור הזה</td></tr>`;
+        <td class="amount-cell amount-pos">${escapeHtml(formatCurrency(d.amount))}</td>
+        <td class="cell-wrap cell-muted">${escapeHtml(d.notes || "")}</td>
+      </tr>`).join("") : `<tr><td colspan="4">${emptyStateHtml({ icon: "payments", title: "אין עדיין הפקדות לבחור הזה", text: "הפקדה ראשונה תופיע כאן ותיספר ליעד השנתי שלו.", action: canEdit ? "openDonationModal" : "", args: [member.id], label: "רישום הפקדה" })}</td></tr>`;
   }
+}
+
+// ===== רכיבי תצוגה אחידים =====
+// סטטוס הבחור לתצוגה (נגזר מהנתונים שכבר חושבו ב-buildMemberSummaries, בלי לשנות את החישוב)
+function getMemberStatus(row) {
+  const debt = Number(row.totalDebtFromPast) || 0;
+  if (row.isEligible) return { label: "עמד ביעד", tone: "success" };
+  if (row.currentYearType === "חיידר") return { label: "חיידר", tone: "neutral" };
+  if (debt > 0) return { label: "חוב פתוח", tone: "danger" };
+  if ((Number(row.collectedThisYear) || 0) > 0) return { label: "בתהליך", tone: "warning" };
+  return { label: "טרם החל", tone: "neutral" };
+}
+
+function statusBadgeHtml(label, tone = "neutral", icon = "") {
+  return `<span class="badge${tone && tone !== "neutral" ? ` badge--${tone}` : ""}">${icon ? `<span class="material-icons-regular" aria-hidden="true">${icon}</span>` : ""}${escapeHtml(label)}</span>`;
+}
+
+function progressHtml(percent) {
+  const p = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
+  return `<div class="progress-cell"><div class="progress${p >= 100 ? " progress--done" : ""}"><span style="width:${p}%"></span></div><small>${p}%</small></div>`;
+}
+
+// מצב ריק אחיד: אייקון, הסבר קצר וכפתור לפעולה הראשונה
+function emptyStateHtml({ icon = "inbox", title = "", text = "", action = "", args = [], label = "" } = {}) {
+  return `<div class="empty-state">
+    <span class="material-icons-regular" aria-hidden="true">${icon}</span>
+    <p class="empty-state-title">${escapeHtml(title)}</p>
+    ${text ? `<div class="empty-state-text">${escapeHtml(text)}</div>` : ""}
+    ${action && label ? `<button type="button" class="btn btn-primary" ${uiAct(action, ...args)}>${escapeHtml(label)}</button>` : ""}
+  </div>`;
 }
 
 function bindGrantStatusModal() {
@@ -1107,11 +1269,11 @@ function openGrantStatusModal(memberId) {
   const debtBannerEl = document.getElementById("grant-debt-banner");
   const openDebtNow = member.openDebtNow != null ? member.openDebtNow : member.totalDebtFromPast;
   if (debtBannerEl && openDebtNow > 0) {
-    debtBannerEl.innerHTML = `<div style="background:#fef2f2;border:1.5px solid var(--danger);border-radius:10px;padding:12px 18px;margin-bottom:14px;display:flex;align-items:center;gap:10px;">
-      <span class="material-icons-regular" style="color:var(--danger);font-size:22px;">warning</span>
+    debtBannerEl.innerHTML = `<div class="debt-banner">
+      <span class="material-icons-regular" aria-hidden="true">warning</span>
       <div>
-        <div style="font-weight:800;color:var(--danger);font-size:15px;">חוב פתוח: ${formatCurrency(openDebtNow)}</div>
-        <div style="font-size:12px;color:#7f1d1d;margin-top:2px;">הסכום הנ"ל מתווסף ליעד השנה הנוכחית · השלמתו נדרשת לזכאות</div>
+        <div class="debt-banner-title">חוב פתוח: ${formatCurrency(openDebtNow)}</div>
+        <div class="debt-banner-text">הסכום הנ"ל מתווסף ליעד השנה הנוכחית · השלמתו נדרשת לזכאות</div>
       </div>
     </div>`;
     if (debtBannerEl) debtBannerEl.style.display = "block";
@@ -1120,7 +1282,7 @@ function openGrantStatusModal(memberId) {
   }
 
   if (dataToDisplay.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">אין נתונים זמינים להצגה.</td></tr>`;
+    tbody.innerHTML = `<tr><td class="cell-center" colspan="6">אין נתונים זמינים להצגה.</td></tr>`;
   } else {
     dataToDisplay.forEach(data => {
       const isCurrentYear = data.year === member.currentYear;
@@ -1131,10 +1293,10 @@ function openGrantStatusModal(memberId) {
       // עמודת "נדרש בפועל"
       let requiredHtml;
       if (data.target === 0) {
-        requiredHtml = `<span style="color:var(--text-muted);">—</span>`;
+        requiredHtml = `<span class="cell-muted">—</span>`;
       } else if (debtIn > 0) {
-        requiredHtml = `<span style="font-weight:700;">${formatCurrency(required)}</span>
-          <div style="font-size:10px;color:var(--text-muted);margin-top:1px;">יעד ₪${data.target.toLocaleString()} + קנס ₪${debtIn.toLocaleString()}</div>`;
+        requiredHtml = `<span class="cell-strong">${formatCurrency(required)}</span>
+          <span class="sub-line">יעד ₪${data.target.toLocaleString()} + קנס ₪${debtIn.toLocaleString()}</span>`;
       } else {
         requiredHtml = `<span>${formatCurrency(required)}</span>`;
       }
@@ -1143,36 +1305,33 @@ function openGrantStatusModal(memberId) {
       let statusHtml = "";
       if (data.target === 0) {
         if (debtOut > 0) {
-          statusHtml = `<span style="color:var(--text-secondary);font-weight:600;">פטור מיעד</span><div style="font-size:10px;color:var(--text-muted);margin-top:1px;">חוב ₪${debtOut.toLocaleString()} ממתין</div>`;
+          statusHtml = `${statusBadgeHtml("פטור מיעד")}<span class="sub-line">חוב ₪${debtOut.toLocaleString()} ממתין</span>`;
         } else {
-          statusHtml = `<span style="color:var(--text-secondary);font-weight:600;">פטור מיעד</span>`;
+          statusHtml = statusBadgeHtml("פטור מיעד");
         }
       } else if (data.collected >= required && required > 0) {
-        statusHtml = `<span style="color:var(--success);font-weight:800;">✓ עמד ביעד</span>`;
-        if (debtIn > 0) statusHtml += `<div style="font-size:10px;color:var(--success);margin-top:1px;">כולל סגירת חוב</div>`;
+        statusHtml = statusBadgeHtml("עמד ביעד", "success", "check");
+        if (debtIn > 0) statusHtml += `<span class="sub-line">כולל סגירת חוב</span>`;
       } else if (isCurrentYear) {
         const pct = required > 0 ? Math.round((data.collected / required) * 100) : 0;
-        statusHtml = `<span style="color:var(--gold-dark);font-weight:700;">${pct}% הושלם</span>`;
+        statusHtml = statusBadgeHtml(`${pct}% הושלם`, "warning");
       } else {
         const missing = required - data.collected;
-        const newDebt = debtOut - Math.max(0, debtIn - Math.min(debtIn, data.collected));
-        statusHtml = `<span style="color:var(--danger);font-weight:700;">חסר ${formatCurrency(missing)}</span>`;
+        statusHtml = statusBadgeHtml(`חסר ${formatCurrency(missing)}`, "danger");
         if (debtOut > debtIn) {
-          const addedPenalty = debtOut - debtIn - Math.max(0, missing - Math.max(0, data.target - Math.max(0, data.collected)));
-          statusHtml += `<div style="font-size:10px;color:var(--danger);margin-top:1px;">קנס: ₪${debtOut.toLocaleString()} עובר הלאה</div>`;
+          statusHtml += `<span class="sub-line">קנס: ₪${debtOut.toLocaleString()} עובר הלאה</span>`;
         }
       }
 
       let msgeret = data.historicalType || "";
       if (data.historicalShiur) msgeret += ` ${data.historicalShiur}'`;
-      const rowBg = isCurrentYear ? "background:rgba(212,175,55,0.06);" : "";
 
-      tbody.innerHTML += `<tr style="${rowBg}">
-        <td style="font-weight:700;">${escapeHtml(data.year)}${isCurrentYear ? ' <span style="font-size:10px;color:var(--gold-dark);">השנה</span>' : ''}</td>
-        <td style="color:var(--text-secondary);font-size:12px;">${escapeHtml(msgeret)}</td>
-        <td>${data.target > 0 ? formatCurrency(data.target) : '<span style="color:var(--text-muted);">—</span>'}</td>
+      tbody.innerHTML += `<tr>
+        <td class="cell-strong">${escapeHtml(data.year)}${isCurrentYear ? ` ${statusBadgeHtml("השנה", "info")}` : ''}</td>
+        <td class="cell-muted">${escapeHtml(msgeret)}</td>
+        <td>${data.target > 0 ? formatCurrency(data.target) : '<span class="cell-muted">—</span>'}</td>
         <td>${requiredHtml}</td>
-        <td style="font-weight:600;">${data.collected > 0 ? formatCurrency(data.collected) : '<span style="color:var(--text-muted);">—</span>'}</td>
+        <td class="cell-strong">${data.collected > 0 ? formatCurrency(data.collected) : '<span class="cell-muted">—</span>'}</td>
         <td>${statusHtml}</td>
       </tr>`;
     });
@@ -1222,7 +1381,7 @@ function showSavingIndicator() {
     document.body.appendChild(el);
   }
   el.innerHTML = '<div class="si-spinner"></div><span>מעדכן...</span>';
-  el.style.background = "#1c1c2e";
+  el.classList.remove("is-ok", "is-warn");
   clearTimeout(el._hideTimer);
   requestAnimationFrame(() => el.classList.add("visible"));
 }
@@ -1233,7 +1392,7 @@ function hideSavingIndicator(success = true) {
   el.innerHTML = success
     ? '<span class="material-icons-regular si-icon">check_circle</span><span>עודכן בהצלחה</span>'
     : '<span class="material-icons-regular si-icon">cloud_off</span><span>נשמר במחשב, ממתין לשליחה</span>';
-  el.style.background = success ? "var(--success)" : "var(--warning)";
+  el.classList.toggle("is-ok", !!success); el.classList.toggle("is-warn", !success);
   el._hideTimer = setTimeout(() => el.classList.remove("visible"), 2200);
 }
 
@@ -1249,7 +1408,7 @@ async function handleSaveMember(isAutoSave = false) {
     yeshivaType: getValue("member-yeshiva-type"), maritalStatus: getValue("member-marital-status"), address: getValue("member-address").trim(), notes: getValue("member-notes").trim(),
   };
 
-  if (!newMemberData.firstName || !newMemberData.lastName) { showToast("⚠️ יש להזין שם פרטי ושם משפחה", "danger"); return; }
+  if (!newMemberData.firstName || !newMemberData.lastName) { showToast("יש להזין שם פרטי ושם משפחה", "danger"); return; }
   const existing = existingId ? state.members.find((m) => String(m.id).trim() === String(existingId).trim()) : null;
   newMemberData.createdAt = existing ? (existing.createdAt || new Date().toISOString()) : new Date().toISOString();
 
@@ -1341,13 +1500,13 @@ async function handleSaveDonation() {
   const paymentMethod = document.querySelector('input[name="donation_payment_method"]:checked')?.value || "cash";
   
   if (!memberId || amount === null) { 
-    showToast("⚠️ יש לחפש ולבחור בחור מתוך הרשימה, ולהזין סכום גדול מ-0", "danger"); 
+    showToast("יש לחפש ולבחור בחור מתוך הרשימה, ולהזין סכום גדול מ-0", "danger"); 
     return; 
   }
 
   const member = getMemberSummaries().find((m) => String(m.id).trim() === String(memberId).trim()); 
   if (!member) {
-    showToast("❌ שגיאה: נתוני הבחור לא אותרו במערכת", "danger");
+    showToast("שגיאה: נתוני הבחור לא אותרו במערכת", "danger");
     return;
   }
 
@@ -1367,7 +1526,7 @@ async function handleSaveDonation() {
   clearFormDraft();
   if (state.activeScreen === "members-screen" && state.currentProfileId) loadMemberProfile(state.currentProfileId);
   const saved = await persist("saveDonation", donation);
-  reportSave(saved, existing ? "✅ ההפקדה עודכנה" : "✅ ההפקדה נרשמה בהצלחה!");
+  reportSave(saved, existing ? "ההפקדה עודכנה" : "ההפקדה נרשמה בהצלחה!");
   logAudit(existing ? "update" : "create", "donation", donation.id, existing
     ? { before: { amount: existing.amount, date: existing.date, member: existing.memberId, year: existing.year }, after: { amount, date: donation.date, member: memberId, year: donation.year } }
     : { amount, member: member.fullName, year: donation.year });
@@ -1378,15 +1537,26 @@ async function handleDeleteDonation() {
   const editId = getValue("edit-donation-id").trim();
   const existing = state.donations.find(d => String(d.id) === editId);
   if (!existing || !isAdminUser()) return;
-  if (!confirm(`למחוק את ההפקדה על סך ${formatCurrency(existing.amount)}? הפעולה לא ניתנת לביטול.`)) return;
-  state.donations = state.donations.filter(d => d !== existing);
-  invalidateCache(); saveState(); renderAll();
   document.getElementById("add-donation-modal").classList.remove("open");
   clearFormDraft();
-  if (state.activeScreen === "members-screen" && state.currentProfileId) loadMemberProfile(state.currentProfileId);
-  const saved = await persist("deleteDonation", { id: existing.id });
-  reportSave(saved, "ההפקדה נמחקה");
-  logAudit("delete", "donation", existing.id, { amount: existing.amount, date: existing.date, member: existing.memberNameSnapshot || existing.memberId, year: existing.year });
+  const sameId = d => String(d.id) === String(existing.id);
+  const refresh = () => {
+    invalidateCache(); saveState(); renderAll();
+    const profileOpen = !document.getElementById("member-profile-section")?.classList.contains("hidden");
+    if (state.activeScreen === "members-screen" && state.currentProfileId && profileOpen) loadMemberProfile(state.currentProfileId);
+  };
+  scheduleUndoableDelete({
+    message: `ההפקדה על סך ${formatCurrency(existing.amount)} נמחקה`,
+    apply: () => { state.donations = state.donations.filter(d => !sameId(d)); refresh(); },
+    undo: () => { if (!state.donations.some(sameId)) state.donations.push(existing); refresh(); },
+    exists: () => state.donations.some(sameId),
+    commit: async () => {
+      const saved = await persist("deleteDonation", { id: existing.id });
+      if (!saved) reportSave(false);
+      logAudit("delete", "donation", existing.id, { amount: existing.amount, date: existing.date, member: existing.memberNameSnapshot || existing.memberId, year: existing.year });
+    },
+    queueOnExit: () => enqueueWrite("deleteDonation", { id: existing.id }),
+  });
 }
 
 function openDonationModal(memberId = null, donationId = null) {
@@ -1458,7 +1628,7 @@ async function handleSaveExpense() {
   const editId = getValue("edit-expense-id").trim();
   const existing = editId ? state.expenses.find(e => String(e.id) === editId) : null;
   const amount = parseAmount(getValue("expense-amount"));
-  if (amount === null) { showToast("⚠️ יש להזין סכום גדול מ-0", "danger"); return; }
+  if (amount === null) { showToast("יש להזין סכום גדול מ-0", "danger"); return; }
 
   const expense = {
     id: existing ? existing.id : generateId("E"),
@@ -1475,7 +1645,7 @@ async function handleSaveExpense() {
   saveState(); renderAll(); document.getElementById("add-expense-modal").classList.remove("open"); 
   clearFormDraft();
   const saved = await persist("saveExpense", expense);
-  reportSave(saved, existing ? "✅ ההוצאה עודכנה" : "✅ ההוצאה נרשמה בהצלחה!");
+  reportSave(saved, existing ? "ההוצאה עודכנה" : "ההוצאה נרשמה בהצלחה!");
   logAudit(existing ? "update" : "create", "expense", expense.id, existing
     ? { before: { amount: existing.amount, category: existing.category, description: existing.description }, after: { amount, category: expense.category, description: expense.description } }
     : { amount, category: expense.category, description: expense.description });
@@ -1486,14 +1656,22 @@ async function handleDeleteExpense() {
   const editId = getValue("edit-expense-id").trim();
   const existing = state.expenses.find(e => String(e.id) === editId);
   if (!existing || !isAdminUser()) return;
-  if (!confirm(`למחוק את ההוצאה "${existing.description || existing.category}" על סך ${formatCurrency(existing.amount)}? הפעולה לא ניתנת לביטול.`)) return;
-  state.expenses = state.expenses.filter(e => e !== existing);
-  invalidateCache(); saveState(); renderAll();
   document.getElementById("add-expense-modal").classList.remove("open");
   clearFormDraft();
-  const saved = await persist("deleteExpense", { id: existing.id });
-  reportSave(saved, "ההוצאה נמחקה");
-  logAudit("delete", "expense", existing.id, { amount: existing.amount, category: existing.category, description: existing.description, year: existing.year });
+  const sameId = e => String(e.id) === String(existing.id);
+  const refresh = () => { invalidateCache(); saveState(); renderAll(); };
+  scheduleUndoableDelete({
+    message: `ההוצאה "${existing.description || existing.category}" נמחקה`,
+    apply: () => { state.expenses = state.expenses.filter(e => !sameId(e)); refresh(); },
+    undo: () => { if (!state.expenses.some(sameId)) state.expenses.push(existing); refresh(); },
+    exists: () => state.expenses.some(sameId),
+    commit: async () => {
+      const saved = await persist("deleteExpense", { id: existing.id });
+      if (!saved) reportSave(false);
+      logAudit("delete", "expense", existing.id, { amount: existing.amount, category: existing.category, description: existing.description, year: existing.year });
+    },
+    queueOnExit: () => enqueueWrite("deleteExpense", { id: existing.id }),
+  });
 }
 
 function bindSettings() {
@@ -1552,109 +1730,12 @@ function saveSettings() {
   const p = saveSettingsPatch(settings => Object.assign(settings, values));
   renderAll();
   p.then(saved => {
-    reportSave(saved, "✅ הגדרות המערכת נשמרו בהצלחה");
+    reportSave(saved, "הגדרות המערכת נשמרו בהצלחה");
     logAudit("update", "settings", "targets", values);
   }).finally(() => { if (btn) btn.disabled = false; });
 }
 
 // ===== מסך תקנון =====
-
-// SVG דמויות לכל שלב — בלי עניבה
-const TAKANON_SVG = {
-
-  // חיידר — כיפה שחורה, ילד צעיר
-  kippah: `<svg viewBox="0 0 80 90" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M8 90 Q8 70 40 64 Q72 70 72 90Z" fill="#1e2035"/>
-    <path d="M34 67 Q40 72 46 67 Q44 64 40 66 Q36 64 34 67Z" fill="#e8e8e8"/>
-    <ellipse cx="20" cy="44" rx="4" ry="5" fill="#FBCFA4"/>
-    <ellipse cx="60" cy="44" rx="4" ry="5" fill="#FBCFA4"/>
-    <circle cx="40" cy="42" r="21" fill="#FBCFA4"/>
-    <path d="M21 38 Q21 18 40 18 Q59 18 59 38Z" fill="#1a1a1a"/>
-    <path d="M21 38 Q40 41 59 38" stroke="#111" stroke-width="1" fill="none"/>
-    <path d="M30 33 Q34 31 37 33" stroke="#5a3010" stroke-width="1.6" fill="none" stroke-linecap="round"/>
-    <path d="M43 33 Q46 31 50 33" stroke="#5a3010" stroke-width="1.6" fill="none" stroke-linecap="round"/>
-    <ellipse cx="33" cy="38" rx="3.5" ry="4" fill="white"/>
-    <ellipse cx="47" cy="38" rx="3.5" ry="4" fill="white"/>
-    <circle cx="33" cy="38.5" r="2.2" fill="#2c1505"/>
-    <circle cx="47" cy="38.5" r="2.2" fill="#2c1505"/>
-    <circle cx="34" cy="37.5" r="0.8" fill="white"/>
-    <circle cx="48" cy="37.5" r="0.8" fill="white"/>
-    <path d="M37 44 Q40 48 43 44" stroke="#d4956b" stroke-width="1.4" fill="none" stroke-linecap="round"/>
-    <path d="M33 52 Q40 57 47 52" stroke="#c07850" stroke-width="1.6" fill="none" stroke-linecap="round"/>
-  </svg>`,
-
-  // ישי"ק — כובע שחור, בלי זקן
-  hat: `<svg viewBox="0 0 80 90" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M8 90 Q8 70 40 64 Q72 70 72 90Z" fill="#1e2035"/>
-    <path d="M34 67 Q40 72 46 67 Q44 64 40 66 Q36 64 34 67Z" fill="#e8e8e8"/>
-    <ellipse cx="20" cy="44" rx="4" ry="5" fill="#FBCFA4"/>
-    <ellipse cx="60" cy="44" rx="4" ry="5" fill="#FBCFA4"/>
-    <circle cx="40" cy="42" r="21" fill="#FBCFA4"/>
-    <rect x="26" y="10" width="28" height="22" rx="3" fill="#111111"/>
-    <rect x="13" y="30" width="54" height="8" rx="2.5" fill="#111111"/>
-    <rect x="26" y="29" width="28" height="4" fill="#0a0a0a"/>
-    <path d="M30 33 Q34 31 37 33" stroke="#5a3010" stroke-width="1.6" fill="none" stroke-linecap="round"/>
-    <path d="M43 33 Q46 31 50 33" stroke="#5a3010" stroke-width="1.6" fill="none" stroke-linecap="round"/>
-    <ellipse cx="33" cy="38" rx="3.5" ry="4" fill="white"/>
-    <ellipse cx="47" cy="38" rx="3.5" ry="4" fill="white"/>
-    <circle cx="33" cy="38.5" r="2.2" fill="#2c1505"/>
-    <circle cx="47" cy="38.5" r="2.2" fill="#2c1505"/>
-    <circle cx="34" cy="37.5" r="0.8" fill="white"/>
-    <circle cx="48" cy="37.5" r="0.8" fill="white"/>
-    <path d="M37 44 Q40 48 43 44" stroke="#d4956b" stroke-width="1.4" fill="none" stroke-linecap="round"/>
-    <path d="M33 52 Q40 57 47 52" stroke="#c07850" stroke-width="1.6" fill="none" stroke-linecap="round"/>
-  </svg>`,
-
-  // ישי"ג — כובע + זקן קצר חום בהיר + פאות קצרות
-  hatBeard: `<svg viewBox="0 0 80 90" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M8 90 Q8 70 40 64 Q72 70 72 90Z" fill="#1e2035"/>
-    <path d="M34 67 Q40 72 46 67 Q44 64 40 66 Q36 64 34 67Z" fill="#e8e8e8"/>
-    <ellipse cx="20" cy="44" rx="4" ry="5" fill="#FBCFA4"/>
-    <ellipse cx="60" cy="44" rx="4" ry="5" fill="#FBCFA4"/>
-    <circle cx="40" cy="42" r="21" fill="#FBCFA4"/>
-    <rect x="26" y="10" width="28" height="22" rx="3" fill="#111111"/>
-    <rect x="13" y="30" width="54" height="8" rx="2.5" fill="#111111"/>
-    <rect x="26" y="29" width="28" height="4" fill="#0a0a0a"/>
-    <path d="M30 33 Q34 31 37 33" stroke="#5a3010" stroke-width="1.6" fill="none" stroke-linecap="round"/>
-    <path d="M43 33 Q46 31 50 33" stroke="#5a3010" stroke-width="1.6" fill="none" stroke-linecap="round"/>
-    <ellipse cx="33" cy="38" rx="3.5" ry="4" fill="white"/>
-    <ellipse cx="47" cy="38" rx="3.5" ry="4" fill="white"/>
-    <circle cx="33" cy="38.5" r="2.2" fill="#2c1505"/>
-    <circle cx="47" cy="38.5" r="2.2" fill="#2c1505"/>
-    <circle cx="34" cy="37.5" r="0.8" fill="white"/>
-    <circle cx="48" cy="37.5" r="0.8" fill="white"/>
-    <path d="M37 44 Q40 48 43 44" stroke="#d4956b" stroke-width="1.4" fill="none" stroke-linecap="round"/>
-    <path d="M34 52 Q40 55 46 52" stroke="#c07850" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-    <path d="M21 47 Q19 54 23 58" stroke="#8B5A2B" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-    <path d="M59 47 Q61 54 57 58" stroke="#8B5A2B" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-    <path d="M27 56 Q40 65 53 56 Q50 62 40 63 Q30 62 27 56Z" fill="#8B5A2B" opacity="0.9"/>
-  </svg>`,
-
-  // קיבוץ — כובע + זקן מלא כהה ורחב, פאות ארוכות
-  hatFullBeard: `<svg viewBox="0 0 80 90" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M8 90 Q8 70 40 64 Q72 70 72 90Z" fill="#1e2035"/>
-    <path d="M34 67 Q40 72 46 67 Q44 64 40 66 Q36 64 34 67Z" fill="#e8e8e8"/>
-    <ellipse cx="20" cy="44" rx="4" ry="5" fill="#FBCFA4"/>
-    <ellipse cx="60" cy="44" rx="4" ry="5" fill="#FBCFA4"/>
-    <circle cx="40" cy="42" r="21" fill="#FBCFA4"/>
-    <rect x="26" y="10" width="28" height="22" rx="3" fill="#111111"/>
-    <rect x="13" y="30" width="54" height="8" rx="2.5" fill="#111111"/>
-    <rect x="26" y="29" width="28" height="4" fill="#0a0a0a"/>
-    <path d="M30 33 Q34 31 37 33" stroke="#3a200a" stroke-width="1.8" fill="none" stroke-linecap="round"/>
-    <path d="M43 33 Q46 31 50 33" stroke="#3a200a" stroke-width="1.8" fill="none" stroke-linecap="round"/>
-    <ellipse cx="33" cy="38" rx="3.5" ry="4" fill="white"/>
-    <ellipse cx="47" cy="38" rx="3.5" ry="4" fill="white"/>
-    <circle cx="33" cy="38.5" r="2.2" fill="#2c1505"/>
-    <circle cx="47" cy="38.5" r="2.2" fill="#2c1505"/>
-    <circle cx="34" cy="37.5" r="0.8" fill="white"/>
-    <circle cx="48" cy="37.5" r="0.8" fill="white"/>
-    <path d="M37 44 Q40 48 43 44" stroke="#d4956b" stroke-width="1.4" fill="none" stroke-linecap="round"/>
-    <path d="M19 41 Q17 53 21 61" stroke="#2d1606" stroke-width="4" fill="none" stroke-linecap="round"/>
-    <path d="M61 41 Q63 53 59 61" stroke="#2d1606" stroke-width="4" fill="none" stroke-linecap="round"/>
-    <path d="M21 51 Q40 70 59 51 Q56 66 40 68 Q24 66 21 51Z" fill="#2d1606"/>
-    <path d="M26 58 Q40 65 54 58" stroke="#3d2008" stroke-width="1.2" fill="none" opacity="0.45"/>
-  </svg>`
-};
 
 function renderRulesScreen() {
   const container = document.getElementById("takanon-content");
@@ -1669,15 +1750,14 @@ function renderRulesScreen() {
   const targetShay = Number(s.targetShayTotal) || 0;
 
   const types = [
-    { name: "חיידר",  svg: TAKANON_SVG.hat,          target: Number(s.targetChaider) || 0 },
-    { name: 'ישי"ק',  svg: TAKANON_SVG.hatBeard,     target: Number(s.targetKtana)   || 0 },
-    { name: 'ישי"ג',  svg: TAKANON_SVG.hatFullBeard, target: Number(s.targetGedola)  || 0 },
-    { name: "קיבוץ",  svg: TAKANON_SVG.hatFullBeard, target: Number(s.targetKibbutz) || 0 },
+    { name: "חיידר", target: Number(s.targetChaider) || 0 },
+    { name: 'ישי"ק', target: Number(s.targetKtana)   || 0 },
+    { name: 'ישי"ג', target: Number(s.targetGedola)  || 0 },
+    { name: "קיבוץ", target: Number(s.targetKibbutz) || 0 },
   ];
 
   const typeCardsHtml = types.map(t => `
     <div class="takanon-type-card${t.target === 0 ? ' takanon-type-inactive' : ''}">
-      <div class="takanon-type-avatar">${t.svg}</div>
       <div class="takanon-type-name">${t.name}</div>
       <div class="takanon-type-target">${t.target > 0 ? formatCurrency(t.target) : '—'}</div>
       <div class="takanon-type-sublabel">${t.target > 0 ? 'יעד שנתי' : 'לא הוגדר'}</div>
@@ -1686,15 +1766,15 @@ function renderRulesScreen() {
   const additionalRules = (s.additionalRules || "").trim();
   const additionalHtml = additionalRules ? `
     <div class="takanon-section">
-      <div class="takanon-section-title"><span class="material-icons-regular">info</span> כללים נוספים</div>
+      <div class="takanon-section-title"><span class="material-icons-regular" aria-hidden="true">info</span> כללים נוספים</div>
       <div class="takanon-rules-text">${escapeHtml(additionalRules).replace(/\n/g, '<br>')}</div>
     </div>` : '';
 
-  // כרטיסי פרס קומפקטיים אופקיים
-  const buildGiftCard = (name, target, image, emoji) => {
+  // כרטיס מתנה: תמונה אם הוגדרה, אחרת אייקון מערכת האייקונים
+  const buildGiftCard = (name, target, image, icon) => {
     const mediaHtml = image
-      ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(name)}" class="takanon-prize-thumb" data-fallback="${escapeHtml(emoji)}">`
-      : `<div class="takanon-prize-emoji">${emoji}</div>`;
+      ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(name)}" class="takanon-prize-thumb" data-fallback="${icon}">`
+      : `<div class="takanon-prize-emoji"><span class="material-icons-regular" aria-hidden="true">${icon}</span></div>`;
     return `<div class="takanon-prize-card">
       ${mediaHtml}
       <div class="takanon-prize-body">
@@ -1705,13 +1785,13 @@ function renderRulesScreen() {
   };
 
   let prizesHtml = '';
-  if (gift1On && targetTiyul > 0) prizesHtml += buildGiftCard(gift1Name, targetTiyul, s.gift1Image || "", "🚌");
-  if (gift2On && targetShay > 0)  prizesHtml += buildGiftCard(gift2Name, targetShay,  s.gift2Image || "", "🎁");
+  if (gift1On && targetTiyul > 0) prizesHtml += buildGiftCard(gift1Name, targetTiyul, s.gift1Image || "", "directions_bus");
+  if (gift2On && targetShay > 0)  prizesHtml += buildGiftCard(gift2Name, targetShay,  s.gift2Image || "", "card_giftcard");
 
   container.innerHTML = `
     <div class="takanon-hero">
       <div class="takanon-hero-left">
-        <div class="takanon-hero-title">תקנון עייזר חתנים</div>
+        <div class="takanon-hero-title">תקנון צדקת רבי שמעון</div>
         <div class="takanon-hero-sub">כללי גבייה, יעדים ומתנות</div>
       </div>
       <div class="takanon-hero-year">שנת ${escapeHtml(year)}</div>
@@ -1719,21 +1799,21 @@ function renderRulesScreen() {
 
     <div class="takanon-main-grid">
       <div class="takanon-col-left">
-        <div class="takanon-section-label"><span class="material-icons-regular">flag</span> יעדי גבייה לפי שלב</div>
+        <div class="takanon-section-label"><span class="material-icons-regular" aria-hidden="true">flag</span> יעדי גבייה לפי שלב</div>
         <div class="takanon-types-grid-2x2">${typeCardsHtml}</div>
       </div>
 
       <div class="takanon-col-right">
         ${prizesHtml ? `
-          <div class="takanon-section-label"><span class="material-icons-regular">card_giftcard</span> מתנות וזכאויות</div>
+          <div class="takanon-section-label"><span class="material-icons-regular" aria-hidden="true">card_giftcard</span> מתנות וזכאויות</div>
           <div class="takanon-prizes-list">${prizesHtml}</div>
           <div class="takanon-col-divider"></div>` : ''}
-        <div class="takanon-section-label"><span class="material-icons-regular">manage_search</span> בדיקת מצב אישי</div>
+        <label class="takanon-section-label" for="takanon-member-input"><span class="material-icons-regular" aria-hidden="true">manage_search</span> בדיקת מצב אישי</label>
         <div class="takanon-lookup-box">
           <input type="text" id="takanon-member-input" class="ui-input" placeholder="חפש לפי שם..." ${uiInput("takanonSearch", "$value")} autocomplete="off">
-          <div id="takanon-search-results" class="takanon-search-dropdown" style="display:none;"></div>
+          <div id="takanon-search-results" class="takanon-search-dropdown"></div>
         </div>
-        <div id="takanon-member-card" class="takanon-member-card" style="display:none;"></div>
+        <div id="takanon-member-card" class="takanon-member-card"></div>
       </div>
     </div>
 
@@ -1744,9 +1824,9 @@ function renderRulesScreen() {
 window.takanonSearch = function(term) {
   const resultsEl = document.getElementById("takanon-search-results");
   const cardEl = document.getElementById("takanon-member-card");
-  if (cardEl) cardEl.style.display = "none";
+  if (cardEl) cardEl.classList.remove("is-open");
   if (!resultsEl) return;
-  if (!term.trim()) { resultsEl.innerHTML = ""; resultsEl.style.display = "none"; return; }
+  if (!term.trim()) { resultsEl.innerHTML = ""; resultsEl.classList.remove("is-open"); return; }
 
   const t = term.trim();
   const summaries = getMemberSummaries();
@@ -1756,21 +1836,21 @@ window.takanonSearch = function(term) {
 
   if (!matches.length) {
     resultsEl.innerHTML = '<div class="takanon-no-results">לא נמצא בחור בשם זה</div>';
-    resultsEl.style.display = "block";
+    resultsEl.classList.add("is-open");
     return;
   }
   resultsEl.innerHTML = matches.map(m =>
-    `<div class="takanon-search-item" ${uiAct("takanonShowMember", String(m.id))}>
+    `<div class="takanon-search-item" role="button" tabindex="0" ${uiAct("takanonShowMember", String(m.id))}>
       <span class="takanon-search-name">${escapeHtml(m.fullName)}</span>
       <span class="takanon-search-meta">${escapeHtml(m.yeshiva || m.yeshivaType || "")}</span>
     </div>`
   ).join('');
-  resultsEl.style.display = "block";
+  resultsEl.classList.add("is-open");
 };
 
 window.takanonShowMember = function(memberId) {
   const resultsEl = document.getElementById("takanon-search-results");
-  if (resultsEl) resultsEl.style.display = "none";
+  if (resultsEl) resultsEl.classList.remove("is-open");
   const cardEl = document.getElementById("takanon-member-card");
   if (!cardEl) return;
 
@@ -1786,28 +1866,27 @@ window.takanonShowMember = function(memberId) {
   const target = member.totalRequiredThisYear || member.currentYearTarget || 0;
   const gap = Math.max(0, target - collected);
   const pct = target > 0 ? Math.min(100, Math.round((collected / target) * 100)) : 0;
-  const barColor = gap === 0 ? 'var(--success)' : pct >= 60 ? '#d97706' : 'var(--danger)';
   const gift1Name = s.gift1Name || "טיול";
   const gift2Name = s.gift2Name || "מתנה";
   const tiyulTarget = Number(s.targetTiyul) || 0;
   const shayTarget = Number(s.targetShayTotal) || 0;
 
   let badgesHtml = "";
-  if (member.isEligibleTiyul) badgesHtml += `<div class="takanon-badge takanon-badge-green">✅ זכאי ל${escapeHtml(gift1Name)}</div>`;
+  if (member.isEligibleTiyul) badgesHtml += statusBadgeHtml(`זכאי ל${gift1Name}`, "success", "check");
   else if (s.gift1Enabled !== false && tiyulTarget > 0 && collected < tiyulTarget)
-    badgesHtml += `<div class="takanon-badge takanon-badge-gray">🚌 ${escapeHtml(gift1Name)} — חסר עוד ${formatCurrency(tiyulTarget - collected)}</div>`;
-  if (member.isEligibleShay) badgesHtml += `<div class="takanon-badge takanon-badge-green">✅ זכאי ל${escapeHtml(gift2Name)}</div>`;
+    badgesHtml += statusBadgeHtml(`${gift1Name}: חסר עוד ${formatCurrency(tiyulTarget - collected)}`, "neutral", "directions_bus");
+  if (member.isEligibleShay) badgesHtml += statusBadgeHtml(`זכאי ל${gift2Name}`, "success", "check");
   else if (s.gift2Enabled !== false && shayTarget > 0 && collected < shayTarget)
-    badgesHtml += `<div class="takanon-badge takanon-badge-gray">🎁 ${escapeHtml(gift2Name)} — חסר עוד ${formatCurrency(shayTarget - collected)}</div>`;
+    badgesHtml += statusBadgeHtml(`${gift2Name}: חסר עוד ${formatCurrency(shayTarget - collected)}`, "neutral", "card_giftcard");
 
   const debt = member.totalDebtFromPast || 0;
   const baseTarget = member.currentYearTarget || 0;
   const debtRowHtml = debt > 0 ? `
-    <div style="background:#fef2f2;border:1px solid var(--danger);border-radius:8px;padding:9px 12px;margin-bottom:10px;display:flex;align-items:center;gap:8px;">
-      <span class="material-icons-regular" style="color:var(--danger);font-size:17px;flex-shrink:0;">warning</span>
-      <div style="font-size:12px;">
-        <span style="font-weight:800;color:var(--danger);">קנס מהעבר: ${formatCurrency(debt)}</span>
-        <span style="color:#7f1d1d;"> · יעד בסיס ${formatCurrency(baseTarget)} + קנס ${formatCurrency(debt)} = נדרש ${formatCurrency(target)}</span>
+    <div class="debt-banner">
+      <span class="material-icons-regular" aria-hidden="true">warning</span>
+      <div>
+        <div class="debt-banner-title">קנס מהעבר: ${formatCurrency(debt)}</div>
+        <div class="debt-banner-text">יעד בסיס ${formatCurrency(baseTarget)} + קנס ${formatCurrency(debt)} = נדרש ${formatCurrency(target)}</div>
       </div>
     </div>` : '';
 
@@ -1818,18 +1897,15 @@ window.takanonShowMember = function(memberId) {
     </div>
     <div class="takanon-mc-year">שנת ${escapeHtml(year)}</div>
     ${debtRowHtml}
-    <div class="takanon-mc-progress">
-      <div class="takanon-pb-wrap"><div class="takanon-pb-fill" style="width:${pct}%;background:${barColor};"></div></div>
-      <div class="takanon-pb-pct">${pct}%</div>
-    </div>
+    <div class="takanon-mc-progress">${progressHtml(gap === 0 && target > 0 ? 100 : pct)}</div>
     <div class="takanon-mc-amounts">
-      <div class="takanon-mc-amount"><div class="takanon-mc-val" style="color:var(--success)">${formatCurrency(collected)}</div><div class="takanon-mc-lbl">נאסף</div></div>
+      <div class="takanon-mc-amount"><div class="takanon-mc-val is-success">${formatCurrency(collected)}</div><div class="takanon-mc-lbl">נאסף</div></div>
       <div class="takanon-mc-amount"><div class="takanon-mc-val">${formatCurrency(target)}</div><div class="takanon-mc-lbl">${debt > 0 ? 'נדרש כולל' : 'יעד'}</div></div>
-      <div class="takanon-mc-amount"><div class="takanon-mc-val" style="color:${gap > 0 ? 'var(--danger)' : 'var(--success)'}">${gap > 0 ? formatCurrency(gap) : '✓ הושלם'}</div><div class="takanon-mc-lbl">חסר</div></div>
+      <div class="takanon-mc-amount"><div class="takanon-mc-val ${gap > 0 ? 'is-danger' : 'is-success'}">${gap > 0 ? formatCurrency(gap) : 'הושלם'}</div><div class="takanon-mc-lbl">חסר</div></div>
     </div>
     ${badgesHtml ? `<div class="takanon-badges-row">${badgesHtml}</div>` : ''}
   `;
-  cardEl.style.display = "block";
+  cardEl.classList.add("is-open");
 };
 
 // ===== מסך הגדרות: ניווט פנימי =====
@@ -1856,14 +1932,14 @@ function describeAuditDetails(d) {
 async function renderAuditLog() {
   const el = document.getElementById("audit-log-list");
   if (!el) return;
-  el.innerHTML = `<div class="empty-state" style="padding:24px;">טוען...</div>`;
+  el.innerHTML = `<div class="empty-state">טוען...</div>`;
   try {
     const rows = await SB.selectAudit(300);
-    if (!rows.length) { el.innerHTML = `<div class="empty-state" style="padding:24px;"><span class="material-icons-regular">history</span><p>עדיין אין פעולות ביומן</p></div>`; return; }
+    if (!rows.length) { el.innerHTML = emptyStateHtml({ icon: "history", title: "עדיין אין פעולות ביומן", text: "כל הוספה, עדכון או מחיקה יירשמו כאן עם שם המשתמש והשעה." }); return; }
     el.innerHTML = `<div class="table-container table-sticky"><table class="data-table compact-view"><thead><tr><th>מתי</th><th>משתמש</th><th>פעולה</th><th>על מה</th><th>פרטים</th></tr></thead><tbody>${rows.map(r => {
       const t = new Date(r.created_at);
       const when = Number.isNaN(t.getTime()) ? "" : `${formatDateDisplay(t)} ${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")}`;
-      return `<tr><td>${escapeHtml(when)}</td><td>${escapeHtml(r.username || "")}</td><td>${escapeHtml(AUDIT_ACTIONS[r.action] || r.action)}</td><td>${escapeHtml(AUDIT_ENTITIES[r.entity] || r.entity)}</td><td style="white-space:normal;">${escapeHtml(describeAuditDetails(r.details))}</td></tr>`;
+      return `<tr><td>${escapeHtml(when)}</td><td>${escapeHtml(r.username || "")}</td><td>${escapeHtml(AUDIT_ACTIONS[r.action] || r.action)}</td><td>${escapeHtml(AUDIT_ENTITIES[r.entity] || r.entity)}</td><td class="cell-wrap">${escapeHtml(describeAuditDetails(r.details))}</td></tr>`;
     }).join("")}</tbody></table></div>`;
   } catch (e) {
     el.innerHTML = e.status === 404 || /audit_log/.test(e.message || "")
@@ -1908,7 +1984,7 @@ function renderPurimSumsSettings() {
   const years = getPurimSumsYearsWindow();
 
   if (!groups.length) {
-    el.innerHTML = `<div class="empty-state">אין עדיין קבוצות פורים מוגדרות בכתובות</div>`;
+    el.innerHTML = emptyStateHtml({ icon: "location_on", title: "אין עדיין קבוצות פורים", text: "הקבוצות נוצרות מתוך כתובות פורים. אחרי שיהיו כתובות, אפשר יהיה להזין כאן את הסכום הסופי של כל קבוצה.", action: "switchScreenAction", args: ["purim-registration-screen"], label: "למסך כתובות פורים" });
     return;
   }
 
@@ -1919,17 +1995,17 @@ function renderPurimSumsSettings() {
         <tbody>
           ${groups.map(group => `
             <tr>
-              <td style="font-weight:800;">${escapeHtml(group)}</td>
+              <td class="cell-strong">${escapeHtml(group)}</td>
               ${years.map(y => {
                 const val = (state.settings.purimManualSums && state.settings.purimManualSums[group] && state.settings.purimManualSums[group][y]) || "";
-                return `<td><input type="number" class="ui-input purim-sum-setting-input" data-group="${escapeHtml(group)}" data-year="${escapeHtml(y)}" value="${escapeHtml(val)}" style="width:90px; text-align:center; direction:ltr;"></td>`;
+                return `<td><input type="number" class="ui-input purim-sum-setting-input purim-sum-input" data-group="${escapeHtml(group)}" data-year="${escapeHtml(y)}" value="${escapeHtml(val)}"></td>`;
               }).join("")}
             </tr>
           `).join("")}
         </tbody>
       </table>
     </div>
-    <div class="form-actions-row" style="margin-top:16px;"><button class="btn btn-solid-blue" id="btn-save-purim-sums"><span class="material-icons-regular" style="font-size:16px;vertical-align:middle;">save</span> שמור סכומים</button></div>
+    <div class="form-actions-row"><button class="btn btn-primary" id="btn-save-purim-sums"><span class="material-icons-regular">save</span> שמור סכומים</button></div>
   `;
 
   const saveBtn = document.getElementById("btn-save-purim-sums");
@@ -1986,7 +2062,7 @@ window.addExpenseCategory = function() {
   if (input) input.value = "";
   renderExpenseCategories();
   populateExpenseCategorySelect();
-  p.then(saved => { reportSave(saved, "✅ הקטגוריה נוספה"); logAudit("create", "expense-category", val); });
+  p.then(saved => { reportSave(saved, "הקטגוריה נוספה"); logAudit("create", "expense-category", val); });
 };
 
 window.removeExpenseCategory = function(index) {
@@ -1994,14 +2070,23 @@ window.removeExpenseCategory = function(index) {
   if (cats.length <= 1) { showToast("חייבת להישאר לפחות קטגוריה אחת", "danger"); return; }
   const name = cats[index];
   if (name === undefined) return;
-  const p = saveSettingsPatch(settings => {
+  const previous = [...cats];
+  const removeIt = settings => {
     const list = (Array.isArray(settings.expenseCategories) && settings.expenseCategories.length) ? [...settings.expenseCategories] : [...DEFAULT_EXPENSE_CATEGORIES];
     const next = list.filter(c => c !== name);
     settings.expenseCategories = next.length ? next : list;
+  };
+  const refresh = () => { saveState(); renderExpenseCategories(); populateExpenseCategorySelect(); };
+  scheduleUndoableDelete({
+    message: `הקטגוריה "${name}" הוסרה`,
+    apply: () => { removeIt(state.settings); refresh(); },
+    undo: () => { state.settings.expenseCategories = previous; refresh(); },
+    commit: () => {
+      saveSettingsPatch(removeIt).then(saved => { if (!saved) reportSave(false); logAudit("delete", "expense-category", name); });
+      renderExpenseCategories(); populateExpenseCategorySelect();
+    },
+    queueOnExit: () => enqueueWrite("saveSettings", state.settings),
   });
-  renderExpenseCategories();
-  populateExpenseCategorySelect();
-  p.then(saved => { reportSave(saved, `הקטגוריה "${name}" הוסרה`); logAudit("delete", "expense-category", name); });
 };
 
 function populateExpenseCategorySelect(extraCategory = null) {
@@ -2074,7 +2159,7 @@ window.openDataHealthDetail = function(type) {
   } else {
     const affected = getHealthAffected(type);
     if (affected.length === 0) {
-      body.innerHTML = `<div class="fix-done-note"><span class="material-icons-regular" style="font-size:40px; display:block; margin-bottom:8px;">task_alt</span>הכל תקין! אין בחורים לתיקון כאן.</div>`;
+      body.innerHTML = `<div class="fix-done-note"><span class="material-icons-regular note-icon">task_alt</span>הכל תקין! אין בחורים לתיקון כאן.</div>`;
     } else {
       body.innerHTML = affected.map(m => renderFixRow(type, m)).join("");
     }
@@ -2096,10 +2181,10 @@ function renderFixRow(type, m) {
       </select>`;
   } else if (type === "yeshiva") {
     control = `<input type="text" class="ui-input" placeholder="שם הישיבה" id="fix-${m.id}">
-      <button class="btn btn-solid-blue fix-save" ${uiAct("applyHealthFixFromInput", m.id, "yeshiva")}>שמור</button>`;
+      <button class="btn btn-primary fix-save" ${uiAct("applyHealthFixFromInput", m.id, "yeshiva")}>שמור</button>`;
   } else if (type === "phone") {
-    control = `<input type="text" class="ui-input" placeholder="050-0000000" id="fix-${m.id}" style="direction:ltr;text-align:right;">
-      <button class="btn btn-solid-blue fix-save" ${uiAct("applyHealthFixFromInput", m.id, "phone")}>שמור</button>`;
+    control = `<input type="text" class="ui-input input-ltr" placeholder="050-0000000" id="fix-${m.id}">
+      <button class="btn btn-primary fix-save" ${uiAct("applyHealthFixFromInput", m.id, "phone")}>שמור</button>`;
   }
   return `<div class="fix-row" id="fixrow-${m.id}">
       <div class="fix-name">${name}${sub ? `<div class="fix-sub">${sub}</div>` : ""}</div>
@@ -2121,8 +2206,8 @@ function renderDupesList() {
     <div class="dupe-group">
       <div class="dupe-group-title">${escapeHtml(name)} (${arr.length})</div>
       ${arr.map(m => `<div class="fix-row">
-        <div class="fix-name" style="font-weight:500;">${escapeHtml(m.yeshiva || "ללא ישיבה")} <span class="fix-sub">${escapeHtml(m.phone || "ללא טלפון")}</span></div>
-        <button class="btn btn-outline fix-save" ${uiAct("openMemberFromHealth", m.id)}>פתח פרופיל</button>
+        <div class="fix-name">${escapeHtml(m.yeshiva || "ללא ישיבה")} <span class="fix-sub">${escapeHtml(m.phone || "ללא טלפון")}</span></div>
+        <button class="btn btn-secondary fix-save" ${uiAct("openMemberFromHealth", m.id)}>פתח פרופיל</button>
       </div>`).join("")}
     </div>`).join("");
 }
@@ -2144,11 +2229,11 @@ window.applyHealthFix = function(memberId, field, value) {
   renderDataHealth();
   populateFilters();
   renderMembersTable();
-  showToast("✅ תוקן ונשמר");
+  showToast("תוקן ונשמר");
   // אם לא נותרו שורות - הצגת הודעת סיום
   const body = document.getElementById("data-health-modal-body");
   if (body && !body.querySelector(".fix-row")) {
-    body.innerHTML = `<div class="fix-done-note"><span class="material-icons-regular" style="font-size:40px; display:block; margin-bottom:8px;">task_alt</span>הכל תוקן!</div>`;
+    body.innerHTML = `<div class="fix-done-note"><span class="material-icons-regular note-icon">task_alt</span>הכל תוקן!</div>`;
   }
 };
 
@@ -2197,7 +2282,7 @@ window.exportFullBackup = function() {
   a.href = url; a.download = `גיבוי_צדקת_רבי_שמעון_${stamp}.json`;
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  showToast("✅ קובץ הגיבוי ירד");
+  showToast("קובץ הגיבוי ירד");
 };
 
 window.importFullBackup = function(file) {
@@ -2211,7 +2296,11 @@ window.importFullBackup = function(file) {
       if (!data || typeof data !== "object" || !Array.isArray(data.members)) throw new Error("invalid");
     } catch (err) { showToast("הקובץ אינו קובץ גיבוי תקין", "danger"); return; }
     const counts = `${(data.members || []).length} בחורים, ${(data.donations || []).length} הפקדות, ${(data.expenses || []).length} הוצאות, ${(data.purimAddresses || []).length} כתובות פורים`;
-    if (!confirm(`ייבוא הגיבוי יעלה לשרת: ${counts}, והגדרות${data.grantsArchive ? " ומענקים" : ""}.\nרשומות קיימות עם אותו מזהה יוחלפו בגרסה שבגיבוי. רשומות שלא נמצאות בגיבוי יישארו.\nלהמשיך?`)) return;
+    if (!(await uiConfirm({
+      title: "ייבוא גיבוי לשרת",
+      message: `יועלו לשרת: ${counts}, והגדרות${data.grantsArchive ? " ומענקים" : ""}.\nרשומות קיימות עם אותו מזהה יוחלפו בגרסה שבגיבוי. רשומות שלא נמצאות בגיבוי יישארו.`,
+      confirmLabel: "ייבא את הגיבוי", danger: true,
+    }))) return;
     const btn = document.getElementById("btn-import-backup");
     if (btn) { btn.disabled = true; btn.textContent = "מעלה לשרת..."; }
     try {
@@ -2225,11 +2314,11 @@ window.importFullBackup = function(file) {
       logAudit("import", "backup", file.name, { counts });
       await fetchDataFromServer(true);
       renderSettings();
-      showToast("✅ הגיבוי יובא ונשמר בשרת");
+      showToast("הגיבוי יובא ונשמר בשרת");
     } catch (err) {
       showToast(`הייבוא נעצר באמצע: ${err.message || "תקלת תקשורת"}. אפשר להריץ שוב את אותו קובץ`, "danger");
     } finally {
-      if (btn) { btn.disabled = false; btn.innerHTML = `<span class="material-icons-regular" style="font-size:16px;vertical-align:middle;">upload</span> ייבוא גיבוי`; }
+      if (btn) { btn.disabled = false; btn.innerHTML = `<span class="material-icons-regular">upload</span> ייבוא גיבוי`; }
     }
   };
   reader.readAsText(file);
@@ -2237,14 +2326,14 @@ window.importFullBackup = function(file) {
 
 window.syncNow = async function() {
   const btn = document.getElementById("btn-sync-now");
-  if (btn) { btn.disabled = true; btn.innerHTML = `<span class="material-icons-regular" style="font-size:16px;vertical-align:middle;">sync</span> מסנכרן...`; }
+  if (btn) { btn.disabled = true; btn.innerHTML = `<span class="material-icons-regular">sync</span> מסנכרן...`; }
   const ok = await fetchDataFromServer(true);
-  if (btn) { btn.disabled = false; btn.innerHTML = `<span class="material-icons-regular" style="font-size:16px;vertical-align:middle;">sync</span> סנכרן עכשיו`; }
+  if (btn) { btn.disabled = false; btn.innerHTML = `<span class="material-icons-regular">sync</span> סנכרן עכשיו`; }
   renderBackupPanel();
   const pending = readPendingWrites().length;
   if (!ok) showToast("הסנכרון נכשל: אין חיבור לשרת. מוצגים הנתונים האחרונים שנטענו", "danger");
   else if (pending) showToast(`הנתונים נטענו, אבל ${pending} שינויים עדיין ממתינים לשליחה`, "warning");
-  else showToast("✅ הנתונים סונכרנו");
+  else showToast("הנתונים סונכרנו");
 };
 
 const PERM_FIELDS = [["canEdit", "הוספה ועריכה"], ["canViewIncome", "הכנסות ופורים"], ["canViewExpenses", "הוצאות"], ["canViewGrants", "מענקים"], ["canViewHistory", "היסטוריית זכאות"]];
@@ -2252,14 +2341,14 @@ const PERM_FIELDS = [["canEdit", "הוספה ועריכה"], ["canViewIncome", "
 function renderUsersTable() {
   const tbody = document.getElementById("users-table-body"); if (!tbody) return;
   const users = (state.users || []).filter(u => u && u.username && String(u.username).trim() !== "");
-  if (!users.length) { tbody.innerHTML = `<tr><td colspan="7" class="empty-cell">אין משתמשים להצגה</td></tr>`; return; }
+  if (!users.length) { tbody.innerHTML = `<tr><td colspan="7">${emptyStateHtml({ icon: "manage_accounts", title: "אין משתמשים להצגה", text: "משתמשים מוסיפים בלוח הבקרה של Supabase, והם מופיעים כאן אחרי רענון הנתונים." })}</td></tr>`; return; }
   tbody.innerHTML = users.map(u => {
     const isAdminRow = u.isAdmin === true || String(u.username).trim() === "מנהל";
-    const boxes = PERM_FIELDS.map(([f, label]) => `<td style="text-align:center;"><input type="checkbox" data-perm="${f}" aria-label="${escapeHtml(label)}" ${isAdminRow || isTrue(u[f]) ? "checked" : ""} ${isAdminRow ? "disabled" : ""}></td>`).join("");
+    const boxes = PERM_FIELDS.map(([f, label]) => `<td class="cell-center"><input type="checkbox" data-perm="${f}" aria-label="${escapeHtml(label)}" ${isAdminRow || isTrue(u[f]) ? "checked" : ""} ${isAdminRow ? "disabled" : ""}></td>`).join("");
     return `<tr data-user-id="${escapeHtml(u.id || "")}">
-      <td style="font-weight:bold;">${escapeHtml(u.username)}${isAdminRow ? ` <span class="role-chip">מנהל</span>` : ""}</td>
+      <td class="cell-strong">${escapeHtml(u.username)}${isAdminRow ? ` <span class="role-chip">מנהל</span>` : ""}</td>
       ${boxes}
-      <td class="no-export">${isAdminRow || !u.id ? "" : `<button class="btn btn-outline users-save-btn" style="padding:5px 12px; font-size:12px;" ${uiAct("saveUserPermissions", u.id, "$el")}>שמור</button>`}</td>
+      <td class="no-export">${isAdminRow || !u.id ? "" : `<button class="btn btn-secondary users-save-btn btn-sm" ${uiAct("saveUserPermissions", u.id, "$el")}>שמור</button>`}</td>
     </tr>`;
   }).join("");
 }
@@ -2514,7 +2603,7 @@ function renderDashboardAttention({ summaries, totalDonations, currentYear }) {
   }
 
   if (!items.length) {
-    el.innerHTML = `<div class="dashboard-empty"><span class="material-icons-regular">task_alt</span><span>אין כרגע פריטים דחופים לטיפול.</span></div>`;
+    el.innerHTML = emptyStateHtml({ icon: "task_alt", title: "אין כרגע מה לטפל בו", text: "כשיהיו בחורים קרובים ליעד, חובות פתוחים או פרטים חסרים, הם יופיעו כאן." });
     return;
   }
 
@@ -2720,12 +2809,12 @@ function renderFinanceChart(el, rows, mode = "compare") {
       <tbody>${rows.slice().reverse().map(r => {
         const net = r.income - r.outgoing;
         return `<tr><td>${escapeHtml(r.year)}</td><td>${formatCurrency(r.income)}</td><td>${formatCurrency(r.outgoing)}</td>
-          <td class="${net >= 0 ? "fin-net-up" : "fin-net-down"}"><span aria-hidden="true">${net >= 0 ? "▲" : "▼"}</span> ${net >= 0 ? "עודף" : "גירעון"} ${formatCurrency(Math.abs(net))}</td></tr>`;
+          <td class="${net >= 0 ? "fin-net-up" : "fin-net-down"}"><span class="material-icons-regular" aria-hidden="true">${net >= 0 ? "arrow_drop_up" : "arrow_drop_down"}</span> ${net >= 0 ? "עודף" : "גירעון"} ${formatCurrency(Math.abs(net))}</td></tr>`;
       }).join("")}</tbody>
     </table>`
     : `<table class="fin-table">
       <thead><tr><th>שנה</th><th>בחורים</th><th>פורים</th><th>סה"כ הכנסות</th></tr></thead>
-      <tbody>${rows.slice().reverse().map(r => `<tr><td>${escapeHtml(r.year)}</td><td>${formatCurrency(r.members)}</td><td>${formatCurrency(r.purim)}</td><td style="font-weight:800;">${formatCurrency(r.income)}</td></tr>`).join("")}</tbody>
+      <tbody>${rows.slice().reverse().map(r => `<tr><td>${escapeHtml(r.year)}</td><td>${formatCurrency(r.members)}</td><td>${formatCurrency(r.purim)}</td><td class="cell-strong">${formatCurrency(r.income)}</td></tr>`).join("")}</tbody>
     </table>`;
 
   el.innerHTML = `
@@ -2846,7 +2935,7 @@ function renderDashboardActivity(currentYear, summaries) {
     .slice(0, 8);
 
   if (!rows.length) {
-    el.innerHTML = `<div class="dashboard-empty"><span class="material-icons-regular">history</span><span>אין עדיין פעילות לשנה הזו.</span></div>`;
+    el.innerHTML = emptyStateHtml({ icon: "history", title: "אין עדיין פעילות בשנה הזו", text: "הפקדות והוצאות חדשות יופיעו כאן לפי סדר התאריכים.", action: canEditUser() ? "openDonationModal" : "", label: "רישום הפקדה" });
     return;
   }
 
@@ -2887,7 +2976,7 @@ function renderDashboardSegments(summaries) {
     .filter(([, data]) => data.obligated > 0)
     .sort(([, a], [, b]) => b.obligated - a.obligated || b.reached - a.reached);
   if (!rows.length) {
-    el.innerHTML = `<div class="dashboard-empty"><span class="material-icons-regular">groups</span><span>אין עדיין בחורים להצגה.</span></div>`;
+    el.innerHTML = emptyStateHtml({ icon: "groups", title: "אין עדיין בחורים עם יעד", text: "ההתקדמות לפי מסגרת תוצג אחרי שיהיו בחורים עם יעד שנתי.", action: canEditUser() ? "openMemberModal" : "", label: "הוספת בחור" });
     return;
   }
 
@@ -2955,7 +3044,7 @@ function buildDashboardMemberCells(row, mode = "full") {
 
 function renderDashboardDrillTable(columns, rows) {
   if (!rows.length) {
-    return `<div class="dashboard-empty dashboard-drill-empty"><span class="material-icons-regular">task_alt</span><span>אין נתונים מתאימים לבחירה הזו.</span></div>`;
+    return emptyStateHtml({ icon: "task_alt", title: "אין נתונים מתאימים לבחירה הזו", text: "נסו לבחור שנת פעילות אחרת בלוח הבקרה." });
   }
   const hasAction = rows.some(row => row.memberId);
   const head = columns.concat(hasAction ? ["פעולה"] : []).map(label => `<th>${escapeHtml(label)}</th>`).join("");
@@ -3203,11 +3292,7 @@ function renderChart(selectedYear) {
 
   const labels = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
 
-  // מילוי זהב מדורג לעמודות
   const canvasCtx = ctx.getContext("2d");
-  const goldFill = canvasCtx.createLinearGradient(0, 0, 0, ctx.height || 250);
-  goldFill.addColorStop(0, "#E6C875");
-  goldFill.addColorStop(1, "#C9A227");
 
   incomeChartInstance = new Chart(ctx, {
       type: "bar",
@@ -3216,8 +3301,8 @@ function renderChart(selectedYear) {
           datasets: [{
               label: "הכנסות בחודש",
               data: monthlyData,
-              backgroundColor: goldFill,
-              hoverBackgroundColor: "#B8901F",
+              backgroundColor: chartTheme().series[1],
+              hoverBackgroundColor: chartTheme().series[0],
               borderRadius: 6,
               borderSkipped: false,
               maxBarThickness: 46,
@@ -3229,13 +3314,13 @@ function renderChart(selectedYear) {
           plugins: {
               legend: { display: false },
               tooltip: {
-                  backgroundColor: "#101014",
-                  titleColor: "#FCE883",
-                  bodyColor: "#fff",
-                  titleFont: { family: "Heebo", weight: "700", size: 13 },
+                  backgroundColor: chartTheme().ink,
+                  titleColor: chartTheme().onDark,
+                  bodyColor: chartTheme().onDark,
+                  titleFont: { family: "Heebo", weight: "600", size: 13 },
                   bodyFont: { family: "Heebo", size: 13 },
                   padding: 12,
-                  cornerRadius: 8,
+                  cornerRadius: 6,
                   displayColors: false,
                   callbacks: {
                       label: (item) => "  " + formatCurrency(item.raw)
@@ -3245,15 +3330,15 @@ function renderChart(selectedYear) {
           scales: {
               x: {
                   grid: { display: false },
-                  ticks: { font: { family: "Heebo", size: 11 }, color: "#646470" }
+                  ticks: { font: { family: "Heebo", size: 12 }, color: chartTheme().text }
               },
               y: {
                   beginAtZero: true,
                   border: { display: false },
-                  grid: { color: "rgba(26,22,8,0.06)" },
+                  grid: { color: chartTheme().grid },
                   ticks: {
-                      font: { family: "Heebo", size: 11 },
-                      color: "#9A9AA4",
+                      font: { family: "Heebo", size: 12 },
+                      color: chartTheme().textMuted,
                       callback: (val) => "₪" + Number(val).toLocaleString("he-IL")
                   }
               }
@@ -3332,7 +3417,7 @@ function renderMembersTable() {
           if (valA == null) valA = "";
           if (valB == null) valB = "";
 
-          if (membersSortCol === "collectedThisYear") {
+          if (["collectedThisYear", "totalRequiredThisYear", "missingAmount"].includes(membersSortCol)) {
               return membersSortAsc ? Number(valA) - Number(valB) : Number(valB) - Number(valA);
           }
 
@@ -3342,12 +3427,11 @@ function renderMembersTable() {
       });
   }
 
-  const isAdmin = isAdminUser();
-  const deleteColHead = document.getElementById("members-delete-col-head");
-  if (deleteColHead) deleteColHead.style.display = isAdmin ? "" : "none";
-
   if (rows.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><span class="material-icons-regular">groups</span><p>אין בחורים התואמים לסינון</p></div></td></tr>`;
+    const noMembersAtAll = (state.members || []).length === 0;
+    tbody.innerHTML = `<tr><td colspan="12">${noMembersAtAll
+      ? emptyStateHtml({ icon: "groups", title: "עדיין אין בחורים במערכת", text: "הוסיפו את הבחור הראשון כדי להתחיל לרשום הפקדות ולעקוב אחרי היעד שלו.", action: canEditUser() ? "openMemberModal" : "", label: "הוספת בחור" })
+      : emptyStateHtml({ icon: "search_off", title: "אין בחורים שמתאימים לסינון", text: "נסו לשנות את החיפוש או לנקות את הסינונים.", action: "clearMembersFilters", label: "נקה סינונים" })}</td></tr>`;
     return;
   }
 
@@ -3355,7 +3439,7 @@ function renderMembersTable() {
   rows.forEach((row) => {
     const cityDisplay = row.address ? String(row.address).split(',').pop().trim() : "---";
     const tr = document.createElement("tr");
-    tr.style.cursor = "pointer";
+    tr.className = "clickable-row";
     tr.dataset.memberId = row.id;
     tr.onclick = (ev) => { if (ev.target.closest("[data-action]")) return; if (!state.membersEditMode) loadMemberProfile(row.id); };
 
@@ -3369,9 +3453,20 @@ function renderMembersTable() {
     if (!String(row.phone || "").trim()) missing.push("טלפון");
     if (!String(row.address || "").trim()) missing.push("כתובת");
     const star = missing.length ? `<span class="missing-star" title="חסר: ${escapeHtml(missing.join(", "))}">*</span>` : "";
-    const deleteCell = isAdmin ? `<td class="no-export" style="text-align:center;"><button class="grants-archive-del" title="מחק בחור" ${uiAct("deleteMemberRow", row.id)}><span class="material-icons-regular">delete_outline</span></button></td>` : "";
+    // יעד, פער, התקדמות וסטטוס: מהנתונים שכבר חושבו לכל בחור
+    const required = Number(row.totalRequiredThisYear) || 0;
+    const collected = Number(row.collectedThisYear) || 0;
+    const gap = Number(row.missingAmount) || 0;
+    const pct = required > 0 ? Math.floor((collected / required) * 100) : (collected > 0 ? 100 : 0);
+    const status = getMemberStatus(row);
+    const menuCell = `<td class="no-export col-actions"><button type="button" class="icon-ghost-btn" title="פעולות" aria-label="פעולות על ${escapeHtml(`${row.firstName || ""} ${row.lastName || ""}`.trim())}" aria-haspopup="menu" ${uiAct("openMemberRowMenu", row.id, "$el")}><span class="material-icons-regular" aria-hidden="true">more_vert</span></button></td>`;
 
-    tr.innerHTML = `<td data-field="firstName">${escapeHtml(row.firstName)}${star}</td><td data-field="lastName">${escapeHtml(row.lastName)}</td><td data-field="fatherName">${escapeHtml(row.fatherName || "---")}</td><td data-field="yeshiva">${escapeHtml(row.yeshiva)}</td><td data-field="shiur">${escapeHtml(shiurDisplay)}</td><td>${escapeHtml(cityDisplay)}</td><td class="amount-cell" style="font-weight: bold; color: var(--gold-dark);">${escapeHtml(formatCurrency(row.collectedThisYear))}</td>${deleteCell}`;
+    tr.innerHTML = `<td data-field="firstName">${escapeHtml(row.firstName)}${star}</td><td data-field="lastName">${escapeHtml(row.lastName)}</td><td data-field="fatherName">${escapeHtml(row.fatherName || "---")}</td><td data-field="yeshiva">${escapeHtml(row.yeshiva)}</td><td data-field="shiur">${escapeHtml(shiurDisplay)}</td><td>${escapeHtml(cityDisplay)}</td>`
+      + `<td class="amount-cell cell-strong">${escapeHtml(formatCurrency(collected))}</td>`
+      + `<td class="amount-cell">${required > 0 ? escapeHtml(formatCurrency(required)) : "—"}</td>`
+      + `<td class="amount-cell${gap > 0 ? " amount-neg" : ""}">${gap > 0 ? escapeHtml(formatCurrency(gap)) : "—"}</td>`
+      + `<td class="no-export">${required > 0 ? progressHtml(pct) : ""}</td>`
+      + `<td>${statusBadgeHtml(status.label, status.tone)}</td>${menuCell}`;
     tbody.appendChild(tr);
   });
 
@@ -3382,24 +3477,71 @@ function renderMembersTable() {
   }
 }
 
+// ===== תפריט שורה בטבלת הבחורים (במקום כפתור מחיקה גלוי) =====
+function closeRowMenu() {
+  const menu = document.getElementById("row-menu");
+  if (menu) menu.remove();
+}
+function openMemberRowMenu(memberId, anchor) {
+  const wasOpenFor = document.getElementById("row-menu")?.dataset.memberId;
+  closeRowMenu();
+  if (wasOpenFor === String(memberId) || !anchor) return;
+  const items = [{ icon: "person", label: "פתח כרטיס", action: "openMemberFromMenu" }];
+  if (canEditUser()) {
+    items.push({ icon: "payments", label: "רישום הפקדה", action: "openDonationFromMenu" });
+    items.push({ icon: "edit", label: "עדכון פרטים", action: "openMemberEditFromMenu" });
+  }
+  if (isAdminUser()) items.push({ icon: "delete_outline", label: "מחיקה", action: "deleteMemberRow", danger: true });
+  const menu = document.createElement("div");
+  menu.id = "row-menu";
+  menu.className = "row-menu";
+  menu.setAttribute("role", "menu");
+  menu.dataset.memberId = String(memberId);
+  menu.innerHTML = items.map(it => `<button type="button" role="menuitem" class="${it.danger ? "is-danger" : ""}" ${uiAct(it.action, memberId)}><span class="material-icons-regular" aria-hidden="true">${it.icon}</span>${escapeHtml(it.label)}</button>`).join("");
+  document.body.appendChild(menu);
+  const r = anchor.getBoundingClientRect();
+  const w = menu.offsetWidth, h = menu.offsetHeight;
+  menu.style.left = `${Math.max(8, Math.min(window.innerWidth - w - 8, r.left))}px`;
+  menu.style.top = `${r.bottom + h + 8 > window.innerHeight ? Math.max(8, r.top - h - 4) : r.bottom + 4}px`;
+  const first = menu.querySelector("button");
+  if (first) first.focus();
+}
+function openMemberFromMenu(memberId) { closeRowMenu(); loadMemberProfile(memberId); }
+function openDonationFromMenu(memberId) { closeRowMenu(); openDonationModal(memberId); }
+function openMemberEditFromMenu(memberId) { closeRowMenu(); openMemberModal(memberId); }
+function clearMembersFilters() { const b = document.getElementById("btn-clear-members-filters"); if (b) b.click(); }
+// סגירת התפריט בלחיצה מחוץ לו, בגלילה או ב-Escape
+document.addEventListener("click", (ev) => {
+  if (!(ev.target instanceof Element) || ev.target.closest("#row-menu") || ev.target.closest('[data-action="openMemberRowMenu"]')) return;
+  closeRowMenu();
+}, true);
+document.addEventListener("keydown", (ev) => { if (ev.key === "Escape") closeRowMenu(); });
+document.addEventListener("scroll", closeRowMenu, true);
+
 // מחיקת בחור - למנהל בלבד. מוחק את כרטיס הבחור בלבד; היסטוריית ההפקדות/הוצאות נשארת.
-window.deleteMemberRow = async function(memberId) {
+// המחיקה נשלחת לשרת רק אחרי כמה שניות, ובינתיים אפשר ללחוץ "בטל פעולה".
+window.deleteMemberRow = function(memberId) {
+  closeRowMenu();
   if (!isAdminUser()) return;
 
   const member = state.members.find(m => String(m.id).trim() === String(memberId).trim());
   if (!member) return;
   const label = `${member.firstName || ""} ${member.lastName || ""}`.trim() || "הבחור";
-  if (!confirm(`למחוק את ${label} לצמיתות? הפעולה לא ניתנת לביטול.`)) return;
+  const index = state.members.indexOf(member);
+  const refresh = () => { invalidateCache(); saveState(); renderAll(); populateMemberSelect(); populateFilters(); };
 
-  state.members = state.members.filter(m => String(m.id).trim() !== String(memberId).trim());
-  invalidateCache();
-  saveState();
-  renderMembersTable();
-  populateMemberSelect();
-  populateFilters();
-  const saved = await persist("deleteMember", { id: member.id });
-  reportSave(saved, `${label} נמחק`);
-  logAudit("delete", "member", member.id, { name: label });
+  scheduleUndoableDelete({
+    message: `${label} נמחק`,
+    apply: () => { state.members = state.members.filter(m => String(m.id).trim() !== String(memberId).trim()); refresh(); },
+    undo: () => { if (!state.members.some(m => String(m.id).trim() === String(memberId).trim())) state.members.splice(Math.min(index, state.members.length), 0, member); refresh(); },
+    exists: () => state.members.some(m => String(m.id).trim() === String(memberId).trim()),
+    commit: async () => {
+      const saved = await persist("deleteMember", { id: member.id });
+      if (!saved) reportSave(false);
+      logAudit("delete", "member", member.id, { name: label });
+    },
+    queueOnExit: () => enqueueWrite("deleteMember", { id: member.id }),
+  });
 };
 
 // ===== מצב עריכה ישיר בטבלת הבחורים =====
@@ -3417,7 +3559,7 @@ function enterMembersEditMode() {
   table.querySelectorAll("#members-table-body td[data-field]").forEach(td => td.setAttribute("contenteditable", "true"));
   const btn = document.getElementById("btn-members-edit-mode");
   if (btn) { btn.classList.add("is-save"); btn.innerHTML = `<span class="material-icons-regular">save</span>`; btn.title = "שמור שינויים"; }
-  const cancel = document.getElementById("btn-members-edit-cancel"); if (cancel) cancel.style.display = "";
+  const cancel = document.getElementById("btn-members-edit-cancel"); if (cancel) cancel.classList.remove("hidden");
 }
 
 function exitMembersEditMode() {
@@ -3426,7 +3568,7 @@ function exitMembersEditMode() {
   if (table) { table.classList.remove("members-editing"); table.querySelectorAll("td[data-field]").forEach(td => td.removeAttribute("contenteditable")); }
   const btn = document.getElementById("btn-members-edit-mode");
   if (btn) { btn.classList.remove("is-save"); btn.innerHTML = `<span class="material-icons-regular">edit</span>`; btn.title = "מצב עריכה"; }
-  const cancel = document.getElementById("btn-members-edit-cancel"); if (cancel) cancel.style.display = "none";
+  const cancel = document.getElementById("btn-members-edit-cancel"); if (cancel) cancel.classList.add("hidden");
 }
 
 window.cancelMembersEdit = function() {
@@ -3460,7 +3602,7 @@ window.saveMembersEdit = function() {
     populateFilters();
     renderAll();
     Promise.all(changedMembers.map(m => persist("saveMember", m))).then(results => {
-      reportSave(results.every(Boolean), `✅ נשמרו ${changed} שינויים`);
+      reportSave(results.every(Boolean), `נשמרו ${changed} שינויים`);
     });
     changedMembers.forEach(m => logAudit("update", "member", m.id, { via: "עריכה בטבלה", name: `${m.firstName || ""} ${m.lastName || ""}`.trim() }));
   } else {
@@ -3502,7 +3644,7 @@ function renderDailyReport() {
     const filteredDonations = state.donations.filter(d => isDateMatch(d.date) && yearMatch(d.year));
     
     if (filteredDonations.length === 0) {
-        incHtml = `<tr><td colspan="3" class="empty-cell" style="padding:20px!important;">אין הכנסות לתקופה זו</td></tr>`;
+        incHtml = `<tr><td colspan="3">${emptyStateHtml({ icon: "payments", title: "אין הכנסות בתקופה הזו", text: "אפשר לבחור תקופה אחרת, או לרשום הפקדה חדשה.", action: canEditUser() ? "openDonationModal" : "", label: "רישום הפקדה" })}</td></tr>`;
     } else {
         filteredDonations.sort((a, b) => compareDatesDesc(a.date, b.date)).forEach(d => {
             const member = summaryById.get(String(d.memberId).trim());
@@ -3512,8 +3654,8 @@ function renderDailyReport() {
             
             incHtml += `<tr class="clickable-row" ${uiAct("openDonationModal", null, d.id)} title="לחיצה לעריכה">
                 <td>${escapeHtml(formatDateDisplay(d.date))}</td>
-                <td><strong>${escapeHtml(name)}</strong><br><span style="font-size:11px;color:var(--text-secondary);">${escapeHtml(d.notes)}</span></td>
-                <td class="amount-cell" style="font-weight: bold; color: var(--success);">${escapeHtml(formatCurrency(amt))}</td>
+                <td><strong>${escapeHtml(name)}</strong><span class="sub-line">${escapeHtml(d.notes)}</span></td>
+                <td class="amount-cell amount-pos">${escapeHtml(formatCurrency(amt))}</td>
             </tr>`;
         });
     }
@@ -3523,7 +3665,7 @@ function renderDailyReport() {
     const filteredExpenses = state.expenses.filter(e => isDateMatch(e.date) && yearMatch(e.year));
 
     if (filteredExpenses.length === 0) {
-        expHtml = `<tr><td colspan="3" class="empty-cell" style="padding:20px!important;">אין הוצאות לתקופה זו</td></tr>`;
+        expHtml = `<tr><td colspan="3">${emptyStateHtml({ icon: "receipt_long", title: "אין הוצאות בתקופה הזו", text: "אפשר לבחור תקופה אחרת, או לרשום הוצאה חדשה.", action: canEditUser() ? "openExpenseModal" : "", label: "רישום הוצאה" })}</td></tr>`;
     } else {
         filteredExpenses.sort((a, b) => compareDatesDesc(a.date, b.date)).forEach(e => {
             const amt = Number(e.amount) || 0;
@@ -3531,8 +3673,8 @@ function renderDailyReport() {
             
             expHtml += `<tr class="clickable-row" ${uiAct("openExpenseModal", e.id)} title="לחיצה לעריכה">
                 <td>${escapeHtml(formatDateDisplay(e.date))}</td>
-                <td><strong>${escapeHtml(e.description)}</strong><br><span style="background:var(--surface-light); border-radius:8px; padding:2px 6px; font-size:11px;">${escapeHtml(e.category)}</span></td>
-                <td class="amount-cell" style="font-weight: bold; color: var(--danger);">${escapeHtml(formatCurrency(amt))}</td>
+                <td><strong>${escapeHtml(e.description)}</strong><br><span class="sub-tag">${escapeHtml(e.category)}</span></td>
+                <td class="amount-cell amount-neg">${escapeHtml(formatCurrency(amt))}</td>
             </tr>`;
         });
     }
@@ -3546,7 +3688,6 @@ function renderDailyReport() {
 }
 
 const HEBREW_YEARS_ORDER = ['תשע"ה', 'תשע"ו', 'תשע"ז', 'תשע"ח', 'תשע"ט', 'תש"פ', 'תשפ"א', 'תשפ"ב', 'תשפ"ג', 'תשפ"ד', 'תשפ"ה', 'תשפ"ו', 'תשפ"ז', 'תשפ"ח', 'תשפ"ט', 'תש"צ'];
-const EXPENSE_CHART_COLORS = ["#1D9E75", "#378ADD", "#EF9F27", "#7F77DD", "#D85A30", "#D4537E", "#639922", "#A38525"];
 
 function populateExpensesYearFilter() {
   const sel = document.getElementById("expenses-year-filter");
@@ -3594,7 +3735,7 @@ function renderExpensesKpisAndCharts() {
     if (prevYear && totalPrevYear > 0) {
       const pct = Math.round(((totalThisYear - totalPrevYear) / totalPrevYear) * 100);
       const up = pct >= 0;
-      changeEl.innerHTML = `<span style="color:${up ? 'var(--danger)' : 'var(--success)'};">${up ? '▲' : '▼'} ${Math.abs(pct)}% מאשתקד</span>`;
+      changeEl.innerHTML = `<span class="${up ? 'trend-up' : 'trend-down'}"><span class="material-icons-regular" aria-hidden="true">${up ? 'arrow_drop_up' : 'arrow_drop_down'}</span>${Math.abs(pct)}% מאשתקד</span>`;
     } else {
       changeEl.textContent = "אין נתוני השוואה";
     }
@@ -3612,7 +3753,7 @@ function renderExpensesKpisAndCharts() {
   // KPI: יחס מההכנסות
   const ratio = incomeThisYear > 0 ? Math.round(totalThisYear / incomeThisYear * 100) : 0;
   setText("exp-kpi-ratio", `${ratio}%`);
-  setText("exp-kpi-ratio-hint", incomeThisYear > 0 ? `מכל ₪100 שנאספו (כולל פורים) → ₪${ratio} הוצאות` : "אין הכנסות רשומות");
+  setText("exp-kpi-ratio-hint", incomeThisYear > 0 ? `מכל ₪100 שנאספו (כולל פורים), ₪${ratio} הלכו להוצאות` : "אין הכנסות רשומות");
 
   if (typeof Chart === "undefined") return;
 
@@ -3627,16 +3768,16 @@ function renderExpensesKpisAndCharts() {
         type: "doughnut",
         data: {
           labels: catEntries.map(c => c[0]),
-          datasets: [{ data: catEntries.map(c => c[1]), backgroundColor: EXPENSE_CHART_COLORS, borderWidth: 2, borderColor: "#fff" }]
+          datasets: [{ data: catEntries.map(c => c[1]), backgroundColor: chartTheme().series, borderWidth: 2, borderColor: chartTheme().surface }]
         },
         options: {
           responsive: true, maintainAspectRatio: false, cutout: "62%",
           plugins: {
-            legend: { position: "left", rtl: true, labels: { font: { family: "Heebo", size: 12 }, color: "#646470", boxWidth: 12, padding: 10 } },
+            legend: { position: "left", rtl: true, labels: { font: { family: "Heebo", size: 12 }, color: chartTheme().text, boxWidth: 12, padding: 10 } },
             tooltip: {
-              backgroundColor: "#101014", titleColor: "#FCE883", bodyColor: "#fff",
-              titleFont: { family: "Heebo", weight: "700", size: 13 }, bodyFont: { family: "Heebo", size: 13 },
-              padding: 12, cornerRadius: 8, rtl: true,
+              backgroundColor: chartTheme().ink, titleColor: chartTheme().onDark, bodyColor: chartTheme().onDark,
+              titleFont: { family: "Heebo", weight: "600", size: 13 }, bodyFont: { family: "Heebo", size: 13 },
+              padding: 12, cornerRadius: 6, rtl: true,
               callbacks: { label: (item) => "  " + formatCurrency(item.raw) + " (" + (totalThisYear > 0 ? Math.round(item.raw / totalThisYear * 100) : 0) + "%)" }
             }
           }
@@ -3657,27 +3798,25 @@ function renderExpensesKpisAndCharts() {
       return a.localeCompare(b, "he");
     });
     const canvasCtx = trendCtx.getContext("2d");
-    const goldFill = canvasCtx.createLinearGradient(0, 0, 0, 240);
-    goldFill.addColorStop(0, "#E6C875"); goldFill.addColorStop(1, "#C9A227");
     expenseTrendChartInstance = new Chart(trendCtx, {
       type: "bar",
       data: {
         labels: sortedYears,
-        datasets: [{ data: sortedYears.map(y => yearTotals[y]), backgroundColor: sortedYears.map(y => y === currentYear ? "#185FA5" : goldFill), borderRadius: 6, borderSkipped: false, maxBarThickness: 48 }]
+        datasets: [{ data: sortedYears.map(y => yearTotals[y]), backgroundColor: sortedYears.map(y => y === currentYear ? chartTheme().series[2] : chartTheme().series[3]), borderRadius: 4, borderSkipped: false, maxBarThickness: 48 }]
       },
       options: {
         responsive: true, maintainAspectRatio: false,
         plugins: {
           legend: { display: false },
           tooltip: {
-            backgroundColor: "#101014", titleColor: "#FCE883", bodyColor: "#fff",
-            titleFont: { family: "Heebo", weight: "700", size: 13 }, bodyFont: { family: "Heebo", size: 13 },
-            padding: 12, cornerRadius: 8, displayColors: false, callbacks: { label: (item) => "  " + formatCurrency(item.raw) }
+            backgroundColor: chartTheme().ink, titleColor: chartTheme().onDark, bodyColor: chartTheme().onDark,
+            titleFont: { family: "Heebo", weight: "600", size: 13 }, bodyFont: { family: "Heebo", size: 13 },
+            padding: 12, cornerRadius: 6, displayColors: false, callbacks: { label: (item) => "  " + formatCurrency(item.raw) }
           }
         },
         scales: {
-          x: { grid: { display: false }, ticks: { font: { family: "Heebo", size: 11 }, color: "#646470" } },
-          y: { beginAtZero: true, border: { display: false }, grid: { color: "rgba(26,22,8,0.06)" }, ticks: { font: { family: "Heebo", size: 11 }, color: "#9A9AA4", callback: (val) => "₪" + Number(val).toLocaleString("he-IL") } }
+          x: { grid: { display: false }, ticks: { font: { family: "Heebo", size: 12 }, color: chartTheme().text } },
+          y: { beginAtZero: true, border: { display: false }, grid: { color: chartTheme().grid }, ticks: { font: { family: "Heebo", size: 12 }, color: chartTheme().textMuted, callback: (val) => "₪" + Number(val).toLocaleString("he-IL") } }
         }
       }
     });
@@ -3733,7 +3872,7 @@ function renderExpensesSummaryTable() {
 
   const categories = Object.keys(tree).sort();
   if (categories.length === 0) {
-    container.innerHTML = '<div style="grid-column:1/-1;padding:40px;text-align:center;color:var(--text-secondary);">אין נתוני הוצאות לסכם</div>';
+    container.innerHTML = `<div class="loading-note">${emptyStateHtml({ icon: "analytics", title: "עדיין לא נרשמו הוצאות", text: "אחרי רישום ההוצאה הראשונה יופיע כאן פירוט לפי קטגוריה ושנה.", action: canEditUser() ? "openExpenseModal" : "", label: "רישום הוצאה" })}</div>`;
     return;
   }
 
@@ -4010,7 +4149,7 @@ function renderGrantsArchive() {
         <span class="material-icons-regular">${s.icon}</span>
         <div>
           <div class="grants-archive-stat-label">${s.label}</div>
-          <div class="grants-archive-stat-value">${s.value}</div>
+          <div class="grants-archive-stat-value${s.tone === "gold" ? " key-figure" : ""}">${s.value}</div>
         </div>
       </div>`).join("");
   }
@@ -4035,17 +4174,17 @@ function renderGrantsArchive() {
   const tbody = document.getElementById("grants-archive-recipients-tbody");
   if (tbody) {
     if (!recipients.length) {
-      tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state" style="padding:28px 12px;">אין עדיין מקבלי מענק בשנה זו</div></td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7">${emptyStateHtml({ icon: "redeem", title: "אין עדיין מקבלי מענק בשנה הזו", text: "הוסיפו את החתן הראשון כדי לעקוב אחרי המענקים שניתנו השנה.", action: canEditUser() ? "toggleGrantsAddForm" : "", args: [true], label: "הוסף חתן" })}</td></tr>`;
     } else {
       tbody.innerHTML = recipients.map((r, i) => `
         <tr>
-          <td style="color: var(--text-muted); font-weight:700;">${i + 1}</td>
-          <td style="font-weight:700;">${r.name ? escapeHtml(r.name) : "<span style='color:var(--text-muted)'>—</span>"}</td>
-          <td style="direction:ltr; text-align:right;">${r.id ? escapeHtml(r.id) : "—"}</td>
-          <td style="direction:ltr; text-align:right;">${r.phone ? escapeHtml(r.phone) : "—"}</td>
+          <td class="cell-muted">${i + 1}</td>
+          <td class="cell-strong">${r.name ? escapeHtml(r.name) : "<span style='color:var(--text-muted)'>—</span>"}</td>
+          <td class="cell-ltr">${r.id ? escapeHtml(r.id) : "—"}</td>
+          <td class="cell-ltr">${r.phone ? escapeHtml(r.phone) : "—"}</td>
           <td>${formatArchiveDate(r.date)}</td>
-          <td class="no-export" style="text-align:center;"><button class="grants-archive-del grants-archive-edit" title="עריכה" ${uiAct("editGrantsArchiveRecipient", i)}><span class="material-icons-regular">edit</span></button></td>
-          <td class="no-export" style="text-align:center;"><button class="grants-archive-del" title="הסר" ${uiAct("removeGrantsArchiveRecipient", i)}><span class="material-icons-regular">close</span></button></td>
+          <td class="no-export cell-center"><button class="grants-archive-del grants-archive-edit" title="עריכה" ${uiAct("editGrantsArchiveRecipient", i)}><span class="material-icons-regular">edit</span></button></td>
+          <td class="no-export cell-center"><button class="grants-archive-del" title="הסר" ${uiAct("removeGrantsArchiveRecipient", i)}><span class="material-icons-regular">close</span></button></td>
         </tr>`).join("");
     }
   }
@@ -4090,7 +4229,7 @@ function renderGrantsArchive() {
                 </span>
               </div>`).join("")}
           </div>`;
-      }).join("") : `<div class="empty-state" style="padding:28px 12px;">אין עדיין פירוט תכולת מענק לשנה זו</div>`;
+      }).join("") : emptyStateHtml({ icon: "inventory_2", title: "אין עדיין תכולת מענק לשנה הזו", text: "הגדירו אילו מוצרים החתן מקבל ומאיזו חנות, כדי לחשב את שווי החבילה.", action: canEditUser() ? "toggleGrantsPackageEditMode" : "", label: "ערוך תכולה" });
     }
   }
 
@@ -4109,12 +4248,12 @@ function renderGrantsArchive() {
   if (paymentsTbody) {
     paymentsTbody.innerHTML = unassigned.map(payment => `
       <tr>
-        <td style="font-weight:700;">${escapeHtml(payment.store || "—")}</td>
+        <td class="cell-strong">${escapeHtml(payment.store || "—")}</td>
         <td>${escapeHtml(payment.date || "—")}</td>
         <td>${escapeHtml(payment.description || "—")}</td>
         <td>${escapeHtml(payment.method || "—")}</td>
-        <td class="amount-cell" style="font-weight:800;">${formatCurrency(payment.amount)}</td>
-        <td class="no-export">${canEditLegacy ? `<button type="button" class="btn btn-outline bill-row-btn" ${uiAct("openLegacyAssign", legacyPaymentKey(payment))}>שייך למחצית</button>` : ""}</td>
+        <td class="amount-cell cell-strong">${formatCurrency(payment.amount)}</td>
+        <td class="no-export">${canEditLegacy ? `<button type="button" class="btn btn-secondary bill-row-btn" ${uiAct("openLegacyAssign", legacyPaymentKey(payment))}>שייך למחצית</button>` : ""}</td>
       </tr>`).join("");
   }
   const paymentsTotalEl = document.getElementById("grants-payments-total");
@@ -4178,7 +4317,7 @@ function saveGrantsPackageEdit() {
   });
   renderGrantsArchive();
   renderDashboard();
-  p.then(saved => { reportSave(saved, "✅ תכולת המענק נשמרה"); logAudit("update", "grant-package", year, { stores: draft.length }); });
+  p.then(saved => { reportSave(saved, "תכולת המענק נשמרה"); logAudit("update", "grant-package", year, { stores: draft.length }); });
 }
 
 window.updateGrantsPkgGroupField = function(gIdx, field, value) {
@@ -4219,10 +4358,14 @@ window.addGrantsPkgGroup = function() {
   renderGrantsArchive();
 };
 
-window.removeGrantsPkgGroup = function(gIdx) {
+window.removeGrantsPkgGroup = async function(gIdx) {
   if (!state.grantsPackageDraft) return;
-  if (!confirm("להסיר את החנות הזו וכל המוצרים שבה מהעריכה?")) return;
-  state.grantsPackageDraft.splice(gIdx, 1);
+  const group = state.grantsPackageDraft[gIdx];
+  if (!group) return;
+  const ok = await uiConfirm({ title: "הסרת חנות מהתכולה", message: `להסיר את ${group.store ? `"${group.store}"` : "החנות"} ואת כל המוצרים שבה? השינוי יישמר רק כשתלחצו "שמור תכולה".`, confirmLabel: "הסר חנות", danger: true });
+  if (!ok || !state.grantsPackageDraft) return;
+  const i = state.grantsPackageDraft.indexOf(group);
+  if (i !== -1) state.grantsPackageDraft.splice(i, 1);
   renderGrantsArchive();
 };
 
@@ -4264,7 +4407,7 @@ function readGrantsAddForm() {
 function resetGrantsAddForm() {
   ["grants-add-name", "grants-add-id", "grants-add-phone", "grants-add-date", "grants-edit-rid"].forEach(elId => { const el = document.getElementById(elId); if (el) el.value = ""; });
   const btn = document.getElementById("grants-add-submit");
-  if (btn) btn.innerHTML = `<span class="material-icons-regular" style="font-size:15px;vertical-align:middle;">check</span> הוסף`;
+  if (btn) btn.innerHTML = `<span class="material-icons-regular">check</span> הוסף`;
   state.grantsEditingRecipient = null;
 }
 
@@ -4296,7 +4439,7 @@ window.submitGrantsAddRecipient = function() {
   renderGrantsArchive();
   renderDashboard();
   p.then(saved => {
-    reportSave(saved, editing ? "✅ פרטי החתן עודכנו" : "✅ החתן נוסף לרשימת מקבלי המענק");
+    reportSave(saved, editing ? "פרטי החתן עודכנו" : "החתן נוסף לרשימת מקבלי המענק");
     logAudit(editing ? "update" : "create", "grant-recipient", rec.rid, { year, name: rec.name || "", id: rec.id || "" });
   });
 };
@@ -4313,7 +4456,7 @@ window.editGrantsArchiveRecipient = function(index) {
   setValue("grants-add-phone", r.phone || "");
   setValue("grants-add-date", toDateInputValue(r.date) || "");
   const btn = document.getElementById("grants-add-submit");
-  if (btn) btn.innerHTML = `<span class="material-icons-regular" style="font-size:15px;vertical-align:middle;">save</span> שמור שינויים`;
+  if (btn) btn.innerHTML = `<span class="material-icons-regular">save</span> שמור שינויים`;
 };
 
 window.removeGrantsArchiveRecipient = function(index) {
@@ -4322,20 +4465,44 @@ window.removeGrantsArchiveRecipient = function(index) {
   const list = archive.years[year] && archive.years[year].recipients;
   if (!list || !list[index]) return;
   const target = JSON.parse(JSON.stringify(list[index]));
-  const label = target.name || target.id || "רשומה זו";
-  if (!confirm(`להסיר את ${label} מרשימת מקבלי המענק לשנת ${year}?`)) return;
-  const p = mutateGrantsArchive(a => {
+  const label = target.name || target.id || "הרשומה";
+  const removeIt = a => {
     const l = a.years[year] && a.years[year].recipients;
     if (!l) return;
     const i = l.findIndex(r => sameRecipient(r, target));
     if (i !== -1) l.splice(i, 1);
+  };
+  const putBack = a => {
+    if (!a.years[year]) a.years[year] = { recipients: [] };
+    if (!Array.isArray(a.years[year].recipients)) a.years[year].recipients = [];
+    const l = a.years[year].recipients;
+    if (!l.some(r => sameRecipient(r, target))) l.splice(Math.min(index, l.length), 0, JSON.parse(JSON.stringify(target)));
+  };
+  scheduleUndoableDelete({
+    message: `${label} הוסר מרשימת מקבלי המענק`,
+    apply: () => mutateGrantsArchiveLocal(removeIt),
+    // ההחזרה נשמרת גם בשרת, למקרה ששמירה אחרת של המענקים כבר שלחה את הרשימה בלי הרשומה
+    undo: () => { mutateGrantsArchive(putBack); renderGrantsArchive(); renderDashboard(); },
+    commit: () => {
+      mutateGrantsArchive(removeIt).then(saved => {
+        if (!saved) reportSave(false);
+        logAudit("delete", "grant-recipient", target.rid || target.id || "", { year, name: target.name || "", id: target.id || "" });
+      });
+      renderGrantsArchive(); renderDashboard();
+    },
+    queueOnExit: () => enqueueWrite("saveGrantsArchive", state.grantsArchive),
   });
-  renderGrantsArchive();
-  renderDashboard();
-  p.then(saved => { reportSave(saved, "הרשומה הוסרה"); logAudit("delete", "grant-recipient", target.rid || target.id || "", { year, name: target.name || "", id: target.id || "" }); });
 };
 
-window.addGrantsArchiveYear = function() {
+// שינוי מקומי בלבד במאגר המענקים (בלי שליחה לשרת) - לזמן ההמתנה של "בטל פעולה"
+function mutateGrantsArchiveLocal(mutator) {
+  mutator(ensureEditableArchive());
+  saveState();
+  renderGrantsArchive();
+  renderDashboard();
+}
+
+window.addGrantsArchiveYear = async function() {
   const archive = getGrantsArchive();
   const existing = Object.keys(archive.years);
   // הצעה: השנה העברית הנוכחית, ואם כבר קיימת - השנה שאחרי האחרונה ברשימה
@@ -4343,8 +4510,11 @@ window.addGrantsArchiveYear = function() {
   const options = HEBREW_YEARS_ORDER.filter((y, i) => i > latestIdx && !existing.includes(y)).slice(0, 3);
   const current = getCurrentHebrewYearLabel();
   const suggested = current && !existing.includes(current) ? current : (options[0] || "");
-  const promptText = `הזן את שם השנה החדשה (לדוגמה: ${suggested || 'תשפ"ז'})${options.length ? "\nהשנים הבאות: " + options.join(", ") : ""}`;
-  const input = prompt(promptText, suggested);
+  const input = await uiPrompt({
+    title: "הוספת שנת מענקים",
+    message: `הקלידו את שם השנה החדשה (לדוגמה: ${suggested || 'תשפ"ז'}).${options.length ? "\nהשנים הבאות: " + options.join(", ") : ""}`,
+    value: suggested, confirmLabel: "הוסף שנה",
+  });
   if (input === null) return;
   const year = input.trim();
   if (!year) return;
@@ -4512,22 +4682,22 @@ function renderStoreBills(archive, year) {
         : `<span class="bill-status bill-status--due">ממתין לתשלום</span>`;
     const receipt = bill && bill.receipt && bill.receipt.path
       ? `<button type="button" class="bill-receipt-link" ${uiAct("viewStoreBillReceipt", bill.bid)}><span class="material-icons-regular">attach_file</span> צפייה</button>`
-      : `<span style="color:var(--text-muted);">—</span>`;
+      : `<span class="cell-muted">—</span>`;
     const action = !canEdit ? "" : bill && bill.legacy
-      ? `<button type="button" class="btn btn-outline bill-row-btn" ${uiAct("openLegacyAssign", bill.key)}>שיוך</button>`
+      ? `<button type="button" class="btn btn-secondary bill-row-btn" ${uiAct("openLegacyAssign", bill.key)}>שיוך</button>`
       : bill
-      ? `<button type="button" class="btn btn-outline bill-row-btn" ${uiAct("openStoreBillModal", bill.bid)}>עריכה</button>`
-      : `<button type="button" class="btn btn-outline bill-row-btn" ${uiAct("openStoreBillModal", null, store)}>הזן חיוב</button>`;
+      ? `<button type="button" class="btn btn-secondary bill-row-btn" ${uiAct("openStoreBillModal", bill.bid)}>עריכה</button>`
+      : `<button type="button" class="btn btn-secondary bill-row-btn" ${uiAct("openStoreBillModal", null, store)}>הזן חיוב</button>`;
     return `<tr class="${bill && bill.paid ? "bill-row--paid" : ""}">
-      <td style="font-weight:700;">${escapeHtml(store)}</td>
-      <td class="amount-cell" style="color:var(--text-secondary);">${expected !== null ? formatCurrency(expected) : "—"}</td>
-      <td class="amount-cell" style="font-weight:800;">${bill ? formatCurrency(bill.amount) : "—"}</td>
+      <td class="cell-strong">${escapeHtml(store)}</td>
+      <td class="amount-cell cell-muted">${expected !== null ? formatCurrency(expected) : "—"}</td>
+      <td class="amount-cell cell-strong">${bill ? formatCurrency(bill.amount) : "—"}</td>
       <td>${bill && bill.reference ? escapeHtml(bill.reference) : "—"}</td>
       <td>${status}${bill && bill.notes ? `<div class="bill-notes">${escapeHtml(bill.notes)}</div>` : ""}</td>
       <td class="no-export">${receipt}</td>
       <td class="no-export">${action}</td>
     </tr>`;
-  }).join("") : `<tr><td colspan="7"><div class="empty-state" style="padding:28px 12px;">אין עדיין חנויות בתכולת המענק לשנה זו. אפשר להוסיף תשלום לחנות בכפתור למטה</div></td></tr>`;
+  }).join("") : `<tr><td colspan="7">${emptyStateHtml({ icon: "storefront", title: "אין עדיין חנויות לשנה הזו", text: "החנויות מגיעות מתכולת המענק. אפשר גם להזין תשלום לחנות שאינה בתכולה.", action: canEdit ? "openStoreBillModal" : "", args: [null], label: "הוסף תשלום לחנות" })}</td></tr>`;
 
   const totalDue = bills.reduce((s, b) => s + (Number(b.amount) || 0), 0);
   const totalPaid = bills.filter(b => b.paid).reduce((s, b) => s + (Number(b.amount) || 0), 0);
@@ -4598,7 +4768,7 @@ function renderStoreBillReceiptCurrent(bill) {
       <button type="button" class="bill-receipt-link" ${uiAct("viewStoreBillReceipt", bill.bid)}>צפייה</button>
       <button type="button" class="bill-receipt-link bill-receipt-remove" data-action="clearStoreBillReceipt">הסר</button>`;
   } else {
-    el.innerHTML = `<span style="color:var(--text-muted);">לא צורפה קבלה</span>`;
+    el.innerHTML = `<span class="cell-muted">לא צורפה קבלה</span>`;
   }
 }
 
@@ -4679,7 +4849,7 @@ window.saveStoreBill = async function() {
   renderGrantsArchive();
   saveBtn.disabled = false; saveBtn.textContent = "שמור";
   const saved = await p;
-  reportSave(saved, existing ? "✅ התשלום עודכן" : "✅ התשלום לחנות נשמר");
+  reportSave(saved, existing ? "התשלום עודכן" : "התשלום לחנות נשמר");
   logAudit(existing ? "update" : "create", "store-bill", bid, { year, half: bill.half, store, amount, paid, reference: bill.reference });
   if (existing && existing.paid !== paid && paid) logAudit("paid", "store-bill", bid, { store, amount, method: bill.method, date: bill.paidDate });
   if (oldPath && (!receipt || receipt.path !== oldPath) && saved) SB.deleteReceipt(oldPath).catch(() => {});
@@ -4690,19 +4860,35 @@ window.deleteStoreBill = async function() {
   const bid = getValue("store-bill-id");
   const bill = getStoreBills(getGrantsArchive(), year).find(b => b.bid === bid);
   if (!bill) return;
-  if (!confirm(`למחוק את התשלום ל${bill.store} על סך ${formatCurrency(bill.amount)}?`)) return;
-  const p = mutateGrantsArchive(archive => {
+  const snapshot = JSON.parse(JSON.stringify(bill));
+  const removeIt = archive => {
     const list = archive.years[year] && archive.years[year].storeBills;
     if (!list) return;
     const i = list.findIndex(b => b.bid === bid);
     if (i !== -1) list.splice(i, 1);
-  });
+  };
+  const putBack = archive => {
+    if (!archive.years[year]) archive.years[year] = { recipients: [] };
+    if (!Array.isArray(archive.years[year].storeBills)) archive.years[year].storeBills = [];
+    const list = archive.years[year].storeBills;
+    if (!list.some(b => b.bid === bid)) list.push(JSON.parse(JSON.stringify(snapshot)));
+  };
   closeStoreBillModal();
-  renderGrantsArchive();
-  const saved = await p;
-  reportSave(saved, "התשלום נמחק");
-  logAudit("delete", "store-bill", bid, { year, store: bill.store, amount: bill.amount });
-  if (saved && bill.receipt && bill.receipt.path) SB.deleteReceipt(bill.receipt.path).catch(() => {});
+  scheduleUndoableDelete({
+    message: `התשלום ל${snapshot.store} על סך ${formatCurrency(snapshot.amount)} נמחק`,
+    apply: () => mutateGrantsArchiveLocal(removeIt),
+    undo: () => { mutateGrantsArchive(putBack); renderGrantsArchive(); renderDashboard(); },
+    commit: () => {
+      mutateGrantsArchive(removeIt).then(saved => {
+        if (!saved) reportSave(false);
+        logAudit("delete", "store-bill", bid, { year, store: snapshot.store, amount: snapshot.amount });
+        // הקבלה הסרוקה נמחקת מהאחסון רק אחרי שהמחיקה נשמרה בשרת
+        if (saved && snapshot.receipt && snapshot.receipt.path) SB.deleteReceipt(snapshot.receipt.path).catch(() => {});
+      });
+      renderGrantsArchive(); renderDashboard();
+    },
+    queueOnExit: () => enqueueWrite("saveGrantsArchive", state.grantsArchive),
+  });
 };
 
 
@@ -4725,7 +4911,11 @@ function getPurimYearsToShow() {
 function renderPurimGroups() {
     const container = document.getElementById("purim-tabs-container"); 
     if (!container) return;
-    container.innerHTML = ""; 
+    container.innerHTML = "";
+    if (!(state.purimAddresses || []).length) {
+        container.innerHTML = emptyStateHtml({ icon: "location_on", title: "אין עדיין כתובות פורים", text: "הכתובות נטענות מהשרת לפי עיר וקבוצה. אם אמורות להיות כתובות, נסו לרענן את הנתונים.", action: "syncNow", label: "רענן נתונים" });
+        return;
+    }
     purimGroupRegistry.clear();
 
     const currentYear = getCampaignYear();
@@ -4746,7 +4936,6 @@ function renderPurimGroups() {
 
     const citiesNav = document.createElement("div");
     citiesNav.className = "purim-cities-nav";
-    citiesNav.style.cssText = "display: flex; align-items: center; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; overflow-x: auto;";
 
     const groupsNavContainer = document.createElement("div");
     groupsNavContainer.className = "purim-groups-nav-container";
@@ -4759,7 +4948,7 @@ function renderPurimGroups() {
     for (const [cityName, groups] of Object.entries(citiesMap)) {
         const isActiveCity = cityName === activeCity;
         const cityBtn = document.createElement("button");
-        cityBtn.className = `btn ${isActiveCity ? "btn-solid-blue" : "btn-outline"}`;
+        cityBtn.className = `purim-tab-btn ${isActiveCity ? "active" : ""}`;
         cityBtn.innerText = cityName;
 
         const groupNav = document.createElement("div");
@@ -4789,38 +4978,34 @@ function renderPurimGroups() {
             let sumsInner = "";
             yearsToShow.forEach(y => {
                 const manualSum = (state.settings.purimManualSums && state.settings.purimManualSums[groupName] && state.settings.purimManualSums[groupName][y]) || "";
-                sumsInner += `
-                    <div style="display:flex; flex-direction:column; align-items:center; padding: 4px 10px; border-radius: 6px; background:transparent; border: 1px solid var(--border-color); min-width:80px;">
-                        <span style="font-size:11px; color:var(--text-secondary); margin-bottom:2px;">${escapeHtml(y)}</span>
-                        <span style="font-size:14px; font-weight:800; color:var(--text-main);" class="sum-text">${manualSum ? formatCurrency(manualSum) : "---"}</span>
-                    </div>`;
+                sumsInner += `<div class="purim-sum-chip"><span>${escapeHtml(y)}</span><strong class="sum-text">${manualSum ? formatCurrency(manualSum) : "—"}</strong></div>`;
             });
 
             const topBar = `
-                <div class="purim-group-toolbar" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; background:var(--surface-light); padding:7px 12px; border-radius:8px; margin-bottom:10px; border:1px solid var(--border-color);">
-                    <span style="font-size:11px; font-weight:700; color:var(--text-muted); white-space:nowrap; text-transform:uppercase; letter-spacing:0.4px;">סכומים סופיים</span>
-                    <div class="purim-sums-display" style="display:flex; gap:6px; flex-wrap:wrap; flex:1; overflow-x:auto;">${sumsInner}</div>
-                    <div class="purim-group-actions" style="display:flex; gap:5px; flex-shrink:0; align-items:center; flex-wrap:wrap;">
+                <div class="purim-group-toolbar">
+                    <span class="purim-toolbar-label">סכומים סופיים</span>
+                    <div class="purim-sums-display">${sumsInner}</div>
+                    <div class="purim-group-actions">
                         <button class="purim-action-btn purim-edit-btn" ${uiAct("togglePurimGroupEdit", key)}>
-                            <span class="material-icons-regular" style="font-size:14px;">edit</span> מצב עריכה
+                            <span class="material-icons-regular" aria-hidden="true">edit</span> עריכה
                         </button>
-                        <button class="purim-action-btn purim-cancel-btn" ${uiAct("cancelPurimGroupEdit", key)} style="display:none; border-color:#dc2626; color:#dc2626;">
-                            <span class="material-icons-regular" style="font-size:14px;">close</span> ביטול
+                        <button class="purim-action-btn purim-cancel-btn hidden" ${uiAct("cancelPurimGroupEdit", key)}>
+                            <span class="material-icons-regular" aria-hidden="true">close</span> ביטול
                         </button>
-                        <button class="purim-action-btn purim-save-btn" ${uiAct("togglePurimGroupEdit", key)} style="display:none; border-color:#16a34a; color:#15803d; background:#f0fdf4;">
-                            <span class="material-icons-regular" style="font-size:14px;">save</span> שמור
+                        <button class="purim-action-btn btn-primary purim-save-btn hidden" ${uiAct("togglePurimGroupEdit", key)}>
+                            <span class="material-icons-regular" aria-hidden="true">save</span> שמור
                         </button>
-                        <button class="purim-action-btn" ${uiAct("printPurimGroup", key)} title="הדפסה">
-                            <span class="material-icons-regular" style="font-size:14px;">print</span>
+                        <button class="purim-action-btn btn-icon" ${uiAct("printPurimGroup", key)} title="הדפסה" aria-label="הדפסה">
+                            <span class="material-icons-regular" aria-hidden="true">print</span>
                         </button>
-                        <button class="purim-action-btn" ${uiAct("exportPurimGroupToExcel", key)} title="הורדה לאקסל">
-                            <svg width="18" height="18" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="4" fill="#217346"/><path d="M13 6h6v2h-6V6zm0 4h6v2h-6v-2zm0 4h6v2h-6v-2z" fill="#fff" opacity=".6"/><path d="M5 6l3 5-3 5h2.5l1.8-3.2L11 16h2.5l-3-5 3-5H11L9.3 9.2 7.5 6H5z" fill="#fff"/></svg>
+                        <button class="purim-action-btn btn-icon" ${uiAct("exportPurimGroupToExcel", key)} title="הורדה לאקסל" aria-label="הורדה לאקסל">
+                            <span class="material-icons-regular" aria-hidden="true">download</span>
                         </button>
                         <button class="purim-action-btn" ${uiAct("togglePurimSpacing", "$el", key)}>
-                            <span class="material-icons-regular" style="font-size:14px;">density_large</span> רווח
+                            <span class="material-icons-regular" aria-hidden="true">density_large</span> רווח
                         </button>
                         <button class="purim-action-btn" data-action="togglePurimYears">
-                            <span class="material-icons-regular" style="font-size:14px;">${state.purimShowAllYears ? 'unfold_less' : 'unfold_more'}</span>
+                            <span class="material-icons-regular" aria-hidden="true">${state.purimShowAllYears ? 'unfold_less' : 'unfold_more'}</span>
                             ${state.purimShowAllYears ? 'פחות שנים' : 'כל השנים'}
                         </button>
                     </div>
@@ -4839,13 +5024,9 @@ function renderPurimGroups() {
                                 <th>מספר</th>
                                 <th>דירה</th>
             `;
-            
+
             yearsToShow.forEach(y => {
-                if (y === currentYear) {
-                    tableHtml += `<th>${escapeHtml(y)}</th>`;
-                } else {
-                    tableHtml += `<th style="color: var(--text-secondary);">${escapeHtml(y)}</th>`;
-                }
+                tableHtml += `<th>${escapeHtml(y)}</th>`;
             });
 
             tableHtml += `
@@ -4855,11 +5036,11 @@ function renderPurimGroups() {
                         <tbody>
             `;
 
-            const td = (rowIdx, row, field, isBold=false, extraStyle="") => {
+            const td = (rowIdx, row, field, isBold=false, cls="") => {
                 const val = escapeHtml(row[field] || "");
                 const bold1 = isBold ? "<strong>" : "";
                 const bold2 = isBold ? "</strong>" : "";
-                return `<td data-row="${rowIdx}" data-field="${escapeHtml(field)}" style="transition: all 0.3s; ${extraStyle}">${bold1}${val}${bold2}</td>`;
+                return `<td data-row="${rowIdx}" data-field="${escapeHtml(field)}"${cls ? ` class="${cls}"` : ""}>${bold1}${val}${bold2}</td>`;
             };
 
             addresses.forEach(row => {
@@ -4873,13 +5054,9 @@ function renderPurimGroups() {
                         ${td(rowIdx, row, "מספר")}
                         ${td(rowIdx, row, "דירה")}
                 `;
-                
+
                 yearsToShow.forEach(y => {
-                    if (y === currentYear) {
-                        tableHtml += td(rowIdx, row, y, false, "color: var(--gold-dark); font-weight: bold; background: rgba(212, 175, 55, 0.05);");
-                    } else {
-                        tableHtml += td(rowIdx, row, y, false, "color: var(--text-secondary);");
-                    }
+                    tableHtml += td(rowIdx, row, y, false, y === currentYear ? "purim-year-current" : "cell-muted");
                 });
 
                 tableHtml += `
@@ -4904,12 +5081,10 @@ function renderPurimGroups() {
         }
 
         cityBtn.addEventListener("click", () => {
-            citiesNav.querySelectorAll(".btn").forEach(b => {
-                b.classList.remove("btn-solid-blue");
-                b.classList.add("btn-outline");
+            citiesNav.querySelectorAll(".purim-tab-btn").forEach(b => {
+                b.classList.remove("active");
             });
-            cityBtn.classList.remove("btn-outline");
-            cityBtn.classList.add("btn-solid-blue");
+            cityBtn.classList.add("active");
 
             groupsNavContainer.querySelectorAll(".purim-groups-nav").forEach(n => n.style.display = "none");
             contentContainer.querySelectorAll(".purim-city-content").forEach(c => c.style.display = "none");
@@ -4942,9 +5117,9 @@ window.togglePurimGroupEdit = async function(key) {
     if (!g || !table) return;
     state.purimActive = { city: g.city, group: g.group };
     const setButtons = (editing) => {
-        pane.querySelector(".purim-edit-btn").style.display = editing ? "none" : "";
-        pane.querySelector(".purim-save-btn").style.display = editing ? "" : "none";
-        pane.querySelector(".purim-cancel-btn").style.display = editing ? "" : "none";
+        pane.querySelector(".purim-edit-btn").classList.toggle("hidden", editing);
+        pane.querySelector(".purim-save-btn").classList.toggle("hidden", !editing);
+        pane.querySelector(".purim-cancel-btn").classList.toggle("hidden", !editing);
     };
 
     if (!table.classList.contains("editing-mode")) {
@@ -4953,8 +5128,6 @@ window.togglePurimGroupEdit = async function(key) {
         setButtons(true);
         table.querySelectorAll("td[data-field]").forEach(td => {
             td.setAttribute("contenteditable", "true");
-            td.style.background = "#ffffff";
-            td.style.border = "1px solid var(--gold-main)";
         });
         return;
     }
@@ -5264,21 +5437,17 @@ function getValue(id) { const el = document.getElementById(id); return el ? Stri
 function setValue(id, val) { const el = document.getElementById(id); if (el) el.value = val; }
 
 function showToast(msg, type = "success") {
-  const palette = {
-    success: { bg: "var(--success)", icon: "check_circle" },
-    danger:  { bg: "var(--danger)",  icon: "error" },
-    warning: { bg: "var(--warning)", icon: "warning" },
-  };
-  const conf = palette[type] || palette.success;
+  const icons = { success: "check_circle", danger: "error", warning: "warning" };
+  const kind = icons[type] ? type : "success";
 
   const toast = document.createElement("div");
-  toast.className = "app-toast";
-  toast.style.setProperty("--toast-bg", conf.bg);
+  toast.className = `app-toast app-toast--${kind}`;
+  toast.setAttribute("role", kind === "danger" ? "alert" : "status");
 
   const icon = document.createElement("span");
   icon.className = "material-icons-regular";
-  icon.style.fontSize = "20px";
-  icon.textContent = conf.icon;
+  icon.setAttribute("aria-hidden", "true");
+  icon.textContent = icons[kind];
 
   const text = document.createElement("span");
   // strip any leading emoji a caller passed in; render the rest as plain text
@@ -5575,9 +5744,17 @@ function showTimeoutWarning() {
     }, 1000);
 }
 
-function performLogout(isAuto = false) {
+async function performLogout(isAuto = false) {
+    flushPendingDeletes(); // מחיקות שממתינות ל"בטל פעולה" נשלחות עכשיו
     const pending = readPendingWrites().length;
-    if (!isAuto && pending && !confirm(`${pending} שינויים עדיין לא נשמרו בשרת (אין חיבור). הם יישארו שמורים במחשב הזה ויישלחו בכניסה הבאה. לצאת בכל זאת?`)) return;
+    if (!isAuto && pending) {
+        const ok = await uiConfirm({
+            title: "יש שינויים שעוד לא נשמרו בשרת",
+            message: `${pending} שינויים ממתינים לשליחה (אין חיבור כרגע). הם יישארו שמורים במחשב הזה ויישלחו בכניסה הבאה.`,
+            confirmLabel: "צא בכל זאת", cancelLabel: "הישאר",
+        });
+        if (!ok) return;
+    }
     if (isAuto) saveFormDraft();
     sessionStorage.removeItem("ezer_active_session");
     if (window.SB) { try { SB.signOut(); } catch (e) {} }
