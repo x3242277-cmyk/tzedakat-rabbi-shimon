@@ -31,14 +31,26 @@ const DEFAULT_SETTINGS = {
 
 const DEFAULT_USERS = [];
 
-// מיפוי שם משתמש (עברית) לכתובת מייל להתחברות ב-Supabase Auth.
-// שומר על חוויית "בחירת שם מרשימה" תוך שימוש בהתחברות מאובטחת.
-const USER_EMAIL_MAP = {
-  "מנהל": "admin@tzedaka.local",
-  "מנדי בידרמן": "mendi@tzedaka.local",
-  "מוישי גולדברג": "moishi@tzedaka.local",
-  "אלימלך גלבשטיין": "elimelech@tzedaka.local",
-};
+// כניסה: מקלידים שם משתמש (החלק שלפני ה-@) והקוד משלים את הדומיין הטכני של חשבונות המערכת.
+// אין בקוד רשימת משתמשים. שם התצוגה בעברית מגיע מטבלת profiles אחרי ההתחברות.
+const LOGIN_EMAIL_DOMAIN = "tzedaka.local";
+const LOGIN_ERROR_GENERIC = "שם משתמש או סיסמה שגויים";
+
+function loginNameToEmail(value) {
+  const v = String(value || "").trim().toLowerCase();
+  if (!v) return "";
+  return v.includes("@") ? v : `${v}@${LOGIN_EMAIL_DOMAIN}`;
+}
+
+// שם לתצוגה: display_name מהפרופיל; אם הוא לא בעברית ושם המשתמש כן - מציגים את שם המשתמש
+function profileDisplayName(prof) {
+  if (!prof) return "";
+  const dn = String(prof.displayName || "").trim();
+  const un = String(prof.username || "").trim();
+  const isHebrew = t => /[֐-׿]/.test(t);
+  if (dn && (isHebrew(dn) || !isHebrew(un))) return dn;
+  return un || dn;
+}
 
 let state = {
   members: [],
@@ -376,37 +388,27 @@ function isTrue(val) {
   return clean === "TRUE" || clean === "V" || clean === "1" || clean === "כן" || clean === "Y" || clean === "YES";
 }
 
+let loginFormBound = false;
 function initLoginScreen() {
-  const select = document.getElementById("login-username");
+  const form = document.getElementById("login-form-area");
+  const userInput = document.getElementById("login-username");
+  if (userInput && !userInput.value) setTimeout(() => { try { userInput.focus(); } catch (e) {} }, 120);
+  if (!form || loginFormBound) return;
+  loginFormBound = true;
 
-  // רשימת המשתמשים להתחברות — מתוך מפת המייל (זמין עוד לפני התחברות)
-  const usernames = Object.keys(USER_EMAIL_MAP);
-  // צירוף שמות נוספים שהגיעו מהפרופילים (אם יש), רק אם קיים להם מייל
-  state.users.forEach(u => { const n = String(u.username || "").trim(); if (n && USER_EMAIL_MAP[n] && !usernames.includes(n)) usernames.push(n); });
-
-  select.innerHTML = "";
-  usernames.forEach(name => {
-    const opt = document.createElement("option");
-    opt.value = name;
-    opt.textContent = name;
-    select.appendChild(opt);
-  });
-
-  const btnLogin = document.getElementById("btn-login");
-  const newBtnLogin = btnLogin.cloneNode(true);
-  btnLogin.parentNode.replaceChild(newBtnLogin, btnLogin);
-
-  newBtnLogin.addEventListener("click", async () => {
+  form.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const btnLogin = document.getElementById("btn-login");
+    if (btnLogin.disabled) return;
     const userVal = String(document.getElementById("login-username").value).trim();
     const passVal = String(document.getElementById("login-password").value);
     const errEl = document.getElementById("login-error");
-    const email = USER_EMAIL_MAP[userVal];
+    const email = loginNameToEmail(userVal);
 
-    if (!email) { if (errEl) { errEl.textContent = "משתמש לא מוכר"; errEl.style.display = "block"; } return; }
-    if (!passVal) { if (errEl) { errEl.textContent = "יש להזין סיסמה"; errEl.style.display = "block"; } return; }
+    if (!email || !passVal) { if (errEl) { errEl.textContent = "יש להזין שם משתמש וסיסמה"; errEl.style.display = "block"; } return; }
 
-    const origText = newBtnLogin.textContent;
-    newBtnLogin.disabled = true; newBtnLogin.textContent = "מתחבר...";
+    const origText = btnLogin.textContent;
+    btnLogin.disabled = true; btnLogin.textContent = "מתחבר...";
     try {
       await SB.signIn(email, passVal);
       state.currentUser = userVal;
@@ -425,22 +427,23 @@ function initLoginScreen() {
       restoreFormDraft();
     } catch (e) {
       if (errEl) {
+        // הודעה אחת לכל דחייה של פרטי הכניסה - לא מגלים אם שם המשתמש קיים.
+        // תקלות שאינן קשורות לפרטים (אין רשת, שרת לא זמין, יותר מדי ניסיונות) מקבלות הודעה משלהן.
         const raw = String((e && e.message) || "");
-        let msg;
+        const status = e && e.status;
+        let msg = LOGIN_ERROR_GENERIC;
         if (raw.includes("Failed to fetch") || raw.includes("NetworkError") || raw.includes("Load failed")) {
           msg = "לא ניתן להתחבר לשרת. בדוק את החיבור לאינטרנט, או שהשרת אינו זמין כרגע.";
-        } else if (raw.includes("Invalid login credentials")) {
-          msg = "שם משתמש או סיסמה שגויים";
-        } else if (raw) {
-          msg = "שגיאה בהתחברות: " + raw;
-        } else {
-          msg = "שם משתמש או סיסמה שגויים";
+        } else if (status === 429) {
+          msg = "יותר מדי ניסיונות כניסה. נסה שוב בעוד כמה דקות.";
+        } else if (status >= 500) {
+          msg = "השרת אינו זמין כרגע. נסה שוב בעוד כמה דקות.";
         }
         errEl.textContent = msg;
         errEl.style.display = "block";
       }
     } finally {
-      newBtnLogin.disabled = false; newBtnLogin.textContent = origText;
+      btnLogin.disabled = false; btnLogin.textContent = origText;
     }
   });
 }
@@ -451,13 +454,13 @@ function resolveCurrentUser() {
   const uid = sbUser && sbUser.id;
   let prof = uid ? (state.users || []).find(u => u.id && String(u.id) === String(uid)) : null;
   if (!prof) {
-    const email = String((sbUser && sbUser.email) || "").toLowerCase();
-    const byEmail = Object.keys(USER_EMAIL_MAP).find(n => USER_EMAIL_MAP[n] === email);
-    const name = String(state.currentUser || byEmail || "").trim();
-    if (name) prof = (state.users || []).find(u => String(u.username).trim() === name) || null;
-    if (!state.currentUser && name) state.currentUser = name;
+    // גיבוי לפרופיל בלי מזהה: לפי שם המשתמש שבחשבון, או החלק שלפני ה-@ בכתובת
+    const localPart = String((sbUser && sbUser.email) || "").toLowerCase().split("@")[0];
+    const names = [state.currentUser, localPart].map(n => String(n || "").trim()).filter(Boolean);
+    prof = (state.users || []).find(u => names.includes(String(u.username).trim())) || null;
+    if (!state.currentUser && names.length) state.currentUser = names[0];
   }
-  if (prof) { state.currentUserObj = prof; state.currentUser = prof.username; }
+  if (prof) { state.currentUserObj = prof; state.currentUser = profileDisplayName(prof); }
 }
 
 function canEditUser() {
@@ -552,7 +555,7 @@ async function fetchDataFromServer(isSilent = false) {
 
     invalidateCache();
     saveState();
-    try { localStorage.setItem("ezer_last_sync", new Date().toISOString()); } catch (e) {}
+    try { sessionStorage.setItem("ezer_last_sync", new Date().toISOString()); } catch (e) {}
 
     if (!document.getElementById("login-screen").classList.contains("hidden-login")) {
       initLoginScreen();
@@ -2100,7 +2103,8 @@ function renderBackupPanel() {
   }
   const lastSyncEl = document.getElementById("last-sync-time");
   if (lastSyncEl) {
-    const ts = localStorage.getItem("ezer_last_sync");
+    let ts = null;
+    try { ts = sessionStorage.getItem("ezer_last_sync"); } catch (e) {}
     lastSyncEl.textContent = ts ? formatSyncTime(ts) : "טרם סונכרן";
   }
 }
@@ -2222,7 +2226,7 @@ function loadState() {
   state.donations = readStorageArray(STORAGE_KEYS.DONATIONS); 
   state.expenses = readStorageArray(STORAGE_KEYS.EXPENSES); 
   state.purimAddresses = readStorageArray(STORAGE_KEYS.PURIM);
-  try { const raw = localStorage.getItem(STORAGE_KEYS.GRANTS_ARCHIVE); state.grantsArchive = (raw && raw !== "undefined" && raw !== "null") ? JSON.parse(raw) : null; } catch (e) { state.grantsArchive = null; }
+  try { const raw = sessionStorage.getItem(STORAGE_KEYS.GRANTS_ARCHIVE); state.grantsArchive = (raw && raw !== "undefined" && raw !== "null") ? JSON.parse(raw) : null; } catch (e) { state.grantsArchive = null; }
   state.settings = readStorageObject(STORAGE_KEYS.SETTINGS, DEFAULT_SETTINGS);
   
   let savedUsers = readStorageArray(STORAGE_KEYS.USERS);
@@ -2241,18 +2245,29 @@ function loadState() {
   }
 }
 
-function readStorageArray(key) { try { const raw = localStorage.getItem(key); if (!raw || raw === "undefined" || raw === "null") return []; return JSON.parse(raw) || []; } catch (e) { return []; } }
-function readStorageObject(key, fallback) { try { const raw = localStorage.getItem(key); if (!raw || raw === "undefined" || raw === "null") return { ...fallback }; return { ...fallback, ...JSON.parse(raw) }; } catch (e) { return { ...fallback }; } }
+// מטמון הנתונים נשמר ב-sessionStorage: נשאר ברענון דף, ונמחק כשסוגרים את הדפדפן.
+function readStorageArray(key) { try { const raw = sessionStorage.getItem(key); if (!raw || raw === "undefined" || raw === "null") return []; return JSON.parse(raw) || []; } catch (e) { return []; } }
+function readStorageObject(key, fallback) { try { const raw = sessionStorage.getItem(key); if (!raw || raw === "undefined" || raw === "null") return { ...fallback }; return { ...fallback, ...JSON.parse(raw) }; } catch (e) { return { ...fallback }; } }
 
 function saveState() { 
-  localStorage.setItem(STORAGE_KEYS.MEMBERS, JSON.stringify(state.members)); 
-  localStorage.setItem(STORAGE_KEYS.DONATIONS, JSON.stringify(state.donations)); 
-  localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(state.expenses)); 
-  localStorage.setItem(STORAGE_KEYS.PURIM, JSON.stringify(state.purimAddresses)); 
-  localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(state.settings));
-  localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(state.users));
-  if (state.grantsArchive) localStorage.setItem(STORAGE_KEYS.GRANTS_ARCHIVE, JSON.stringify(state.grantsArchive));
+  sessionStorage.setItem(STORAGE_KEYS.MEMBERS, JSON.stringify(state.members)); 
+  sessionStorage.setItem(STORAGE_KEYS.DONATIONS, JSON.stringify(state.donations)); 
+  sessionStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(state.expenses)); 
+  sessionStorage.setItem(STORAGE_KEYS.PURIM, JSON.stringify(state.purimAddresses)); 
+  sessionStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(state.settings));
+  sessionStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(state.users));
+  if (state.grantsArchive) sessionStorage.setItem(STORAGE_KEYS.GRANTS_ARCHIVE, JSON.stringify(state.grantsArchive));
 }
+
+// ניקוי חד-פעמי: גרסאות קודמות שמרו עותק מלא של הנתונים ב-localStorage, שנשאר גם אחרי סגירת הדפדפן.
+// תור השמירות הממתינות (ezer_pending_writes) נשאר ב-localStorage בכוונה, כדי ששינויים שלא נשלחו לא יאבדו.
+function purgeLegacyLocalCache() {
+  try {
+    Object.values(STORAGE_KEYS).forEach(k => localStorage.removeItem(k));
+    localStorage.removeItem("ezer_last_sync");
+  } catch (e) {}
+}
+purgeLegacyLocalCache();
 
 function switchScreen(screenId, pushToHistory = true) {
   if (!screenId) return;
@@ -5502,9 +5517,10 @@ function performLogout(isAuto = false) {
 
 function clearLocalDataCache() {
   try {
-    Object.values(STORAGE_KEYS).forEach(k => localStorage.removeItem(k));
-    localStorage.removeItem("ezer_last_sync");
+    Object.values(STORAGE_KEYS).forEach(k => sessionStorage.removeItem(k));
+    sessionStorage.removeItem("ezer_last_sync");
   } catch (e) {}
+  purgeLegacyLocalCache();
 }
 
 // ===== שמירת טופס פתוח כשהמערכת ננעלת עקב חוסר פעילות =====
