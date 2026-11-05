@@ -196,7 +196,7 @@ button, input, select, textarea { font-family: inherit; outline: none; color: in
   width: 100vw; height: 100vh;
   background-image:
     linear-gradient(rgba(16,16,20,0.74), rgba(16,16,20,0.82)),
-    url('https://i.ibb.co/cKs3Ytp4/gemini-generated-image-qthb48qthb48qthb-optimized.png');
+    url('assets/img/login-bg.png');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -455,7 +455,7 @@ button, input, select, textarea { font-family: inherit; outline: none; color: in
   border-radius: 12px;
   background:
     linear-gradient(135deg, rgba(16,16,20,0.82), rgba(16,16,20,0.72)),
-    url('https://i.ibb.co/cKs3Ytp4/gemini-generated-image-qthb48qthb48qthb-optimized.png');
+    url('assets/img/login-bg.png');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
