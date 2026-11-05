@@ -2,8 +2,13 @@
 <html dir="rtl" lang="he">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#101014">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="צדקת רבי שמעון">
+  <link rel="manifest" href="manifest.json">
   <meta name="description" content="מערכת ניהול גבייה, זכאות ומענקים — צדקת רבי שמעון">
   <title>צדקת רבי שמעון | מערכת ניהול</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicon-32.png">
@@ -43,6 +48,14 @@
   </div>
 
   <div class="screen active-screen app-layout hidden-layout" id="main-screen">
+
+    <header class="mobile-topbar">
+      <img src="assets/img/logo.png" width="626" height="640" alt="" class="mobile-topbar-logo">
+      <span class="mobile-topbar-title" id="mobile-title">לוח בקרה</span>
+      <button class="mobile-topbar-btn" id="mobile-refresh" type="button" data-action="mobileRefresh" aria-label="רענן נתונים מהשרת">
+        <span class="material-icons-regular" aria-hidden="true">refresh</span>
+      </button>
+    </header>
 
     <aside class="sidebar">
       <div class="sidebar-header">
@@ -740,6 +753,31 @@
       </section>
 
     </main>
+
+    <nav class="bottom-nav" aria-label="ניווט ראשי">
+      <button class="bnav-item" type="button" data-screen="dashboard-screen" data-action="switchScreenAction" data-args='["dashboard-screen"]'><span class="material-icons-regular" aria-hidden="true">space_dashboard</span><span>לוח בקרה</span></button>
+      <button class="bnav-item" type="button" data-screen="members-screen" data-action="switchScreenAction" data-args='["members-screen"]'><span class="material-icons-regular" aria-hidden="true">groups</span><span>בחורים</span></button>
+      <button class="bnav-item" type="button" data-screen="daily-report-screen" data-action="switchScreenAction" data-args='["daily-report-screen"]'><span class="material-icons-regular" aria-hidden="true">insert_chart_outlined</span><span>תנועות</span></button>
+      <button class="bnav-item" type="button" data-screen="grants-screen" data-action="switchScreenAction" data-args='["grants-screen"]'><span class="material-icons-regular" aria-hidden="true">redeem</span><span>מענקים</span></button>
+      <button class="bnav-item" type="button" id="bnav-more" data-action="openMoreSheet" aria-haspopup="dialog"><span class="material-icons-regular" aria-hidden="true">menu</span><span>עוד</span></button>
+    </nav>
+
+    <div id="more-sheet" class="modal-overlay">
+      <div class="modal-content app-modal modal--sm" role="dialog" aria-modal="true" aria-labelledby="more-sheet-title">
+        <button class="modal-close" type="button" data-action="closeMoreSheet" aria-label="סגור"><span class="material-icons-regular" aria-hidden="true">close</span></button>
+        <div class="modal-inner">
+          <h3 class="modal-title" id="more-sheet-title">עוד</h3>
+          <div class="more-list">
+            <button class="more-item" type="button" data-screen="expenses-summary-screen" data-action="goFromMoreSheet" data-args='["expenses-summary-screen"]'><span class="material-icons-regular" aria-hidden="true">analytics</span>סיכום הוצאות</button>
+            <button class="more-item" type="button" data-screen="purim-registration-screen" data-action="goFromMoreSheet" data-args='["purim-registration-screen"]'><span class="material-icons-regular" aria-hidden="true">location_on</span>כתובות פורים</button>
+            <button class="more-item" type="button" data-screen="rules-screen" data-action="goFromMoreSheet" data-args='["rules-screen"]'><span class="material-icons-regular" aria-hidden="true">menu_book</span>תקנון</button>
+            <button class="more-item" type="button" data-screen="settings-screen" data-action="goFromMoreSheet" data-args='["settings-screen"]'><span class="material-icons-regular" aria-hidden="true">settings</span>הגדרות</button>
+            <div class="more-divider"></div>
+            <button class="more-item more-item--danger" type="button" data-action="logoutFromMoreSheet"><span class="material-icons-regular" aria-hidden="true">logout</span>התנתקות</button>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <div id="data-health-modal" class="modal-overlay">
       <div class="modal-content app-modal modal--column" role="dialog" aria-modal="true" aria-labelledby="data-health-modal-title">

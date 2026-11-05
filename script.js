@@ -161,6 +161,7 @@ const UI_ACTION_NAMES = new Set([
   "updateTypeFilter", "viewStoreBillReceipt",
   "openMemberRowMenu", "openMemberFromMenu", "openDonationFromMenu", "openMemberEditFromMenu", "clearMembersFilters",
   "openMemberModal", "switchScreenAction", "openSettingsTab", "syncNow",
+  "openMoreSheet", "closeMoreSheet", "goFromMoreSheet", "logoutFromMoreSheet", "mobileRefresh",
 ]);
 
 function uiAttr(attr, name, args) {
@@ -210,6 +211,49 @@ function applyHealthFixFromInput(memberId, field) {
   applyHealthFix(memberId, field, input ? input.value : "");
 }
 function switchScreenAction(screenId) { switchScreen(screenId, true); }
+
+// ===== ניווט במובייל: גיליון "עוד" וכפתור הרענון שבכותרת העליונה =====
+function openMoreSheet() { const s = document.getElementById("more-sheet"); if (s) s.classList.add("open"); }
+function closeMoreSheet() { const s = document.getElementById("more-sheet"); if (s) s.classList.remove("open"); }
+function goFromMoreSheet(screenId) { closeMoreSheet(); switchScreen(screenId, true); }
+function logoutFromMoreSheet() { closeMoreSheet(); performLogout(false); }
+async function mobileRefresh() {
+  const btn = document.getElementById("mobile-refresh");
+  if (!btn || btn.disabled) return;
+  btn.disabled = true; btn.classList.add("is-spinning");
+  const ok = await fetchDataFromServer(true);
+  btn.disabled = false; btn.classList.remove("is-spinning");
+  if (!ok) showToast("לא ניתן לטעון נתונים מהשרת כרגע", "warning");
+}
+document.addEventListener("click", (ev) => { const s = document.getElementById("more-sheet"); if (s && ev.target === s) closeMoreSheet(); });
+
+// ===== טבלאות רחבות במסך צר =====
+// במקום גלילה אופקית, כל שורה נפרסת לרוחב המסך כ"תווית מול ערך". התווית נלקחת מכותרת העמודה.
+// טבלת הבחורים לא נכללת: היא הופכת לכרטיסים ב-CSS. טבלאות של עד 3 עמודות נשארות כמו שהן.
+const mobileQuery = window.matchMedia("(max-width: 767px)");
+function labelTablesForMobile() {
+  if (!mobileQuery.matches) return;
+  document.querySelectorAll("table").forEach(table => {
+    if (table.closest("#members-list-section")) return;
+    const heads = [...table.querySelectorAll("thead th")];
+    if (heads.length <= 3) return;
+    table.classList.add("table-stack");
+    const labels = heads.map(th => (th.textContent || "").trim());
+    table.querySelectorAll("tbody tr, tfoot tr").forEach(tr => {
+      let col = 0;
+      for (const cell of tr.children) {
+        if (!cell.hasAttribute("data-label")) cell.setAttribute("data-label", cell.colSpan > 1 ? "" : (labels[col] || ""));
+        col += cell.colSpan || 1;
+      }
+    });
+  });
+}
+let labelTablesFrame = null;
+new MutationObserver(() => {
+  if (!mobileQuery.matches || labelTablesFrame) return;
+  labelTablesFrame = setTimeout(() => { labelTablesFrame = null; labelTablesForMobile(); }, 30);
+}).observe(document.body, { childList: true, subtree: true });
+mobileQuery.addEventListener("change", labelTablesForMobile);
 function openSettingsTab(tabName) { switchScreen("settings-screen", true); switchSettingsTab(tabName); }
 
 // ==========================================
@@ -718,6 +762,12 @@ function applyPermissions() {
   
   const navSettings = document.getElementById("nav-settings");
   if (navSettings) navSettings.style.display = isVIP ? "" : "none";
+
+  // הניווט במובייל (סרגל תחתון וגיליון "עוד") מציג בדיוק את מה שמותר בתפריט הצד
+  document.querySelectorAll(".bnav-item[data-screen], .more-item[data-screen]").forEach(el => {
+    const source = document.querySelector(`.nav-item[data-screen="${el.dataset.screen}"]`);
+    if (source) el.style.display = source.style.display;
+  });
 }
 
 async function initApp() {
@@ -2437,7 +2487,7 @@ function switchScreen(screenId, pushToHistory = true) {
   // -- מעלים את הכותרת בלוח הבקרה כדי לחסוך שטח --
   const headerEl = document.getElementById("main-content-header");
   if (headerEl) {
-      headerEl.style.display = screenId === "dashboard-screen" ? "none" : "flex";
+      headerEl.classList.toggle("hidden", screenId === "dashboard-screen");
   }
 
   // ריענון גרפים בכניסה למסכים עם canvas (Chart.js לא מודד נכון כשמוסתר)
@@ -2455,8 +2505,14 @@ function switchScreen(screenId, pushToHistory = true) {
     setTimeout(() => { const s = document.getElementById("search-members-list"); if (s) s.focus(); }, 80);
   }
 
-  document.querySelectorAll(".nav-item").forEach((btn) => { if (btn.dataset.screen === screenId) btn.classList.add("active"); else btn.classList.remove("active"); });
-  const meta = screenMeta[screenId]; if (meta) { setText("page-title", meta.title); setText("page-subtitle", meta.subtitle); }
+  document.querySelectorAll(".nav-item, .bnav-item[data-screen], .more-item[data-screen]").forEach((btn) => { btn.classList.toggle("active", btn.dataset.screen === screenId); });
+  // כפתור "עוד" מסומן כשהמסך הפעיל נמצא בתוך הגיליון שלו
+  const moreBtn = document.getElementById("bnav-more");
+  if (moreBtn) moreBtn.classList.toggle("active", !!document.querySelector(`.more-item[data-screen="${screenId}"]`));
+  closeMoreSheet();
+  closeRowMenu();
+  const meta = screenMeta[screenId]; if (meta) { setText("page-title", meta.title); setText("page-subtitle", meta.subtitle); setText("mobile-title", meta.title); }
+  if (window.matchMedia("(max-width: 767px)").matches) window.scrollTo(0, 0);
   if (pushToHistory) { try { history.pushState({ screen: screenId }, "", `#${screenId}`); } catch (error) {} }
 }
 

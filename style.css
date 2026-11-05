@@ -983,19 +983,6 @@ button.dashboard-segment-item:hover {
   }
 }
 
-@media (max-width: 720px) {
-  .dashboard-hero-panel { grid-template-columns: 1fr; }
-  .dashboard-year-card { min-width: 0; }
-  .dashboard-hero-controls { align-items: stretch; }
-  .dashboard-hero-controls .dashboard-year-card { flex: 1; }
-  .dashboard-kpi-grid { grid-template-columns: 1fr 1fr; }
-  .dashboard-action-grid { grid-template-columns: 1fr; }
-}
-
-@media (max-width: 480px) {
-  .dashboard-kpi-grid { grid-template-columns: 1fr; }
-  .dashboard-hero-copy h1 { font-size: var(--fs-2xl); }
-}
 
 /* ===== Grants archive (history) ===== */
 .grants-view-toggle {
@@ -1754,7 +1741,6 @@ tr.hidden { display: none !important; }
 .users-help .material-icons-regular { color: var(--info); font-size: var(--icon-md); }
 
 
-
 /* --------------------------------------------------------------------------
    13. הודעות צצות (Toasts)
    -------------------------------------------------------------------------- */
@@ -1868,58 +1854,7 @@ td[contenteditable="true"]:focus { background: var(--surface) !important; box-sh
 /* --------------------------------------------------------------------------
    16. רספונסיביות (Mobile / Tablet)
    -------------------------------------------------------------------------- */
-@media (max-width: 920px) {
-  body { overflow: auto; height: auto; min-height: 100vh; }
-  .app-layout { flex-direction: column; height: auto; min-height: 100vh; }
 
-  .sidebar {
-    width: 100%;
-    flex-direction: row; flex-wrap: wrap; align-items: center;
-    padding: var(--space-4) var(--space-4); gap: var(--space-3);
-    border-left: none; border-bottom: 1px solid var(--border-dark);
-    box-shadow: 0 4px 16px rgba(var(--ink-rgb),0.12);
-  }
-  .sidebar-header { margin-bottom: 0; flex: 1 1 100%; padding-top: 0; }
-  .sidebar-header > div:first-of-type { flex-direction: row; gap: var(--space-4); align-items: center; }
-  #sidebar-logo, #login-logo { width: 64px; }
-
-  .sidebar-nav {
-    flex: 1 1 100%; flex-direction: row; flex-wrap: nowrap; overflow-x: auto;
-    gap: var(--space-2); padding-bottom: var(--space-2);
-  }
-  .nav-item { white-space: nowrap; padding: var(--space-2) var(--space-4); }
-  .nav-item.active::after { display: none; }
-  .nav-item.active { box-shadow: inset 0 -3px 0 var(--gold-main); }
-
-  .sidebar-footer { margin-top: 0; padding-top: 0; flex: 1 1 100%; }
-  .sidebar-footer > div:last-child { border-top: none; padding-top: 0; }
-
-  .main-content { padding: var(--space-4) var(--space-4); }
-  .page-title { font-size: var(--fs-xl); }
-
-  .banner-content { flex-direction: column; align-items: stretch; }
-  .banner-action { align-self: stretch; }
-  .premium-year-select { width: 100%; }
-
-  .metrics-row { grid-template-columns: 1fr 1fr; }
-  .metric-value { font-size: var(--fs-xl); }
-
-  .app-toolbar { flex-direction: column; align-items: stretch; }
-  .toolbar-actions { justify-content: flex-start; }
-  /* סרגל הסינון במסך הבחורים לא יוצא מרוחב המסך */
-  #members-list-section .app-toolbar,
-  #members-list-section .toolbar-filters { flex-wrap: wrap; }
-  #members-list-section .toolbar-filters .filter-group { flex: 1 1 140px; min-width: 0; }
-  .members-inline-checks { flex-wrap: wrap; }
-
-  .modal-inner { padding: var(--space-6); }
-}
-
-@media (max-width: 560px) {
-  .metrics-row { grid-template-columns: 1fr; }
-  .actions-grid { grid-template-columns: 1fr; }
-  .form-grid { grid-template-columns: 1fr; gap: var(--space-4); }
-}
 
 /* --------------------------------------------------------------------------
    17. נגישות והעדפות תנועה
@@ -2765,15 +2700,209 @@ label.target-edit-name { display: block; }
 .grants-archive-panel-head .page-title.small { margin: 0; }
 .grants-toolbar .grants-view-toggle { align-self: flex-end; }
 
-/* ---------- רספונסיביות של הרכיבים החדשים ---------- */
-@media (max-width: 920px) {
-  #members-list-section { height: auto; }
-  #members-list-section .table-container { max-height: 70vh; }
+
+/* ==========================================================================
+   21. טאבלט ומובייל (שלב 3)
+   - עד 1023px: סרגל הצד נשאר, צר יותר.
+   - מתחת ל-768px: כותרת עליונה דקה, סרגל ניווט תחתון קבוע, כרטיסים במקום טבלאות רחבות,
+     חלונות קופצים כגיליון מלמטה, ושדות בגובה 44px. אין גלילה אופקית באף מסך.
+   ========================================================================== */
+.mobile-topbar, .bottom-nav { display: none; }
+.more-list { display: flex; flex-direction: column; gap: var(--space-1); margin-top: var(--space-3); }
+.more-item {
+  display: flex; align-items: center; gap: var(--space-3); width: 100%; min-height: 48px; padding: 0 var(--space-3);
+  border: none; border-radius: var(--radius-sm); background: none; cursor: pointer; text-align: right;
+  font-size: var(--fs-md); font-weight: var(--fw-medium); color: var(--text-main);
+}
+.more-item:hover { background: var(--surface-light); }
+.more-item .material-icons-regular { color: var(--text-secondary); }
+.more-item.active { background: var(--surface-light); font-weight: var(--fw-semibold); }
+.more-item--danger, .more-item--danger .material-icons-regular { color: var(--danger); }
+.more-divider { height: 1px; background: var(--border-color); margin: var(--space-2) 0; }
+.is-spinning .material-icons-regular { animation: spin-linear 1s linear infinite; }
+
+@media (max-width: 1023px) {
+  :root { --sidebar-width: 208px; }
+  .main-content { padding: var(--space-4); }
+  .metrics-row, .metrics-row-4 { grid-template-columns: 1fr 1fr; }
+  .exp-charts-row { grid-template-columns: 1fr; }
+  .dashboard-kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .dashboard-main-grid { grid-template-columns: minmax(0, 1fr); }
+  .dashboard-hero-panel { grid-template-columns: minmax(0, 1fr); }
+  .dashboard-hero-controls { flex-wrap: wrap; }
   .profile-head { flex-direction: column; }
   .profile-actions { width: 100%; flex-direction: row; flex-wrap: wrap; }
   .profile-stats-row { grid-template-columns: 1fr 1fr; }
-  .sidebar-header { flex-direction: row; text-align: right; }
-  #sidebar-logo { width: 56px; }
+  .app-toolbar { flex-wrap: wrap; }
+  .toolbar-filters { flex-wrap: wrap; }
+  .members-inline-checks { flex-wrap: wrap; }
+}
+
+@media (max-width: 767px) {
+  :root {
+    --control-height: 44px;
+    --topbar-height: 56px;
+    --bottomnav-height: 60px;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  html, body { overflow-x: hidden; }
+  body { overflow-y: auto; height: auto; min-height: 100vh; }
+  .app-layout { flex-direction: column; height: auto; min-height: 100vh; }
+  .sidebar, .content-header { display: none; }
+
+  /* ---------- כותרת עליונה דקה (56px) ---------- */
+  .mobile-topbar {
+    display: flex; align-items: center; gap: var(--space-3);
+    position: sticky; top: 0; z-index: 200;
+    height: var(--topbar-height); padding: 0 var(--space-4);
+    background: var(--ink); color: var(--text-on-dark);
+  }
+  .mobile-topbar-logo { width: 32px; height: auto; flex-shrink: 0; }
+  .mobile-topbar-title { flex: 1; min-width: 0; font-size: var(--fs-md); font-weight: var(--fw-semibold); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mobile-topbar-btn {
+    display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin-left: calc(-1 * var(--space-2));
+    border: none; border-radius: var(--radius-sm); background: none; color: var(--text-on-dark); cursor: pointer;
+  }
+
+  /* ---------- סרגל ניווט תחתון קבוע ---------- */
+  .bottom-nav {
+    display: flex; position: fixed; right: 0; left: 0; bottom: 0; z-index: 300;
+    height: calc(var(--bottomnav-height) + var(--safe-bottom)); padding-bottom: var(--safe-bottom);
+    background: var(--surface); border-top: 1px solid var(--border-color);
+  }
+  .bnav-item {
+    flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-05);
+    border: none; background: none; cursor: pointer; color: var(--text-secondary);
+    font-size: var(--fs-xs); font-weight: var(--fw-medium);
+  }
+  .bnav-item .material-icons-regular { font-size: var(--icon-lg); }
+  .bnav-item span:last-child { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bnav-item.active { color: var(--gold-dark); font-weight: var(--fw-semibold); }
+
+  .main-content {
+    overflow: visible; padding: var(--space-4);
+    padding-bottom: calc(var(--bottomnav-height) + var(--safe-bottom) + var(--space-6));
+  }
+  .app-toast, .saving-indicator { bottom: calc(var(--bottomnav-height) + var(--safe-bottom) + var(--space-3)); max-width: calc(100vw - var(--space-8)); }
+  .app-toast { white-space: normal; }
+  .pending-writes-banner { top: calc(var(--topbar-height) + var(--space-2)); flex-wrap: wrap; }
+
+  /* שדות וכפתורים בגובה מגע; גופן 16px כדי שהדפדפן לא יגדיל את המסך בזמן הקלדה */
+  .ui-input, .ui-select, .dashboard-year-select, .target-edit-input { font-size: var(--fs-md); min-height: var(--control-height); }
+  .btn-sm { min-height: 36px; }
+  .icon-ghost-btn, .grants-archive-del { width: 44px; height: 44px; }
+  .radio-row label, .check-label, .members-radio-label, .store-bill-paid-toggle { min-height: var(--control-height); }
+  .form-grid, .form-grid--2 { grid-template-columns: 1fr; gap: var(--space-3); }
+  .field-inline { max-width: none; }
+
+  /* ---------- לוח בקרה ---------- */
+  .dashboard-hero-panel { grid-template-columns: 1fr; padding: var(--space-3) var(--space-4); }
+  .dashboard-hero-copy, .dashboard-session-tools { display: none; }
+  .dashboard-hero-controls { justify-content: space-between; }
+  .dashboard-year-card { flex: 1; justify-content: space-between; }
+  .dashboard-kpi-grid { grid-template-columns: 1fr 1fr; gap: var(--space-2); }
+  .dashboard-kpi-card { padding: var(--space-3); gap: var(--space-2); flex-direction: column; }
+  .dashboard-kpi-value { font-size: var(--fs-lg); }
+  .dashboard-action-grid { grid-template-columns: 1fr 1fr; }
+  .dashboard-attention-item, .dashboard-activity-item { grid-template-columns: auto minmax(0, 1fr); }
+  .dashboard-attention-item .dashboard-item-value, .dashboard-activity-item .dashboard-item-value { grid-column: 2; }
+
+  /* ---------- כרטיסי מדדים: שתי עמודות בכל המסכים ---------- */
+  .metrics-row, .metrics-row-4, .grants-archive-stats, #grants-screen .grants-archive-stats, .record-counts, .targets-grid { grid-template-columns: 1fr 1fr; gap: var(--space-2); }
+  .metric-card, .grants-archive-stat { padding: var(--space-3); }
+  .metric-value, .grants-archive-stat-value, #grants-screen .grants-archive-stat-value { font-size: var(--fs-lg); }
+  .grants-archive-stat { flex-direction: column; align-items: flex-start; }
+  .gifts-grid, .expenses-cats-grid, .takanon-main-grid, .grants-giving-grid, .grants-payments-grid, .exp-charts-row, .dashboard-main-grid { grid-template-columns: minmax(0, 1fr); }
+  .card-panel, .dashboard-panel, .report-box { min-width: 0; max-width: 100%; }
+  .grants-archive-head-actions { flex-wrap: wrap; }
+  .grants-archive-add-form { grid-template-columns: minmax(0, 1fr); }
+  #grants-screen #grants-archive-package { column-count: 1; }
+
+  /* ---------- סרגלי כלים ---------- */
+  .app-toolbar { flex-direction: column; align-items: stretch; }
+  .toolbar-filters { flex-wrap: wrap; }
+  .toolbar-filters .filter-group { flex: 1 1 140px; min-width: 0; }
+  .toolbar-filters .filter-group:first-child { flex-basis: 100%; }
+  .toolbar-actions { flex-wrap: wrap; }
+  .toolbar-actions .btn-primary { flex: 1; }
+  .grants-archive-panel-head, .section-head, .profile-donations-head { flex-wrap: wrap; }
+  .grants-view-toggle { flex-wrap: wrap; }
+  .grants-view-btn { flex: 1; justify-content: center; }
+  .settings-subnav, .purim-cities-nav, .purim-groups-nav { flex-wrap: wrap; overflow: visible; }
+  .purim-group-toolbar { align-items: stretch; }
+  .purim-sums-display { flex-basis: 100%; overflow: visible; }
+  .purim-group-actions { flex: 1 1 100%; flex-shrink: 1; }
+  .purim-group-actions .purim-action-btn { flex: 1 1 auto; }
+  .backup-sync-status { margin-left: 0; width: 100%; }
+  .backup-actions .btn { flex: 1 1 140px; }
+
+  /* ---------- טבלת הבחורים הופכת לרשימת כרטיסים: שם, ישיבה, סכום ופס התקדמות ---------- */
+  #members-list-section { height: auto; min-height: 0; padding: var(--space-3); }
+  #members-list-section .table-container { overflow: visible; border: none; border-radius: 0; background: none; }
+  #members-screen #btn-members-edit-mode, #members-screen [data-action="toggleMembersDensity"], #members-screen [data-action="printPage"] { display: none; }
+  #members-list-section .data-table, #members-list-section tbody { display: block; background: none; }
+  #members-list-section thead { display: none; }
+  #members-table-body tr {
+    display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; align-items: center;
+    grid-template-areas: "first last . amount" "yeshiva yeshiva yeshiva menu" "progress progress progress progress";
+    gap: var(--space-1) var(--space-2); padding: var(--space-3);
+    margin-bottom: var(--space-2); border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--surface);
+  }
+  #members-table-body tr:not([data-member-id]) { display: block; border: none; padding: 0; }
+  #members-table-body td { display: none; padding: 0; border: none; position: static; background: none; white-space: normal; box-shadow: none; }
+  #members-table-body tr:not([data-member-id]) td { display: block; }
+  #members-table-body td:nth-child(1) { display: block; grid-area: first; font-size: var(--fs-md); font-weight: var(--fw-semibold); }
+  #members-table-body td:nth-child(2) { display: block; grid-area: last; font-size: var(--fs-md); font-weight: var(--fw-semibold); }
+  #members-table-body td:nth-child(4) { display: block; grid-area: yeshiva; color: var(--text-secondary); min-height: 20px; }
+  #members-table-body td:nth-child(7) { display: block; grid-area: amount; font-size: var(--fs-md); }
+  #members-table-body td:nth-child(10) { display: block; grid-area: progress; }
+  #members-table-body td:nth-child(12) { display: block; grid-area: menu; width: auto; }
+  #members-table-body .icon-ghost-btn { height: 32px; }
+
+  /* ---------- שאר הטבלאות הרחבות: כל שורה נפרסת לרוחב המסך, תווית מול ערך ---------- */
+  .table-container, .table-sticky, .dashboard-drill-table-wrap, .exp-cat-table-wrap { max-height: none; overflow: visible; }
+  .report-box .table-container, .profile-donations .table-container { max-height: none; }
+  .data-table th, .data-table td, .data-table.compact-view th, .data-table.compact-view td { white-space: normal; }
+  .table-stack, .table-stack tbody, .table-stack tfoot { display: block; }
+  .table-stack thead { display: none; }
+  .table-stack tr { display: block; padding: var(--space-3); border-bottom: 1px solid var(--border-color); }
+  .table-stack tbody tr:last-child { border-bottom: none; }
+  .table-stack td, .data-table.table-stack td, .data-table.compact-view.table-stack td, #grants-screen .data-table.compact-view.table-stack td {
+    display: flex; justify-content: space-between; align-items: center; gap: var(--space-3);
+    padding: var(--space-05) 0; border: none; position: static; background: none; box-shadow: none; min-height: 28px; text-align: start;
+  }
+  .table-stack td::before { content: attr(data-label); flex-shrink: 0; font-size: var(--fs-xs); font-weight: var(--fw-medium); color: var(--text-secondary); }
+  .table-stack td[data-label=""] { justify-content: flex-end; }
+  .table-stack td[data-label=""]::before { content: none; }
+  .table-stack td[colspan] { display: block; }
+  .table-stack td:empty { display: none; }
+  .table-stack tr:hover td, .data-table.table-stack tbody tr:hover td:first-child { background: none; }
+  .table-stack .progress-cell { flex: 1; max-width: 60%; }
+
+  /* ---------- כרטיס בחור, תקנון ---------- */
+  .profile-actions .btn { flex: 1 1 140px; justify-content: center; }
+  .takanon-hero { flex-direction: column; align-items: flex-start; gap: var(--space-1); }
+
+  /* ---------- חלונות קופצים: גיליון שעולה מלמטה ---------- */
+  .modal-overlay, .ui-dialog { align-items: flex-end; padding: 0; }
+  .modal-content, .ui-dialog .modal-content, .dashboard-drill-modal .app-modal, .modal--sm, .modal--md, .modal--lg, .nedarim-modal-box {
+    width: 100%; max-width: none; max-height: 92vh;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    transform: translateY(100%); transition: transform 0.28s var(--ease-out);
+  }
+  .modal-overlay.open .modal-content { transform: translateY(0); }
+  .modal-inner, .dashboard-drill-modal .modal-inner { max-height: 92vh; padding: var(--space-5) var(--space-4) calc(var(--space-5) + var(--safe-bottom)); }
+  .modal-close { width: 44px; height: 44px; top: var(--space-2); left: var(--space-2); }
+  .modal-title { padding-left: var(--space-12); }
+  .nedarim-modal-box { height: 92vh; }
+  .nedarim-choice { flex-direction: column; }
+  .form-actions-row, .ui-dialog-actions { flex-wrap: wrap; }
+  .form-actions-row .btn, .ui-dialog-actions .btn { flex: 1 1 120px; }
+  .form-actions-row .btn-end { margin-right: 0; }
+  .dashboard-drill-head { flex-direction: column; padding-left: var(--space-12); }
+  .dashboard-drill-count { width: 100%; }
+  .row-menu button { min-height: 44px; }
 }
 
 /* --------------------------------------------------------------------------
@@ -2798,7 +2927,7 @@ label.target-edit-name { display: block; }
   .content-header { display: none !important; }
 
   /* כל מה שהוא כפתור, טופס או ניווט - לא מודפס */
-  .sidebar, .login-overlay, .modal-overlay, .app-toast, .saving-indicator, .pending-writes-banner,
+  .sidebar, .mobile-topbar, .bottom-nav, .login-overlay, .modal-overlay, .app-toast, .saving-indicator, .pending-writes-banner,
   .btn, .members-toolbar-btn, .purim-action-btn, .grants-archive-del, .header-icon-btn, .modal-close,
   .app-toolbar, .toolbar-actions, .no-export, .sortable-header::after, .missing-star,
   .grants-archive-add-form, .grants-archive-head-actions, .grants-pkg-add-row-btn, .store-bills-add, .grants-view-toggle,
