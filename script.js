@@ -551,13 +551,6 @@ function mutateGrantsArchive(mutator) {
   return p;
 }
 
-// ===== יומן פעולות: מי עשה מה ומתי (לא חוסם את הפעולה אם נכשל) =====
-function logAudit(action, entity, entityId, details) {
-  if (!window.SB || !SB.isLoggedIn()) return;
-  const entry = { action, entity, entity_id: entityId != null ? String(entityId) : null, username: state.currentUser || "", details: details || null };
-  SB.insertAudit(entry).catch(() => {});
-}
-
 const screenMeta = {
   "dashboard-screen": { title: "לוח בקרה", subtitle: "תמונת מצב שנתית, טיפול מיידי ופעולות ניהול" },
   "members-screen": { title: "בחורים", subtitle: "רשימת הבחורים, יעד, פער וסטטוס לכל אחד" },
@@ -1044,7 +1037,6 @@ function bindEvents() {
               document.getElementById("nedarim-modal").classList.remove("open"); 
               const saved = await persist("saveDonation", newDonation);
               reportSave(saved, "התרומה נרשמה בהצלחה לזכות הבחור!");
-              logAudit("create", "donation", newDonation.id, { amount, member: member.fullName, via: "נדרים פלוס", confirmation });
           } finally { 
               saveBtn.disabled = false; 
               saveBtn.innerHTML = `<span class="material-icons-regular" aria-hidden="true">check_circle</span> שמור במערכת`;
@@ -1489,7 +1481,6 @@ async function handleSaveMember(isAutoSave = false) {
   showSavingIndicator();
   const saved = await persist("saveMember", newMemberData);
   hideSavingIndicator(saved);
-  logAudit(existing ? "update" : "create", "member", id, { name: `${newMemberData.firstName} ${newMemberData.lastName}` });
   if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = "שמור בחור"; }
 }
 
@@ -1577,9 +1568,6 @@ async function handleSaveDonation() {
   if (state.activeScreen === "members-screen" && state.currentProfileId) loadMemberProfile(state.currentProfileId);
   const saved = await persist("saveDonation", donation);
   reportSave(saved, existing ? "ההפקדה עודכנה" : "ההפקדה נרשמה בהצלחה!");
-  logAudit(existing ? "update" : "create", "donation", donation.id, existing
-    ? { before: { amount: existing.amount, date: existing.date, member: existing.memberId, year: existing.year }, after: { amount, date: donation.date, member: memberId, year: donation.year } }
-    : { amount, member: member.fullName, year: donation.year });
   saveBtn.disabled = false; saveBtn.textContent = "שמור הפקדה"; 
 }
 
@@ -1603,7 +1591,6 @@ async function handleDeleteDonation() {
     commit: async () => {
       const saved = await persist("deleteDonation", { id: existing.id });
       if (!saved) reportSave(false);
-      logAudit("delete", "donation", existing.id, { amount: existing.amount, date: existing.date, member: existing.memberNameSnapshot || existing.memberId, year: existing.year });
     },
     queueOnExit: () => enqueueWrite("deleteDonation", { id: existing.id }),
   });
@@ -1696,9 +1683,6 @@ async function handleSaveExpense() {
   clearFormDraft();
   const saved = await persist("saveExpense", expense);
   reportSave(saved, existing ? "ההוצאה עודכנה" : "ההוצאה נרשמה בהצלחה!");
-  logAudit(existing ? "update" : "create", "expense", expense.id, existing
-    ? { before: { amount: existing.amount, category: existing.category, description: existing.description }, after: { amount, category: expense.category, description: expense.description } }
-    : { amount, category: expense.category, description: expense.description });
   saveBtn.disabled = false; saveBtn.textContent = existing ? "שמור שינויים" : "הוסף הוצאה"; 
 }
 
@@ -1718,7 +1702,6 @@ async function handleDeleteExpense() {
     commit: async () => {
       const saved = await persist("deleteExpense", { id: existing.id });
       if (!saved) reportSave(false);
-      logAudit("delete", "expense", existing.id, { amount: existing.amount, category: existing.category, description: existing.description, year: existing.year });
     },
     queueOnExit: () => enqueueWrite("deleteExpense", { id: existing.id }),
   });
@@ -1781,7 +1764,6 @@ function saveSettings() {
   renderAll();
   p.then(saved => {
     reportSave(saved, "הגדרות המערכת נשמרו בהצלחה");
-    logAudit("update", "settings", "targets", values);
   }).finally(() => { if (btn) btn.disabled = false; });
 }
 
@@ -1969,15 +1951,17 @@ function switchSettingsTab(tabName) {
 const AUDIT_ACTIONS = { create: "הוספה", update: "עדכון", delete: "מחיקה", import: "ייבוא", paid: "סימון תשלום", upload: "העלאת קבלה" };
 const AUDIT_ENTITIES = {
   member: "בחור", donation: "הפקדה", expense: "הוצאה", purim: "כתובות פורים", settings: "הגדרות", "expense-category": "קטגוריית הוצאה",
-  "grant-recipient": "מקבל מענק", "grant-package": "תכולת מענק", "grant-year": "שנת מענקים", "store-bill": "תשלום לחנות", backup: "גיבוי", profile: "הרשאות משתמש",
+  "grant-recipient": "מקבל מענק", "grant-package": "תכולת מענק", "grant-year": "שנת מענקים", grants: "נתוני מענקים", "store-bill": "תשלום לחנות", backup: "גיבוי", profile: "הרשאות משתמש",
 };
 function describeAuditDetails(d) {
   if (!d || typeof d !== "object") return "";
   if (d.before && d.after) {
-    return Object.keys(d.after).filter(k => JSON.stringify(d.before[k]) !== JSON.stringify(d.after[k]))
+    const changes = Object.keys(d.after).filter(k => JSON.stringify(d.before[k]) !== JSON.stringify(d.after[k]))
       .map(k => `${k}: ${d.before[k] ?? "—"} ← ${d.after[k] ?? "—"}`).join(" · ");
+    // subject = על מי / על מה השינוי (נרשם על ידי הטריגר במסד)
+    return d.subject ? `${d.subject} | ${changes}` : changes;
   }
-  return Object.entries(d).filter(([, v]) => v !== "" && v != null && typeof v !== "object").map(([k, v]) => `${k}: ${v}`).join(" · ");
+  return Object.entries(d).filter(([k, v]) => k !== "subject" && v !== "" && v != null && typeof v !== "object").map(([k, v]) => `${k}: ${v}`).join(" · ");
 }
 async function renderAuditLog() {
   const el = document.getElementById("audit-log-list");
@@ -1993,7 +1977,7 @@ async function renderAuditLog() {
     }).join("")}</tbody></table></div>`;
   } catch (e) {
     el.innerHTML = e.status === 404 || /audit_log/.test(e.message || "")
-      ? `<div class="grants-archive-note"><span class="material-icons-regular">info</span> יומן הפעולות יתחיל לעבוד אחרי הרצת קובץ העדכון supabase/security-update.sql ב-Supabase.</div>`
+      ? `<div class="grants-archive-note"><span class="material-icons-regular">info</span> יומן הפעולות יתחיל לעבוד אחרי הרצת הקבצים supabase/security-update.sql ו-migrations/002_audit_log_triggers.sql ב-Supabase.</div>`
       : `<div class="grants-archive-note"><span class="material-icons-regular">error</span> לא ניתן לטעון את היומן כרגע: ${escapeHtml(e.message || "")}</div>`;
   }
 }
@@ -2078,7 +2062,7 @@ function renderPurimSumsSettings() {
     });
     renderDashboard();
     renderPurimGroups();
-    p.then(saved => { reportSave(saved, "הסכומים נשמרו בהצלחה!"); logAudit("update", "settings", "purim-sums", changes); });
+    p.then(saved => { reportSave(saved, "הסכומים נשמרו בהצלחה!"); });
   };
 }
 
@@ -2112,7 +2096,7 @@ window.addExpenseCategory = function() {
   if (input) input.value = "";
   renderExpenseCategories();
   populateExpenseCategorySelect();
-  p.then(saved => { reportSave(saved, "הקטגוריה נוספה"); logAudit("create", "expense-category", val); });
+  p.then(saved => { reportSave(saved, "הקטגוריה נוספה"); });
 };
 
 window.removeExpenseCategory = function(index) {
@@ -2132,7 +2116,7 @@ window.removeExpenseCategory = function(index) {
     apply: () => { removeIt(state.settings); refresh(); },
     undo: () => { state.settings.expenseCategories = previous; refresh(); },
     commit: () => {
-      saveSettingsPatch(removeIt).then(saved => { if (!saved) reportSave(false); logAudit("delete", "expense-category", name); });
+      saveSettingsPatch(removeIt).then(saved => { if (!saved) reportSave(false); });
       renderExpenseCategories(); populateExpenseCategorySelect();
     },
     queueOnExit: () => enqueueWrite("saveSettings", state.settings),
@@ -2272,7 +2256,6 @@ window.applyHealthFix = function(memberId, field, value) {
   invalidateCache();
   saveState();
   persist("saveMember", member).then(saved => { if (!saved) reportSave(false); });
-  logAudit("update", "member", member.id, { field, value: val, via: "תקינות נתונים" });
   // הסרת השורה שתוקנה מהרשימה
   const row = document.getElementById(`fixrow-${memberId}`);
   if (row) row.remove();
@@ -2361,7 +2344,6 @@ window.importFullBackup = function(file) {
       if (Array.isArray(data.purimAddresses)) await SB.upsertChunked("purim_addresses", data.purimAddresses.map(SB.map.purimToDb));
       if (data.settings && typeof data.settings === "object") await SB.saveSettings({ ...DEFAULT_SETTINGS, ...data.settings });
       if (data.grantsArchive && typeof data.grantsArchive === "object") await SB.saveGrantsArchive(data.grantsArchive);
-      logAudit("import", "backup", file.name, { counts });
       await fetchDataFromServer(true);
       renderSettings();
       showToast("הגיבוי יובא ונשמר בשרת");
@@ -2415,7 +2397,6 @@ window.saveUserPermissions = async function(userId, btn) {
     if (u) Object.assign(u, patch);
     saveState();
     showToast(`ההרשאות של ${u ? u.username : "המשתמש"} נשמרו. הן ייכנסו לתוקף בכניסה הבאה שלו`, "success");
-    logAudit("update", "profile", userId, { user: u ? u.username : userId, ...patch });
   } catch (e) {
     showToast(e.status === 403
       ? "השרת לא אישר את השינוי. צריך להריץ פעם אחת את קובץ העדכון supabase/security-update.sql ב-Supabase"
@@ -3594,7 +3575,6 @@ window.deleteMemberRow = function(memberId) {
     commit: async () => {
       const saved = await persist("deleteMember", { id: member.id });
       if (!saved) reportSave(false);
-      logAudit("delete", "member", member.id, { name: label });
     },
     queueOnExit: () => enqueueWrite("deleteMember", { id: member.id }),
   });
@@ -3660,7 +3640,6 @@ window.saveMembersEdit = function() {
     Promise.all(changedMembers.map(m => persist("saveMember", m))).then(results => {
       reportSave(results.every(Boolean), `נשמרו ${changed} שינויים`);
     });
-    changedMembers.forEach(m => logAudit("update", "member", m.id, { via: "עריכה בטבלה", name: `${m.firstName || ""} ${m.lastName || ""}`.trim() }));
   } else {
     renderMembersTable();
   }
@@ -3991,57 +3970,12 @@ window.toggleExpenseYears = function() {
 
 
 // ==========================================
-// היסטוריית מענקים - נתונים מתוך אקסל "מענקים תשפ"ד-תשפ"ו"
-// מקבלי מענק לפי שנה, תכולת החבילה לחתן, וחיוב לפי חנות.
-// הערה: בשנים תשפ"ה/תשפ"ו נרשמו המקבלים לפי ת"ז ותאריך בלבד (ללא שם) במקור.
+// מאגר המענקים: מבנה ריק בלבד.
+// כל הנתונים (מקבלי המענק, תכולת החבילה, מחירים, אחוזי הנחה ותשלומים לחנויות) נמצאים רק במסד,
+// בטבלה grants_archive, ונטענים אחרי התחברות למי שיש לו הרשאת מענקים.
+// ברירות המחדל שהיו כאן הועברו למסד בקובץ migrations/001_grants_archive_defaults.sql.
 // ==========================================
-// שים לב: אין כאן נתונים אישיים (שמות/ת"ז/טלפונים) של מקבלי מענקים בכוונה -
-// הנתונים האמיתיים חיים ב-Supabase (טבלת grants_archive) ונטענים אחרי התחברות.
-// זהו רק שלד ברירת מחדל למקרה שהמסך נפתח לפני שהנתונים מהשרת נטענו.
-const GRANTS_ARCHIVE = {
-  perGroomValue: 8110.7,
-  years: {},
-  payments: [
-    { year: "תשפ\"ד", store: "רויאל", date: "תשרי תשפ\"ד", description: "תשלום בפועל לפי כרטיסיית תשלום לרויאל", method: "מזומן", amount: 39835.95 },
-    { year: "תשפ\"ד", store: "סאפרים", date: "26.07.2023", description: "תשלום בפועל לפי כרטיסיית סאפרים", method: "העברה", amount: 9360 },
-    { year: "תשפ\"ד", store: "סאפרים", date: "י\"ג אדר ב'", description: "תשלום בפועל לפי כרטיסיית סאפרים", method: "העברה", amount: 10000 },
-    { year: "תשפ\"ד", store: "סאפרים", date: "ח' ניסן", description: "תשלום בפועל לפי כרטיסיית סאפרים", method: "העברה", amount: 32500 },
-    { year: "תשפ\"ד", store: "אווניו 13 ביתר", date: "ניסן תשפ\"ד", description: "תשלום בפועל לפי כרטיסיית אווניו 13", method: "תשלום", amount: 7399.25 },
-    { year: "תשפ\"ו", store: "אווניו 13 ביתר", date: "אדר תשפ\"ו", description: "תשלום בפועל לפי כרטיסיית אווניו 13", method: "תשלום", amount: 6236 }
-  ],
-  package: [
-    { store: "רויאל", discount: "30%", items: [
-      { name: "חליפה 3 חלקים ביטנה מלאה", qty: 1, storePrice: 1375, orgPrice: 960, value: 960 },
-      { name: "בעקיטשע חלק חצי בטנה", qty: 1, storePrice: 845, orgPrice: 590, value: 590 },
-      { name: "בעקיטשע פירחוני חצי בטנה", qty: 1, storePrice: 850, orgPrice: 510, value: 510 },
-      { name: "מכנס שחור פוליאסטר", qty: 2, storePrice: 170, orgPrice: 110, value: 220 }
-    ]},
-    { store: "רויאל", discount: "15%", items: [
-      { name: "חגורה יוקרתית מעור", qty: 1, storePrice: 59, orgPrice: 50.15, value: 50.15 },
-      { name: "גרביים", qty: 9, storePrice: 13.9, orgPrice: 11.815, value: 106.34 },
-      { name: "חולצות 24K", qty: 8, storePrice: 135, orgPrice: 110, value: 880 },
-      { name: "סוודר", qty: 1, storePrice: 110, orgPrice: 90, value: 90 },
-      { name: "הלבשה אישית", qty: 4, storePrice: 64.9, orgPrice: 55.165, value: 220.66 },
-      { name: "גופיות", qty: 8, storePrice: 30, orgPrice: 25.5, value: 204 },
-      { name: "כיפות", qty: 2, storePrice: 24, orgPrice: 20.4, value: 40.8 },
-      { name: "טלית קטן צמר", qty: 2, storePrice: 117, orgPrice: 99.45, value: 198.9 },
-      { name: "פיג'מה", qty: 1, storePrice: 85, orgPrice: 72.25, value: 72.25 }
-    ]},
-    { store: "סטייל שיך", discount: "12%", items: [
-      { name: "זיכוי לנעלי יום חול", qty: 1, storePrice: 250, orgPrice: 220, value: 220 },
-      { name: "זיכוי לנעלי שבת", qty: 1, storePrice: 250, orgPrice: 220, value: 220 }
-    ]},
-    { store: "אווניו 13", discount: "15%", items: [
-      { name: "מגבת ידיים 50/90", qty: 4, storePrice: 33, orgPrice: 28.05, value: 112.2 },
-      { name: "מגבת רחצה 90/130", qty: 4, storePrice: 66, orgPrice: 56.1, value: 224.4 },
-      { name: "מגבת מטבח", qty: 4, storePrice: 16, orgPrice: 13.6, value: 54.4 },
-      { name: "זיכוי לקניית מצעים", qty: 0, storePrice: 400, orgPrice: 340, value: 0 }
-    ]},
-    { store: "סאפרים", discount: "", items: [
-      { name: "זיכוי לכובע חסידי", qty: 1, storePrice: 1500, orgPrice: 700, value: 700 }
-    ]}
-  ]
-};
+const GRANTS_ARCHIVE = { years: {}, payments: [], package: [] };
 
 function renderGrantsLists() {
   renderGrantsArchive();
@@ -4373,7 +4307,7 @@ function saveGrantsPackageEdit() {
   });
   renderGrantsArchive();
   renderDashboard();
-  p.then(saved => { reportSave(saved, "תכולת המענק נשמרה"); logAudit("update", "grant-package", year, { stores: draft.length }); });
+  p.then(saved => { reportSave(saved, "תכולת המענק נשמרה"); });
 }
 
 window.updateGrantsPkgGroupField = function(gIdx, field, value) {
@@ -4496,7 +4430,6 @@ window.submitGrantsAddRecipient = function() {
   renderDashboard();
   p.then(saved => {
     reportSave(saved, editing ? "פרטי החתן עודכנו" : "החתן נוסף לרשימת מקבלי המענק");
-    logAudit(editing ? "update" : "create", "grant-recipient", rec.rid, { year, name: rec.name || "", id: rec.id || "" });
   });
 };
 
@@ -4542,7 +4475,6 @@ window.removeGrantsArchiveRecipient = function(index) {
     commit: () => {
       mutateGrantsArchive(removeIt).then(saved => {
         if (!saved) reportSave(false);
-        logAudit("delete", "grant-recipient", target.rid || target.id || "", { year, name: target.name || "", id: target.id || "" });
       });
       renderGrantsArchive(); renderDashboard();
     },
@@ -4579,7 +4511,7 @@ window.addGrantsArchiveYear = async function() {
   const p = mutateGrantsArchive(a => { if (!a.years[year]) a.years[year] = { recipients: [] }; });
   renderGrantsArchive();
   toggleGrantsAddForm(true);
-  p.then(saved => { reportSave(saved, `נוספה שנת ${year} - הוסף כעת מקבלי מענק`); logAudit("create", "grant-year", year); });
+  p.then(saved => { reportSave(saved, `נוספה שנת ${year} - הוסף כעת מקבלי מענק`); });
 };
 
 window.exportGrantsArchiveRecipients = function() {
@@ -4676,7 +4608,7 @@ window.saveLegacyAssign = function(choice) {
   if (choice === "א" || choice === "ב") { state.billsHalf = choice; }
   renderGrantsArchive();
   const label = choice === "none" ? "הרשומה חזרה לרשימת התשלומים הישנים" : `התשלום שויך למחצית ${choice}'`;
-  p.then(saved => { reportSave(saved, label); logAudit("update", "store-bill", key, { שנה: year, שיוך: choice === "none" ? "ללא" : `מחצית ${choice}` }); });
+  p.then(saved => { reportSave(saved, label); });
 };
 
 // עלות לארגון לחתן בכל חנות, לפי תכולת החבילה של השנה
@@ -4878,7 +4810,6 @@ window.saveStoreBill = async function() {
       const path = `bills/${bid.replace(/[^A-Za-z0-9-]/g, "")}-${Date.now()}.${ext}`;
       await SB.uploadReceipt(path, file);
       receipt = { path, name: file.name, size: file.size, uploadedAt: new Date().toISOString() };
-      logAudit("upload", "store-bill", bid, { store, file: file.name });
     }
   } catch (e) {
     showToast(receiptErrorMessage(e), "danger");
@@ -4906,9 +4837,7 @@ window.saveStoreBill = async function() {
   saveBtn.disabled = false; saveBtn.textContent = "שמור";
   const saved = await p;
   reportSave(saved, existing ? "התשלום עודכן" : "התשלום לחנות נשמר");
-  logAudit(existing ? "update" : "create", "store-bill", bid, { year, half: bill.half, store, amount, paid, reference: bill.reference });
-  if (existing && existing.paid !== paid && paid) logAudit("paid", "store-bill", bid, { store, amount, method: bill.method, date: bill.paidDate });
-  if (oldPath && (!receipt || receipt.path !== oldPath) && saved) SB.deleteReceipt(oldPath).catch(() => {});
+    if (oldPath && (!receipt || receipt.path !== oldPath) && saved) SB.deleteReceipt(oldPath).catch(() => {});
 };
 
 window.deleteStoreBill = async function() {
@@ -4937,7 +4866,6 @@ window.deleteStoreBill = async function() {
     commit: () => {
       mutateGrantsArchive(removeIt).then(saved => {
         if (!saved) reportSave(false);
-        logAudit("delete", "store-bill", bid, { year, store: snapshot.store, amount: snapshot.amount });
         // הקבלה הסרוקה נמחקת מהאחסון רק אחרי שהמחיקה נשמרה בשרת
         if (saved && snapshot.receipt && snapshot.receipt.path) SB.deleteReceipt(snapshot.receipt.path).catch(() => {});
       });
@@ -5211,7 +5139,6 @@ window.togglePurimGroupEdit = async function(key) {
     renderPurimGroups();
     const results = await Promise.all(changedRows.map(row => persist("savePurim", row)));
     reportSave(results.every(Boolean), `נשמרו בהצלחה ${changedRows.length} שורות!`);
-    logAudit("update", "purim", `${g.city} / ${g.group}`, { rows: changedRows.length });
 };
 
 window.cancelPurimGroupEdit = function() {

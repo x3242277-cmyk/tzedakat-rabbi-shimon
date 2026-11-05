@@ -224,8 +224,7 @@
     return json[0];
   });
 
-  // ---------- יומן פעולות ----------
-  const insertAudit = (entry) => request("POST", "audit_log", { body: [entry], prefer: "return=minimal" });
+  // ---------- יומן פעולות (קריאה בלבד: הכתיבה נעשית בטריגרים במסד) ----------
   const selectAudit = (limit = 300) => request("GET", `audit_log?select=*&order=created_at.desc&limit=${limit}`).then(({ json }) => json || []);
 
   // ---------- קבלות (Supabase Storage) ----------
@@ -261,7 +260,7 @@
     loadAll,
     saveMember, saveDonation, saveExpense, savePurim, saveSettings, saveGrantsArchive,
     deleteMember, deleteDonation, deleteExpense,
-    updateProfile, insertAudit, selectAudit,
+    updateProfile, selectAudit,
     uploadReceipt, receiptUrl, deleteReceipt,
     map: { memberToDb, memberFromDb, donationToDb, donationFromDb, expenseToDb, expenseFromDb, purimToDb, purimFromDb, profileFromDb },
   };
