@@ -125,6 +125,75 @@ function extractMemberId(inputValue) {
 // ------------------------------------------
 
 // ==========================================
+// פעולות ממשק בלי קוד מוטמע ב-HTML (נדרש ל-Content-Security-Policy בלי unsafe-inline)
+// במקום onclick="fn('x')" כותבים data-action="fn" data-args='["x"]', ומאזין אחד על המסמך מפעיל את הפונקציה.
+// data-action = לחיצה, data-change = שינוי ערך, data-input = הקלדה.
+// בארגומנטים: "$value" = הערך של הרכיב עצמו, "$el" = הרכיב עצמו.
+// רק פונקציות שברשימה הזו ניתנות להפעלה מתוך תכונות ה-HTML.
+// ==========================================
+const UI_ACTION_NAMES = new Set([
+  "addGrantsArchiveYear", "addGrantsPkgGroup", "addGrantsPkgItem", "applyHealthFix", "applyHealthFixFromInput",
+  "cancelGrantsPackageEdit", "cancelMembersEdit", "cancelPurimGroupEdit", "clearStoreBillReceipt", "closeDashboardDrill",
+  "closeDataHealthModal", "closeLegacyAssign", "closeStoreBillModal", "deleteMemberRow", "deleteStoreBill",
+  "editGrantsArchiveRecipient", "exportGrantsArchiveRecipients", "exportGrantsToExcel", "exportPurimGroupToExcel",
+  "handleMembersEditButton", "onExpensesYearChange", "openDashboardDrill", "openDashboardMember", "openDataHealthDetail",
+  "openDonationModal", "openExpenseModal", "openLegacyAssign", "openMemberFromHealth", "openNedarimModal", "openStoreBillModal",
+  "printPage", "printPurimGroup", "removeExpenseCategory", "removeGrantsArchiveRecipient", "removeGrantsPkgGroup",
+  "removeGrantsPkgItem", "renderDashboard", "resetIdleTimer", "saveLegacyAssign", "saveStoreBill", "saveUserPermissions",
+  "selectGrantsArchiveYear", "submitGrantsAddRecipient", "switchBillsHalf", "switchGrantsView", "takanonSearch",
+  "takanonShowMember", "toggleExpenseYears", "toggleGrantsAddForm", "toggleGrantsPackageEditMode", "toggleMembersDensity",
+  "togglePurimGroupEdit", "togglePurimSpacing", "togglePurimYears", "updateGrantsPkgGroupField", "updateGrantsPkgItemField",
+  "updateTypeFilter", "viewStoreBillReceipt",
+]);
+
+function uiAttr(attr, name, args) {
+  return `${attr}="${name}"${args.length ? ` data-args="${escapeHtml(JSON.stringify(args))}"` : ""}`;
+}
+function uiAct(name, ...args) { return uiAttr("data-action", name, args); }
+function uiChange(name, ...args) { return uiAttr("data-change", name, args); }
+function uiInput(name, ...args) { return uiAttr("data-input", name, args); }
+
+function runUiAction(el, name) {
+  if (!UI_ACTION_NAMES.has(name) || typeof window[name] !== "function") return;
+  let args = [];
+  try { args = JSON.parse(el.dataset.args || "[]"); } catch (e) { args = []; }
+  if (!Array.isArray(args)) args = [];
+  window[name](...args.map(a => a === "$value" ? el.value : a === "$el" ? el : a));
+}
+
+[["click", "action"], ["change", "change"], ["input", "input"]].forEach(([eventName, key]) => {
+  document.addEventListener(eventName, (ev) => {
+    const target = ev.target instanceof Element ? ev.target.closest(`[data-${key}]`) : null;
+    if (!target || target.disabled) return;
+    runUiAction(target, target.dataset[key]);
+  });
+});
+
+// תמונת מתנה שלא נטענה מוחלפת בסימן ברירת המחדל (במקום onerror מוטמע)
+document.addEventListener("error", (ev) => {
+  const img = ev.target;
+  if (!(img instanceof HTMLImageElement) || !img.classList.contains("takanon-prize-thumb")) return;
+  const fallback = document.createElement("div");
+  fallback.className = "takanon-prize-emoji";
+  fallback.textContent = img.dataset.fallback || "";
+  img.replaceWith(fallback);
+}, true);
+
+function printPage() { window.print(); }
+function toggleMembersDensity() {
+  const table = document.querySelector("#members-screen .data-table");
+  if (table) table.classList.toggle("compact-view");
+}
+function closeDataHealthModal() {
+  const modal = document.getElementById("data-health-modal");
+  if (modal) modal.classList.remove("open");
+}
+function applyHealthFixFromInput(memberId, field) {
+  const input = document.getElementById(`fix-${memberId}`);
+  applyHealthFix(memberId, field, input ? input.value : "");
+}
+
+// ==========================================
 // שמירה לשרת עם תור ממתינים
 // כל שינוי נכנס לתור שנשמר בדפדפן ונשלח לשרת. אם השליחה נכשלת (אין אינטרנט / תקלה זמנית),
 // השינוי נשאר בתור, נשלח שוב אוטומטית, ולא נמחק כשהנתונים נטענים מחדש מהשרת.
@@ -998,7 +1067,7 @@ function loadMemberProfile(memberId) {
     setText("profile-donations-count", list.length ? `${list.length} הפקדות · סה"כ ${formatCurrency(sumArray(list, "amount"))}` : "");
     const canEdit = !state.currentUserObj || isAdminUser() || isTrue(state.currentUserObj.canEdit);
     donTbody.innerHTML = list.length ? list.map(d => `
-      <tr${canEdit ? ` class="clickable-row" onclick="openDonationModal(null, '${escapeHtml(dashboardJsString(d.id))}')" title="לחיצה לעריכה"` : ""}>
+      <tr${canEdit ? ` class="clickable-row" ${uiAct("openDonationModal", null, d.id)} title="לחיצה לעריכה"` : ""}>
         <td>${escapeHtml(formatDateDisplay(d.date) || "—")}</td>
         <td>${escapeHtml(d.year || "")}</td>
         <td class="amount-cell" style="font-weight:bold; color: var(--success);">${escapeHtml(formatCurrency(d.amount))}</td>
@@ -1624,7 +1693,7 @@ function renderRulesScreen() {
   // כרטיסי פרס קומפקטיים אופקיים
   const buildGiftCard = (name, target, image, emoji) => {
     const mediaHtml = image
-      ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(name)}" class="takanon-prize-thumb" onerror="this.outerHTML='<div class=\\'takanon-prize-emoji\\'>${emoji}</div>'">`
+      ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(name)}" class="takanon-prize-thumb" data-fallback="${escapeHtml(emoji)}">`
       : `<div class="takanon-prize-emoji">${emoji}</div>`;
     return `<div class="takanon-prize-card">
       ${mediaHtml}
@@ -1661,7 +1730,7 @@ function renderRulesScreen() {
           <div class="takanon-col-divider"></div>` : ''}
         <div class="takanon-section-label"><span class="material-icons-regular">manage_search</span> בדיקת מצב אישי</div>
         <div class="takanon-lookup-box">
-          <input type="text" id="takanon-member-input" class="ui-input" placeholder="חפש לפי שם..." oninput="takanonSearch(this.value)" autocomplete="off">
+          <input type="text" id="takanon-member-input" class="ui-input" placeholder="חפש לפי שם..." ${uiInput("takanonSearch", "$value")} autocomplete="off">
           <div id="takanon-search-results" class="takanon-search-dropdown" style="display:none;"></div>
         </div>
         <div id="takanon-member-card" class="takanon-member-card" style="display:none;"></div>
@@ -1691,7 +1760,7 @@ window.takanonSearch = function(term) {
     return;
   }
   resultsEl.innerHTML = matches.map(m =>
-    `<div class="takanon-search-item" onclick="takanonShowMember('${escapeHtml(String(m.id))}')">
+    `<div class="takanon-search-item" ${uiAct("takanonShowMember", String(m.id))}>
       <span class="takanon-search-name">${escapeHtml(m.fullName)}</span>
       <span class="takanon-search-meta">${escapeHtml(m.yeshiva || m.yeshivaType || "")}</span>
     </div>`
@@ -1899,7 +1968,7 @@ function renderExpenseCategories() {
   const cats = getExpenseCategories();
   el.innerHTML = cats.map((c, i) => `
     <span class="cat-chip">${escapeHtml(c)}
-      <button onclick="removeExpenseCategory(${i})" title="מחק קטגוריה"><span class="material-icons-regular">close</span></button>
+      <button ${uiAct("removeExpenseCategory", i)} title="מחק קטגוריה"><span class="material-icons-regular">close</span></button>
     </span>`).join("");
 }
 
@@ -1968,7 +2037,7 @@ function renderDataHealth() {
     const cls = r.count === 0 ? "ok" : r.sev;
     const icon = r.count === 0 ? "check_circle" : r.icon;
     const clickable = r.count > 0;
-    return `<div class="health-row ${cls} ${clickable ? "clickable" : ""}" ${clickable ? `onclick="openDataHealthDetail('${r.type}')"` : ""}>
+    return `<div class="health-row ${cls} ${clickable ? "clickable" : ""}" ${clickable ? uiAct("openDataHealthDetail", r.type) : ""}>
         <span class="material-icons-regular health-icon">${icon}</span>
         <div class="health-text"><div class="health-title">${escapeHtml(r.title)}</div></div>
         <div class="health-count">${r.count}</div>
@@ -2018,7 +2087,7 @@ function renderFixRow(type, m) {
   const sub = escapeHtml(m.yeshiva || m.address || "");
   let control = "";
   if (type === "type") {
-    control = `<select class="ui-select" onchange="applyHealthFix('${m.id}','yeshivaType',this.value)">
+    control = `<select class="ui-select" ${uiChange("applyHealthFix", m.id, "yeshivaType", "$value")}>
         <option value="">בחר...</option>
         <option value="חיידר">חיידר</option>
         <option value="ישיבה קטנה">ישיבה קטנה</option>
@@ -2027,10 +2096,10 @@ function renderFixRow(type, m) {
       </select>`;
   } else if (type === "yeshiva") {
     control = `<input type="text" class="ui-input" placeholder="שם הישיבה" id="fix-${m.id}">
-      <button class="btn btn-solid-blue fix-save" onclick="applyHealthFix('${m.id}','yeshiva',document.getElementById('fix-${m.id}').value)">שמור</button>`;
+      <button class="btn btn-solid-blue fix-save" ${uiAct("applyHealthFixFromInput", m.id, "yeshiva")}>שמור</button>`;
   } else if (type === "phone") {
     control = `<input type="text" class="ui-input" placeholder="050-0000000" id="fix-${m.id}" style="direction:ltr;text-align:right;">
-      <button class="btn btn-solid-blue fix-save" onclick="applyHealthFix('${m.id}','phone',document.getElementById('fix-${m.id}').value)">שמור</button>`;
+      <button class="btn btn-solid-blue fix-save" ${uiAct("applyHealthFixFromInput", m.id, "phone")}>שמור</button>`;
   }
   return `<div class="fix-row" id="fixrow-${m.id}">
       <div class="fix-name">${name}${sub ? `<div class="fix-sub">${sub}</div>` : ""}</div>
@@ -2053,7 +2122,7 @@ function renderDupesList() {
       <div class="dupe-group-title">${escapeHtml(name)} (${arr.length})</div>
       ${arr.map(m => `<div class="fix-row">
         <div class="fix-name" style="font-weight:500;">${escapeHtml(m.yeshiva || "ללא ישיבה")} <span class="fix-sub">${escapeHtml(m.phone || "ללא טלפון")}</span></div>
-        <button class="btn btn-outline fix-save" onclick="openMemberFromHealth('${m.id}')">פתח פרופיל</button>
+        <button class="btn btn-outline fix-save" ${uiAct("openMemberFromHealth", m.id)}>פתח פרופיל</button>
       </div>`).join("")}
     </div>`).join("");
 }
@@ -2190,7 +2259,7 @@ function renderUsersTable() {
     return `<tr data-user-id="${escapeHtml(u.id || "")}">
       <td style="font-weight:bold;">${escapeHtml(u.username)}${isAdminRow ? ` <span class="role-chip">מנהל</span>` : ""}</td>
       ${boxes}
-      <td class="no-export">${isAdminRow || !u.id ? "" : `<button class="btn btn-outline users-save-btn" style="padding:5px 12px; font-size:12px;" onclick="saveUserPermissions('${escapeHtml(dashboardJsString(u.id))}', this)">שמור</button>`}</td>
+      <td class="no-export">${isAdminRow || !u.id ? "" : `<button class="btn btn-outline users-save-btn" style="padding:5px 12px; font-size:12px;" ${uiAct("saveUserPermissions", u.id, "$el")}>שמור</button>`}</td>
     </tr>`;
   }).join("");
 }
@@ -2450,7 +2519,7 @@ function renderDashboardAttention({ summaries, totalDonations, currentYear }) {
   }
 
   el.innerHTML = items.slice(0, 5).map(item => `
-    <button class="dashboard-attention-item" type="button" onclick="openDashboardDrill('${escapeHtml(dashboardJsString(item.drill))}', '${escapeHtml(dashboardJsString(item.category || ""))}')">
+    <button class="dashboard-attention-item" type="button" ${uiAct("openDashboardDrill", item.drill, item.category || "")}>
       <span class="material-icons-regular dashboard-item-icon ${item.tone}">${item.icon}</span>
       <span>
         <span class="dashboard-item-title">${escapeHtml(item.title)}</span>
@@ -2825,7 +2894,7 @@ function renderDashboardSegments(summaries) {
   el.innerHTML = rows.map(([name, data]) => {
     const pct = data.obligated > 0 ? Math.min(100, Math.round((data.reached / data.obligated) * 100)) : 0;
     return `
-      <button class="dashboard-segment-item" type="button" onclick="openDashboardDrill('segment', '${escapeHtml(dashboardJsString(name))}')">
+      <button class="dashboard-segment-item" type="button" ${uiAct("openDashboardDrill", "segment", name)}>
         <span>
           <span class="dashboard-item-title">${escapeHtml(name)}</span>
           <span class="dashboard-item-sub">${data.reached.toLocaleString("he-IL")} מתוך ${data.obligated.toLocaleString("he-IL")} הגיעו לחובה</span>
@@ -2860,7 +2929,7 @@ function getDashboardMemberMeta(member) {
 
 function dashboardMemberAction(memberId) {
   if (!memberId) return "";
-  return `<button class="dashboard-drill-open-member" type="button" onclick="openDashboardMember('${escapeHtml(dashboardJsString(memberId))}')">פתח כרטיס</button>`;
+  return `<button class="dashboard-drill-open-member" type="button" ${uiAct("openDashboardMember", memberId)}>פתח כרטיס</button>`;
 }
 
 function buildDashboardMemberCells(row, mode = "full") {
@@ -2913,7 +2982,7 @@ function ensureDashboardDrillModal() {
   modal.className = "modal-overlay dashboard-drill-modal";
   modal.innerHTML = `
     <div class="modal-content app-modal">
-      <button class="modal-close" type="button" onclick="closeDashboardDrill()" aria-label="סגור">
+      <button class="modal-close" type="button" data-action="closeDashboardDrill" aria-label="סגור">
         <span class="material-icons-regular">close</span>
       </button>
       <div class="modal-inner" id="dashboard-drill-content"></div>
@@ -3288,7 +3357,7 @@ function renderMembersTable() {
     const tr = document.createElement("tr");
     tr.style.cursor = "pointer";
     tr.dataset.memberId = row.id;
-    tr.onclick = () => { if (!state.membersEditMode) loadMemberProfile(row.id); };
+    tr.onclick = (ev) => { if (ev.target.closest("[data-action]")) return; if (!state.membersEditMode) loadMemberProfile(row.id); };
 
     let shiurDisplay = row.shiur || "---";
     if(row.yeshivaType === "חיידר") shiurDisplay = "---";
@@ -3300,7 +3369,7 @@ function renderMembersTable() {
     if (!String(row.phone || "").trim()) missing.push("טלפון");
     if (!String(row.address || "").trim()) missing.push("כתובת");
     const star = missing.length ? `<span class="missing-star" title="חסר: ${escapeHtml(missing.join(", "))}">*</span>` : "";
-    const deleteCell = isAdmin ? `<td class="no-export" style="text-align:center;"><button class="grants-archive-del" title="מחק בחור" onclick="event.stopPropagation(); deleteMemberRow('${escapeHtml(dashboardJsString(row.id))}')"><span class="material-icons-regular">delete_outline</span></button></td>` : "";
+    const deleteCell = isAdmin ? `<td class="no-export" style="text-align:center;"><button class="grants-archive-del" title="מחק בחור" ${uiAct("deleteMemberRow", row.id)}><span class="material-icons-regular">delete_outline</span></button></td>` : "";
 
     tr.innerHTML = `<td data-field="firstName">${escapeHtml(row.firstName)}${star}</td><td data-field="lastName">${escapeHtml(row.lastName)}</td><td data-field="fatherName">${escapeHtml(row.fatherName || "---")}</td><td data-field="yeshiva">${escapeHtml(row.yeshiva)}</td><td data-field="shiur">${escapeHtml(shiurDisplay)}</td><td>${escapeHtml(cityDisplay)}</td><td class="amount-cell" style="font-weight: bold; color: var(--gold-dark);">${escapeHtml(formatCurrency(row.collectedThisYear))}</td>${deleteCell}`;
     tbody.appendChild(tr);
@@ -3441,7 +3510,7 @@ function renderDailyReport() {
             const amt = Number(d.amount) || 0;
             totalInc += amt;
             
-            incHtml += `<tr class="clickable-row" onclick="openDonationModal(null, '${escapeHtml(dashboardJsString(d.id))}')" title="לחיצה לעריכה">
+            incHtml += `<tr class="clickable-row" ${uiAct("openDonationModal", null, d.id)} title="לחיצה לעריכה">
                 <td>${escapeHtml(formatDateDisplay(d.date))}</td>
                 <td><strong>${escapeHtml(name)}</strong><br><span style="font-size:11px;color:var(--text-secondary);">${escapeHtml(d.notes)}</span></td>
                 <td class="amount-cell" style="font-weight: bold; color: var(--success);">${escapeHtml(formatCurrency(amt))}</td>
@@ -3460,7 +3529,7 @@ function renderDailyReport() {
             const amt = Number(e.amount) || 0;
             totalExp += amt;
             
-            expHtml += `<tr class="clickable-row" onclick="openExpenseModal('${escapeHtml(dashboardJsString(e.id))}')" title="לחיצה לעריכה">
+            expHtml += `<tr class="clickable-row" ${uiAct("openExpenseModal", e.id)} title="לחיצה לעריכה">
                 <td>${escapeHtml(formatDateDisplay(e.date))}</td>
                 <td><strong>${escapeHtml(e.description)}</strong><br><span style="background:var(--surface-light); border-radius:8px; padding:2px 6px; font-size:11px;">${escapeHtml(e.category)}</span></td>
                 <td class="amount-cell" style="font-weight: bold; color: var(--danger);">${escapeHtml(formatCurrency(amt))}</td>
@@ -3975,8 +4044,8 @@ function renderGrantsArchive() {
           <td style="direction:ltr; text-align:right;">${r.id ? escapeHtml(r.id) : "—"}</td>
           <td style="direction:ltr; text-align:right;">${r.phone ? escapeHtml(r.phone) : "—"}</td>
           <td>${formatArchiveDate(r.date)}</td>
-          <td class="no-export" style="text-align:center;"><button class="grants-archive-del grants-archive-edit" title="עריכה" onclick="editGrantsArchiveRecipient(${i})"><span class="material-icons-regular">edit</span></button></td>
-          <td class="no-export" style="text-align:center;"><button class="grants-archive-del" title="הסר" onclick="removeGrantsArchiveRecipient(${i})"><span class="material-icons-regular">close</span></button></td>
+          <td class="no-export" style="text-align:center;"><button class="grants-archive-del grants-archive-edit" title="עריכה" ${uiAct("editGrantsArchiveRecipient", i)}><span class="material-icons-regular">edit</span></button></td>
+          <td class="no-export" style="text-align:center;"><button class="grants-archive-del" title="הסר" ${uiAct("removeGrantsArchiveRecipient", i)}><span class="material-icons-regular">close</span></button></td>
         </tr>`).join("");
     }
   }
@@ -4045,7 +4114,7 @@ function renderGrantsArchive() {
         <td>${escapeHtml(payment.description || "—")}</td>
         <td>${escapeHtml(payment.method || "—")}</td>
         <td class="amount-cell" style="font-weight:800;">${formatCurrency(payment.amount)}</td>
-        <td class="no-export">${canEditLegacy ? `<button type="button" class="btn btn-outline bill-row-btn" onclick="openLegacyAssign('${escapeHtml(dashboardJsString(legacyPaymentKey(payment)))}')">שייך למחצית</button>` : ""}</td>
+        <td class="no-export">${canEditLegacy ? `<button type="button" class="btn btn-outline bill-row-btn" ${uiAct("openLegacyAssign", legacyPaymentKey(payment))}>שייך למחצית</button>` : ""}</td>
       </tr>`).join("");
   }
   const paymentsTotalEl = document.getElementById("grants-payments-total");
@@ -4060,23 +4129,23 @@ function renderGrantsPackageEditorHtml(groups) {
     <div class="grants-pkg-group grants-pkg-group--editing">
       <div class="grants-pkg-edit-labels grants-pkg-edit-labels--group"><span>שם החנות</span><span>הנחה</span><span></span></div>
       <div class="grants-pkg-group-head-edit">
-        <input type="text" class="ui-input" value="${escapeHtml(group.store || "")}" placeholder="שם חנות" oninput="updateGrantsPkgGroupField(${gIdx},'store',this.value)">
-        <input type="text" class="ui-input" value="${escapeHtml(group.discount || "")}" placeholder="הנחה (למשל 15%)" oninput="updateGrantsPkgGroupField(${gIdx},'discount',this.value)">
-        <button class="grants-archive-del" title="הסר חנות" onclick="removeGrantsPkgGroup(${gIdx})"><span class="material-icons-regular">close</span></button>
+        <input type="text" class="ui-input" value="${escapeHtml(group.store || "")}" placeholder="שם חנות" ${uiInput("updateGrantsPkgGroupField", gIdx, "store", "$value")}>
+        <input type="text" class="ui-input" value="${escapeHtml(group.discount || "")}" placeholder="הנחה (למשל 15%)" ${uiInput("updateGrantsPkgGroupField", gIdx, "discount", "$value")}>
+        <button class="grants-archive-del" title="הסר חנות" ${uiAct("removeGrantsPkgGroup", gIdx)}><span class="material-icons-regular">close</span></button>
       </div>
       ${(group.items || []).length ? `<div class="grants-pkg-edit-labels"><span>מוצר</span><span>כמות לחתן</span><span>מחיר בחנות</span><span>עלות לארגון (ליחידה)</span><span></span></div>` : ""}
       ${(group.items || []).map((it, iIdx) => `
         <div class="grants-pkg-item-edit">
-          <input type="text" class="ui-input" value="${escapeHtml(it.name || "")}" placeholder="שם מוצר" oninput="updateGrantsPkgItemField(${gIdx},${iIdx},'name',this.value)">
-          <input type="number" class="ui-input" value="${pkgQty(it)}" placeholder="כמות" min="0" oninput="updateGrantsPkgItemField(${gIdx},${iIdx},'qty',this.value)">
-          <input type="number" class="ui-input" value="${Number(it.storePrice) || 0}" placeholder="מחיר בחנות" min="0" step="0.01" oninput="updateGrantsPkgItemField(${gIdx},${iIdx},'storePrice',this.value)">
-          <input type="number" class="ui-input" value="${Number(it.orgPrice != null ? it.orgPrice : (it.value || 0))}" placeholder="עלות לארגון" min="0" step="0.01" oninput="updateGrantsPkgItemField(${gIdx},${iIdx},'orgPrice',this.value)">
-          <button class="grants-archive-del" title="הסר מוצר" onclick="removeGrantsPkgItem(${gIdx},${iIdx})"><span class="material-icons-regular">close</span></button>
+          <input type="text" class="ui-input" value="${escapeHtml(it.name || "")}" placeholder="שם מוצר" ${uiInput("updateGrantsPkgItemField", gIdx, iIdx, "name", "$value")}>
+          <input type="number" class="ui-input" value="${pkgQty(it)}" placeholder="כמות" min="0" ${uiInput("updateGrantsPkgItemField", gIdx, iIdx, "qty", "$value")}>
+          <input type="number" class="ui-input" value="${Number(it.storePrice) || 0}" placeholder="מחיר בחנות" min="0" step="0.01" ${uiInput("updateGrantsPkgItemField", gIdx, iIdx, "storePrice", "$value")}>
+          <input type="number" class="ui-input" value="${Number(it.orgPrice != null ? it.orgPrice : (it.value || 0))}" placeholder="עלות לארגון" min="0" step="0.01" ${uiInput("updateGrantsPkgItemField", gIdx, iIdx, "orgPrice", "$value")}>
+          <button class="grants-archive-del" title="הסר מוצר" ${uiAct("removeGrantsPkgItem", gIdx, iIdx)}><span class="material-icons-regular">close</span></button>
         </div>`).join("")}
-      <button type="button" class="grants-pkg-add-row-btn" onclick="addGrantsPkgItem(${gIdx})"><span class="material-icons-regular">add</span> הוסף מוצר</button>
+      <button type="button" class="grants-pkg-add-row-btn" ${uiAct("addGrantsPkgItem", gIdx)}><span class="material-icons-regular">add</span> הוסף מוצר</button>
     </div>`).join("");
 
-  return groupsHtml + `<button type="button" class="grants-pkg-add-row-btn grants-pkg-add-group-btn" onclick="addGrantsPkgGroup()"><span class="material-icons-regular">add_business</span> הוסף חנות</button>`;
+  return groupsHtml + `<button type="button" class="grants-pkg-add-row-btn grants-pkg-add-group-btn" data-action="addGrantsPkgGroup"><span class="material-icons-regular">add_business</span> הוסף חנות</button>`;
 }
 
 window.toggleGrantsPackageEditMode = function() {
@@ -4442,13 +4511,13 @@ function renderStoreBills(archive, year) {
         ? `<span class="bill-status bill-status--paid">שולם${bill.paidDate ? ` ב-${escapeHtml(formatDateDisplay(bill.paidDate))}` : ""}${bill.method ? ` · ${escapeHtml(bill.method)}` : ""}</span>`
         : `<span class="bill-status bill-status--due">ממתין לתשלום</span>`;
     const receipt = bill && bill.receipt && bill.receipt.path
-      ? `<button type="button" class="bill-receipt-link" onclick="viewStoreBillReceipt('${escapeHtml(dashboardJsString(bill.bid))}')"><span class="material-icons-regular">attach_file</span> צפייה</button>`
+      ? `<button type="button" class="bill-receipt-link" ${uiAct("viewStoreBillReceipt", bill.bid)}><span class="material-icons-regular">attach_file</span> צפייה</button>`
       : `<span style="color:var(--text-muted);">—</span>`;
     const action = !canEdit ? "" : bill && bill.legacy
-      ? `<button type="button" class="btn btn-outline bill-row-btn" onclick="openLegacyAssign('${escapeHtml(dashboardJsString(bill.key))}')">שיוך</button>`
+      ? `<button type="button" class="btn btn-outline bill-row-btn" ${uiAct("openLegacyAssign", bill.key)}>שיוך</button>`
       : bill
-      ? `<button type="button" class="btn btn-outline bill-row-btn" onclick="openStoreBillModal('${escapeHtml(dashboardJsString(bill.bid))}')">עריכה</button>`
-      : `<button type="button" class="btn btn-outline bill-row-btn" onclick="openStoreBillModal(null, '${escapeHtml(dashboardJsString(store))}')">הזן חיוב</button>`;
+      ? `<button type="button" class="btn btn-outline bill-row-btn" ${uiAct("openStoreBillModal", bill.bid)}>עריכה</button>`
+      : `<button type="button" class="btn btn-outline bill-row-btn" ${uiAct("openStoreBillModal", null, store)}>הזן חיוב</button>`;
     return `<tr class="${bill && bill.paid ? "bill-row--paid" : ""}">
       <td style="font-weight:700;">${escapeHtml(store)}</td>
       <td class="amount-cell" style="color:var(--text-secondary);">${expected !== null ? formatCurrency(expected) : "—"}</td>
@@ -4526,8 +4595,8 @@ function renderStoreBillReceiptCurrent(bill) {
   if (!el) return;
   if (bill && bill.receipt && bill.receipt.path && !storeBillFileCleared) {
     el.innerHTML = `<span class="material-icons-regular">attach_file</span> ${escapeHtml(bill.receipt.name || "קבלה")}
-      <button type="button" class="bill-receipt-link" onclick="viewStoreBillReceipt('${escapeHtml(dashboardJsString(bill.bid))}')">צפייה</button>
-      <button type="button" class="bill-receipt-link bill-receipt-remove" onclick="clearStoreBillReceipt()">הסר</button>`;
+      <button type="button" class="bill-receipt-link" ${uiAct("viewStoreBillReceipt", bill.bid)}>צפייה</button>
+      <button type="button" class="bill-receipt-link bill-receipt-remove" data-action="clearStoreBillReceipt">הסר</button>`;
   } else {
     el.innerHTML = `<span style="color:var(--text-muted);">לא צורפה קבלה</span>`;
   }
@@ -4732,25 +4801,25 @@ function renderPurimGroups() {
                     <span style="font-size:11px; font-weight:700; color:var(--text-muted); white-space:nowrap; text-transform:uppercase; letter-spacing:0.4px;">סכומים סופיים</span>
                     <div class="purim-sums-display" style="display:flex; gap:6px; flex-wrap:wrap; flex:1; overflow-x:auto;">${sumsInner}</div>
                     <div class="purim-group-actions" style="display:flex; gap:5px; flex-shrink:0; align-items:center; flex-wrap:wrap;">
-                        <button class="purim-action-btn purim-edit-btn" onclick="togglePurimGroupEdit('${key}')">
+                        <button class="purim-action-btn purim-edit-btn" ${uiAct("togglePurimGroupEdit", key)}>
                             <span class="material-icons-regular" style="font-size:14px;">edit</span> מצב עריכה
                         </button>
-                        <button class="purim-action-btn purim-cancel-btn" onclick="cancelPurimGroupEdit('${key}')" style="display:none; border-color:#dc2626; color:#dc2626;">
+                        <button class="purim-action-btn purim-cancel-btn" ${uiAct("cancelPurimGroupEdit", key)} style="display:none; border-color:#dc2626; color:#dc2626;">
                             <span class="material-icons-regular" style="font-size:14px;">close</span> ביטול
                         </button>
-                        <button class="purim-action-btn purim-save-btn" onclick="togglePurimGroupEdit('${key}')" style="display:none; border-color:#16a34a; color:#15803d; background:#f0fdf4;">
+                        <button class="purim-action-btn purim-save-btn" ${uiAct("togglePurimGroupEdit", key)} style="display:none; border-color:#16a34a; color:#15803d; background:#f0fdf4;">
                             <span class="material-icons-regular" style="font-size:14px;">save</span> שמור
                         </button>
-                        <button class="purim-action-btn" onclick="printPurimGroup('${key}')" title="הדפסה">
+                        <button class="purim-action-btn" ${uiAct("printPurimGroup", key)} title="הדפסה">
                             <span class="material-icons-regular" style="font-size:14px;">print</span>
                         </button>
-                        <button class="purim-action-btn" onclick="exportPurimGroupToExcel('${key}')" title="הורדה לאקסל">
+                        <button class="purim-action-btn" ${uiAct("exportPurimGroupToExcel", key)} title="הורדה לאקסל">
                             <svg width="18" height="18" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="4" fill="#217346"/><path d="M13 6h6v2h-6V6zm0 4h6v2h-6v-2zm0 4h6v2h-6v-2z" fill="#fff" opacity=".6"/><path d="M5 6l3 5-3 5h2.5l1.8-3.2L11 16h2.5l-3-5 3-5H11L9.3 9.2 7.5 6H5z" fill="#fff"/></svg>
                         </button>
-                        <button class="purim-action-btn" onclick="togglePurimSpacing(this, '${key}')">
+                        <button class="purim-action-btn" ${uiAct("togglePurimSpacing", "$el", key)}>
                             <span class="material-icons-regular" style="font-size:14px;">density_large</span> רווח
                         </button>
-                        <button class="purim-action-btn" onclick="togglePurimYears()">
+                        <button class="purim-action-btn" data-action="togglePurimYears">
                             <span class="material-icons-regular" style="font-size:14px;">${state.purimShowAllYears ? 'unfold_less' : 'unfold_more'}</span>
                             ${state.purimShowAllYears ? 'פחות שנים' : 'כל השנים'}
                         </button>
@@ -4984,9 +5053,13 @@ window.printPurimGroup = function(key) {
         <div class="meta">צדקת רבי שמעון · ${getPurimRowsFor(g.city, g.group).length} כתובות · הודפס ${formatDateDisplay(new Date())}</div>
         <div class="sums">סכומים סופיים: ${sums}</div>
         ${clone.outerHTML}
-        <script>window.onload = () => { window.print(); window.close(); }<\/script>
         </body></html>`);
     win.document.close();
+    // ההדפסה מופעלת מכאן ולא מסקריפט מוטמע בחלון החדש (שנחסם תחת Content-Security-Policy)
+    setTimeout(() => {
+        try { win.focus(); win.print(); } catch (e) {}
+        try { win.close(); } catch (e) {}
+    }, 250);
 };
 
 window.exportPurimGroupToExcel = function(key) {
