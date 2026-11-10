@@ -174,7 +174,7 @@
       var input = el('new-expense-category'), val, res;
       if (!isAdmin()) return no(MSG_ADMIN);
       if (!input || !fn('addExpenseCategory')) return no(MSG_NA);
-      input.value = str(name);
+      input.value = typeof name === 'string' ? name : '';
       val = input.value.trim();
       if (!val) { input.value = ''; return no('יש להזין שם קטגוריה'); }   // המסך הישן פשוט לא מגיב לשם ריק
       res = _.run(function () { window.addExpenseCategory(); });
@@ -224,10 +224,14 @@
       toastWatch.push(watch);
       permBusy[id] = true;
       res = _.run(function () { p = window.saveUserPermissions(id, btn); });
-      res.done = Promise.resolve(p).then(null, function () { errors.push(MSG_FAIL); }).then(function () {
+      function finish() {
         var i = toastWatch.indexOf(watch);
         if (i !== -1) toastWatch.splice(i, 1);
         delete permBusy[id];
+      }
+      if (!res.ok || !p || typeof p.then !== 'function') { finish(); return res.ok ? no(MSG_FAIL) : res; }
+      res.done = p.then(null, function () { errors.push(MSG_FAIL); }).then(function () {
+        finish();
         sync();
         return errors.length ? no(errors[0]) : { ok: true };
       });

@@ -272,15 +272,16 @@
 
     // הסרה עם "בטל פעולה", כמו במסך הישן
     removeGroom: safe(function (ref) {
-      var year, list, idx, res;
+      var year, list, idx, before, res;
       if (!_.canEdit()) return no(NO_EDIT);
       if (!has('removeGrantsArchiveRecipient')) return no();
       year = useYear();
       list = recipientsOf(year);
       idx = recipientIndex(list, ref);
       if (idx === -1) return no('החתן לא נמצא ברשימה. כדאי לרענן את הנתונים');
+      before = list.length;   // הרשימה היא אותו מערך שהמנוע משנה, ולכן סופרים לפני ההסרה
       res = _.run(function () { window.removeGrantsArchiveRecipient(idx); });
-      if (res.ok && recipientsOf(year).length >= list.length) res = no('החתן לא הוסר. אפשר לנסות שוב');
+      if (res.ok && recipientsOf(year).length >= before) res = no('החתן לא הוסר. אפשר לנסות שוב');
       if (res.ok) _.sync();
       return res;
     }),
@@ -310,7 +311,7 @@
             it = it && typeof it === 'object' ? it : {};
             if (ii > 0) window.addGrantsPkgItem(gi);
             window.updateGrantsPkgItemField(gi, ii, 'name', str(it.name));
-            window.updateGrantsPkgItemField(gi, ii, 'qty', it.qty);
+            window.updateGrantsPkgItemField(gi, ii, 'qty', it.qty == null || it.qty === '' ? 1 : it.qty);   // כמות חסרה = 1, כמו במנוע
             window.updateGrantsPkgItemField(gi, ii, 'storePrice', it.storePrice);
             window.updateGrantsPkgItemField(gi, ii, 'orgPrice', it.orgPrice);
           });
