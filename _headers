@@ -1,0 +1,14 @@
+# כותרות אבטחה ל-Netlify (חלות על כל הדפים והקבצים באתר)
+#
+# Content-Security-Policy - מה מותר לדף לטעון:
+#   script-src 'self'        רק הסקריפטים של האתר עצמו. אין סקריפטים מוטמעים ואין onclick ב-HTML.
+#   style-src 'unsafe-inline' זמנית, בגלל style="..." ב-HTML ובקוד. יוסר אחרי שלב 2 (מערכת עיצוב).
+#   connect-src / img-src     האתר עצמו + פרויקט ה-Supabase (נתונים, התחברות, קבלות).
+#   frame-src                 חלון הסליקה של נדרים פלוס בלבד.
+#   frame-ancestors 'none'    אי אפשר להטמיע את המערכת בתוך אתר אחר (כמו X-Frame-Options: DENY).
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=(), payment=(self "https://www.matara.pro")
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://yyuiovoqwfekgtgfhiiu.supabase.co; font-src 'self'; connect-src 'self' https://yyuiovoqwfekgtgfhiiu.supabase.co; frame-src https://www.matara.pro; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; manifest-src 'self'; upgrade-insecure-requests

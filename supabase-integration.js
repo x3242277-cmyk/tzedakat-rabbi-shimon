@@ -1,7 +1,7 @@
 /* ============================================================
    שכבת חיבור ל-Supabase — צדקת רבי שמעון
    מחליפה את שכבת גוגל שיטס. גישה ישירה ל-REST + Auth (ללא תלויות).
-   נטען לפני script.js. חושף window.SB.
+   נטען ב-<head> (לפני script.js) ולא נוגע ב-DOM מלבד סימון has-session. חושף window.SB.
    ============================================================ */
 (function () {
   "use strict";
@@ -14,13 +14,20 @@
   const STORAGE = SUPABASE_URL + "/storage/v1/";
   const RECEIPTS_BUCKET = "receipts";
 
-  // ---------- ניהול סשן (נשמר ב-localStorage) ----------
+  // ---------- ניהול סשן (נשמר ב-sessionStorage) ----------
+  // נשאר ברענון דף, ונמחק כשסוגרים את הדפדפן / הלשונית. אם sessionStorage חסום - נשמר בזיכרון בלבד.
+  let memorySession = null;
+  try { localStorage.removeItem(SESSION_KEY); } catch (e) {} // ניקוי סשן ישן שנשמר בעבר ב-localStorage
   function getSession() {
-    try { const raw = localStorage.getItem(SESSION_KEY); return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
+    try { const raw = sessionStorage.getItem(SESSION_KEY); if (raw) return JSON.parse(raw); } catch (e) {}
+    return memorySession;
   }
   function setSession(s) {
-    if (s) localStorage.setItem(SESSION_KEY, JSON.stringify(s));
-    else localStorage.removeItem(SESSION_KEY);
+    memorySession = s || null;
+    try {
+      if (s) sessionStorage.setItem(SESSION_KEY, JSON.stringify(s));
+      else sessionStorage.removeItem(SESSION_KEY);
+    } catch (e) {}
   }
   function accessToken() { const s = getSession(); return s && s.access_token; }
   function isLoggedIn() { return !!accessToken(); }
@@ -41,8 +48,9 @@
     });
     const data = await r.json().catch(() => ({}));
     if (!r.ok) {
-      const msg = data.msg || data.error_description || data.error || "פרטי התחברות שגויים";
-      throw new Error(msg);
+      const err = new Error(data.msg || data.error_description || data.error || "פרטי התחברות שגויים");
+      err.status = r.status;
+      throw err;
     }
     setSession({
       access_token: data.access_token,
@@ -247,6 +255,9 @@
     return SUPABASE_URL + "/storage/v1" + (signed.startsWith("/") ? signed : "/" + signed);
   };
   const deleteReceipt = (path) => storageFetch("DELETE", `object/${RECEIPTS_BUCKET}`, { json: { prefixes: [path] } });
+
+  // הקובץ נטען ב-<head>: אם יש סשן פעיל (רענון דף), מסמנים מיד כדי שמסך הכניסה לא יהבהב
+  if (getSession()) document.documentElement.classList.add("has-session");
 
   window.SB = {
     URL: SUPABASE_URL,

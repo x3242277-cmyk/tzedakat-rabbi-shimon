@@ -31,14 +31,19 @@ const DEFAULT_SETTINGS = {
 
 const DEFAULT_USERS = [];
 
-// מיפוי שם משתמש (עברית) לכתובת מייל להתחברות ב-Supabase Auth.
-// שומר על חוויית "בחירת שם מרשימה" תוך שימוש בהתחברות מאובטחת.
-const USER_EMAIL_MAP = {
-  "מנהל": "admin@tzedaka.local",
-  "מנדי בידרמן": "mendi@tzedaka.local",
-  "מוישי גולדברג": "moishi@tzedaka.local",
-  "אלימלך גלבשטיין": "elimelech@tzedaka.local",
+// התחברות: המשתמש מקליד רק את החלק שלפני ה-@, והדומיין משלים לכתובת המייל ב-Supabase Auth
+const LOGIN_EMAIL_DOMAIN = "tzedaka.local";
+
+// עותק הנתונים במחשב (STORAGE_KEYS) נשמר ב-sessionStorage: נשאר ברענון דף, ונמחק כשסוגרים את הדפדפן.
+// תור השמירות שעוד לא נשלחו (PENDING_WRITES_KEY) נשאר ב-localStorage, כדי ששינויים לא יאבדו.
+const LAST_SYNC_KEY = "ezer_last_sync";
+const cacheStore = {
+  get(key) { try { return sessionStorage.getItem(key); } catch (e) { return null; } },
+  set(key, value) { try { sessionStorage.setItem(key, value); } catch (e) {} },
+  remove(key) { try { sessionStorage.removeItem(key); } catch (e) {} },
 };
+// ניקוי חד-פעמי של העותק הישן שנשמר בעבר ב-localStorage ונשאר גם אחרי סגירת הדפדפן
+try { Object.values(STORAGE_KEYS).concat(LAST_SYNC_KEY).forEach(k => localStorage.removeItem(k)); } catch (e) {}
 
 let state = {
   members: [],
@@ -314,6 +319,92 @@ const screenMeta = {
   "settings-screen": { title: "הגדרות מערכת", subtitle: "ניהול יעדים שנתיים, הגדרות שנת פעילות והרשאות משתמשים" },
 };
 
+// ==========================================
+// אירועי ממשק בלי onclick / oninput / onchange מוטמעים (נדרש בשביל מדיניות האבטחה CSP).
+// כל רכיב מסמן את הפעולה ב-data-click / data-input / data-change, ואת הפרמטרים ב-data-* נוספים.
+// מאזין אחד על המסמך מפעיל את הפעולה, כך שזה עובד גם לרכיבים שנבנים מחדש ב-innerHTML.
+// ==========================================
+const UI_ACTIONS = {
+  click: {
+    "print": () => window.print(),
+    "idle-stay": () => resetIdleTimer(),
+    "open-nedarim": () => openNedarimModal(),
+    "dashboard-drill": el => openDashboardDrill(el.dataset.type, el.dataset.category || ""),
+    "dashboard-drill-close": () => closeDashboardDrill(),
+    "dashboard-open-member": el => openDashboardMember(el.dataset.id),
+    "members-edit-toggle": () => handleMembersEditButton(),
+    "members-edit-cancel": () => cancelMembersEdit(),
+    "members-density": () => { const t = document.querySelector("#members-screen .data-table"); if (t) t.classList.toggle("compact-view"); },
+    "delete-member": el => deleteMemberRow(el.dataset.id),
+    "edit-donation": el => openDonationModal(null, el.dataset.id),
+    "edit-expense": el => openExpenseModal(el.dataset.id),
+    "toggle-expense-years": () => toggleExpenseYears(),
+    "takanon-pick": el => takanonShowMember(el.dataset.id),
+    "remove-expense-category": el => removeExpenseCategory(Number(el.dataset.index)),
+    "health-detail": el => openDataHealthDetail(el.dataset.type),
+    "health-fix-save": el => {
+      const input = el.closest(".fix-row") && el.closest(".fix-row").querySelector("input");
+      applyHealthFix(el.dataset.id, el.dataset.field, input ? input.value : "");
+    },
+    "health-open-member": el => openMemberFromHealth(el.dataset.id),
+    "health-modal-close": () => document.getElementById("data-health-modal").classList.remove("open"),
+    "save-user-perms": el => saveUserPermissions(el.dataset.userId, el),
+    "grants-view": el => switchGrantsView(el.dataset.view),
+    "grants-add-year": () => addGrantsArchiveYear(),
+    "grants-export": () => exportGrantsToExcel(),
+    "grants-export-recipients": () => exportGrantsArchiveRecipients(),
+    "grants-add-form-toggle": () => toggleGrantsAddForm(),
+    "grants-add-form-close": () => toggleGrantsAddForm(false),
+    "grants-add-submit": () => submitGrantsAddRecipient(),
+    "grants-recipient-edit": el => editGrantsArchiveRecipient(Number(el.dataset.index)),
+    "grants-recipient-remove": el => removeGrantsArchiveRecipient(Number(el.dataset.index)),
+    "grants-pkg-edit": () => toggleGrantsPackageEditMode(),
+    "grants-pkg-cancel": () => cancelGrantsPackageEdit(),
+    "pkg-add-group": () => addGrantsPkgGroup(),
+    "pkg-remove-group": el => removeGrantsPkgGroup(Number(el.dataset.g)),
+    "pkg-add-item": el => addGrantsPkgItem(Number(el.dataset.g)),
+    "pkg-remove-item": el => removeGrantsPkgItem(Number(el.dataset.g), Number(el.dataset.i)),
+    "bills-half": el => switchBillsHalf(el.dataset.half),
+    "store-bill-open": el => openStoreBillModal(el.dataset.bid || null, el.dataset.store || ""),
+    "store-bill-close": () => closeStoreBillModal(),
+    "store-bill-save": () => saveStoreBill(),
+    "store-bill-delete": () => deleteStoreBill(),
+    "receipt-view": el => viewStoreBillReceipt(el.dataset.bid),
+    "receipt-clear": () => clearStoreBillReceipt(),
+    "legacy-assign-open": el => openLegacyAssign(el.dataset.key),
+    "legacy-assign-save": el => saveLegacyAssign(el.dataset.half),
+    "legacy-assign-close": () => closeLegacyAssign(),
+    "purim-edit": el => togglePurimGroupEdit(el.dataset.key),
+    "purim-cancel": el => cancelPurimGroupEdit(el.dataset.key),
+    "purim-print": el => printPurimGroup(el.dataset.key),
+    "purim-export": el => exportPurimGroupToExcel(el.dataset.key),
+    "purim-spacing": el => togglePurimSpacing(el, el.dataset.key),
+    "purim-years": () => togglePurimYears(),
+  },
+  input: {
+    "takanon-search": el => takanonSearch(el.value),
+    "pkg-group-field": el => updateGrantsPkgGroupField(Number(el.dataset.g), el.dataset.field, el.value),
+    "pkg-item-field": el => updateGrantsPkgItemField(Number(el.dataset.g), Number(el.dataset.i), el.dataset.field, el.value),
+  },
+  change: {
+    "dashboard-year": () => renderDashboard(),
+    "type-filter": () => updateTypeFilter(),
+    "expenses-year": () => onExpensesYearChange(),
+    "grants-year": el => selectGrantsArchiveYear(el.value),
+    "health-fix-select": el => applyHealthFix(el.dataset.id, el.dataset.field, el.value),
+  },
+};
+
+Object.keys(UI_ACTIONS).forEach(type => {
+  const attr = `data-${type}`;
+  document.addEventListener(type, (e) => {
+    const el = e.target && e.target.closest ? e.target.closest(`[${attr}]`) : null;
+    if (!el) return;
+    const action = UI_ACTIONS[type][el.getAttribute(attr)];
+    if (action) action(el, e);
+  });
+});
+
 
 document.addEventListener("DOMContentLoaded", async () => {
   loadState();
@@ -337,8 +428,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // סשן פעיל של Supabase (רענון דף) — נכנסים ישר למערכת
   if (window.SB && SB.isLoggedIn()) {
-      const sbUser = SB.currentUser();
-      state.currentUser = (sbUser && sbUser.user_metadata && sbUser.user_metadata.username) || "";
+      state.currentUser = sessionDisplayName(SB.currentUser());
       if (loaderArea) loaderArea.style.display = "none";
       if (logo) logo.classList.remove("pulse-logo");
       document.getElementById("login-screen").classList.add("hidden-login");
@@ -376,88 +466,94 @@ function isTrue(val) {
   return clean === "TRUE" || clean === "V" || clean === "1" || clean === "כן" || clean === "Y" || clean === "YES";
 }
 
+// "mendi" -> "mendi@tzedaka.local". אם הוקלדה כתובת מלאה - משתמשים בה כמו שהיא.
+function loginEmailFromUsername(raw) {
+  const u = String(raw || "").trim().toLowerCase();
+  if (!u) return "";
+  return u.includes("@") ? u : `${u}@${LOGIN_EMAIL_DOMAIN}`;
+}
+
+// הודעה אחידה לכל כשל התחברות, שלא מגלה אם שם המשתמש קיים
+const LOGIN_GENERIC_ERROR = "שם המשתמש או הסיסמה שגויים";
+
+function loginErrorMessage(err) {
+  const raw = String((err && err.message) || "");
+  const status = err && err.status;
+  if (!status && /Failed to fetch|NetworkError|Load failed/i.test(raw)) return "לא ניתן להתחבר לשרת. בדוק את החיבור לאינטרנט, או שהשרת אינו זמין כרגע.";
+  if (status === 429) return "יותר מדי ניסיונות כניסה. המתן כמה דקות ונסה שוב.";
+  if (status >= 500) return "השרת אינו זמין כרגע. נסה שוב בעוד כמה דקות.";
+  return LOGIN_GENERIC_ERROR;
+}
+
+let loginFormBound = false;
 function initLoginScreen() {
-  const select = document.getElementById("login-username");
-
-  // רשימת המשתמשים להתחברות — מתוך מפת המייל (זמין עוד לפני התחברות)
-  const usernames = Object.keys(USER_EMAIL_MAP);
-  // צירוף שמות נוספים שהגיעו מהפרופילים (אם יש), רק אם קיים להם מייל
-  state.users.forEach(u => { const n = String(u.username || "").trim(); if (n && USER_EMAIL_MAP[n] && !usernames.includes(n)) usernames.push(n); });
-
-  select.innerHTML = "";
-  usernames.forEach(name => {
-    const opt = document.createElement("option");
-    opt.value = name;
-    opt.textContent = name;
-    select.appendChild(opt);
-  });
-
+  const form = document.getElementById("login-form-area");
+  if (!form || loginFormBound) return;
+  loginFormBound = true;
+  const userInput = document.getElementById("login-username");
+  const passInput = document.getElementById("login-password");
+  const errEl = document.getElementById("login-error");
   const btnLogin = document.getElementById("btn-login");
-  const newBtnLogin = btnLogin.cloneNode(true);
-  btnLogin.parentNode.replaceChild(newBtnLogin, btnLogin);
+  const showError = (msg) => { if (errEl) { errEl.textContent = msg; errEl.style.display = "block"; } };
+  setTimeout(() => { if (userInput && !userInput.value) userInput.focus(); }, 80);
 
-  newBtnLogin.addEventListener("click", async () => {
-    const userVal = String(document.getElementById("login-username").value).trim();
-    const passVal = String(document.getElementById("login-password").value);
-    const errEl = document.getElementById("login-error");
-    const email = USER_EMAIL_MAP[userVal];
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (btnLogin.disabled) return;
+    const email = loginEmailFromUsername(userInput.value);
+    const passVal = String(passInput.value);
+    if (!email || !passVal) { showError("יש להזין שם משתמש וסיסמה"); return; }
 
-    if (!email) { if (errEl) { errEl.textContent = "משתמש לא מוכר"; errEl.style.display = "block"; } return; }
-    if (!passVal) { if (errEl) { errEl.textContent = "יש להזין סיסמה"; errEl.style.display = "block"; } return; }
-
-    const origText = newBtnLogin.textContent;
-    newBtnLogin.disabled = true; newBtnLogin.textContent = "מתחבר...";
+    const origText = btnLogin.textContent;
+    btnLogin.disabled = true; btnLogin.textContent = "מתחבר...";
     try {
       await SB.signIn(email, passVal);
-      state.currentUser = userVal;
-      if (errEl) errEl.style.display = "none";
-
-      await fetchDataFromServer(true); // טוען את כל הנתונים מ-Supabase
+    } catch (err) {
+      showError(loginErrorMessage(err));
+      passInput.value = "";
+      passInput.focus();
+      btnLogin.disabled = false; btnLogin.textContent = origText;
+      return;
+    }
+    if (errEl) errEl.style.display = "none";
+    passInput.value = "";
+    try {
+      state.currentUser = sessionDisplayName(SB.currentUser());
+      await fetchDataFromServer(true); // טוען את כל הנתונים מ-Supabase (כולל profiles)
       resolveCurrentUser();
-      if (!state.currentUserObj) state.currentUserObj = { username: userVal, canEdit: true, canViewIncome: true, canViewExpenses: true, canViewGrants: true, canViewHistory: true };
+      if (!state.currentUserObj) state.currentUserObj = { username: state.currentUser, canEdit: true, canViewIncome: true, canViewExpenses: true, canViewGrants: true, canViewHistory: true };
 
       document.getElementById("login-screen").classList.add("hidden-login");
       applyPermissions();
       document.getElementById("main-screen").classList.remove("hidden-layout");
       document.getElementById("main-screen").classList.add("visible-layout");
-      showToast(`ברוך הבא למערכת, ${state.currentUser}!`, "success");
+      showToast(state.currentUser ? `ברוך הבא למערכת, ${state.currentUser}!` : "ברוך הבא למערכת!", "success");
       initApp();
       restoreFormDraft();
-    } catch (e) {
-      if (errEl) {
-        const raw = String((e && e.message) || "");
-        let msg;
-        if (raw.includes("Failed to fetch") || raw.includes("NetworkError") || raw.includes("Load failed")) {
-          msg = "לא ניתן להתחבר לשרת. בדוק את החיבור לאינטרנט, או שהשרת אינו זמין כרגע.";
-        } else if (raw.includes("Invalid login credentials")) {
-          msg = "שם משתמש או סיסמה שגויים";
-        } else if (raw) {
-          msg = "שגיאה בהתחברות: " + raw;
-        } else {
-          msg = "שם משתמש או סיסמה שגויים";
-        }
-        errEl.textContent = msg;
-        errEl.style.display = "block";
-      }
     } finally {
-      newBtnLogin.disabled = false; newBtnLogin.textContent = origText;
+      btnLogin.disabled = false; btnLogin.textContent = origText;
     }
   });
 }
 
-// זיהוי המשתמש המחובר לפי מזהה החשבון (ולא רק לפי שם), כדי שרענון הדף לא יאבד הרשאות
+// שם התצוגה בעברית: display_name מטבלת profiles, ואם חסר - שם המשתמש
+function profileDisplayName(prof) {
+  return String((prof && (prof.displayName || prof.username)) || "").trim();
+}
+
+// שם זמני מתוך פרטי החשבון, עד שהפרופיל נטען מהשרת
+function sessionDisplayName(sbUser) {
+  const meta = (sbUser && sbUser.user_metadata) || {};
+  return String(meta.display_name || meta.username || "").trim();
+}
+
+// זיהוי המשתמש המחובר לפי מזהה החשבון ב-Supabase, כדי שרענון הדף לא יאבד הרשאות
 function resolveCurrentUser() {
   const sbUser = window.SB ? SB.currentUser() : null;
   const uid = sbUser && sbUser.id;
-  let prof = uid ? (state.users || []).find(u => u.id && String(u.id) === String(uid)) : null;
-  if (!prof) {
-    const email = String((sbUser && sbUser.email) || "").toLowerCase();
-    const byEmail = Object.keys(USER_EMAIL_MAP).find(n => USER_EMAIL_MAP[n] === email);
-    const name = String(state.currentUser || byEmail || "").trim();
-    if (name) prof = (state.users || []).find(u => String(u.username).trim() === name) || null;
-    if (!state.currentUser && name) state.currentUser = name;
-  }
-  if (prof) { state.currentUserObj = prof; state.currentUser = prof.username; }
+  const prof = uid ? (state.users || []).find(u => u.id && String(u.id) === String(uid)) : null;
+  if (prof) { state.currentUserObj = prof; state.currentUser = profileDisplayName(prof); return; }
+  if (!state.currentUser) state.currentUser = sessionDisplayName(sbUser);
 }
 
 function canEditUser() {
@@ -552,7 +648,7 @@ async function fetchDataFromServer(isSilent = false) {
 
     invalidateCache();
     saveState();
-    try { localStorage.setItem("ezer_last_sync", new Date().toISOString()); } catch (e) {}
+    cacheStore.set(LAST_SYNC_KEY, new Date().toISOString());
 
     if (!document.getElementById("login-screen").classList.contains("hidden-login")) {
       initLoginScreen();
@@ -995,7 +1091,7 @@ function loadMemberProfile(memberId) {
     setText("profile-donations-count", list.length ? `${list.length} הפקדות · סה"כ ${formatCurrency(sumArray(list, "amount"))}` : "");
     const canEdit = !state.currentUserObj || isAdminUser() || isTrue(state.currentUserObj.canEdit);
     donTbody.innerHTML = list.length ? list.map(d => `
-      <tr${canEdit ? ` class="clickable-row" onclick="openDonationModal(null, '${escapeHtml(dashboardJsString(d.id))}')" title="לחיצה לעריכה"` : ""}>
+      <tr${canEdit ? ` class="clickable-row" data-click="edit-donation" data-id="${escapeHtml(d.id)}" title="לחיצה לעריכה"` : ""}>
         <td>${escapeHtml(formatDateDisplay(d.date) || "—")}</td>
         <td>${escapeHtml(d.year || "")}</td>
         <td class="amount-cell" style="font-weight:bold; color: var(--success);">${escapeHtml(formatCurrency(d.amount))}</td>
@@ -1621,7 +1717,7 @@ function renderRulesScreen() {
   // כרטיסי פרס קומפקטיים אופקיים
   const buildGiftCard = (name, target, image, emoji) => {
     const mediaHtml = image
-      ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(name)}" class="takanon-prize-thumb" onerror="this.outerHTML='<div class=\\'takanon-prize-emoji\\'>${emoji}</div>'">`
+      ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(name)}" class="takanon-prize-thumb" data-fallback="${escapeHtml(emoji)}">`
       : `<div class="takanon-prize-emoji">${emoji}</div>`;
     return `<div class="takanon-prize-card">
       ${mediaHtml}
@@ -1658,7 +1754,7 @@ function renderRulesScreen() {
           <div class="takanon-col-divider"></div>` : ''}
         <div class="takanon-section-label"><span class="material-icons-regular">manage_search</span> בדיקת מצב אישי</div>
         <div class="takanon-lookup-box">
-          <input type="text" id="takanon-member-input" class="ui-input" placeholder="חפש לפי שם..." oninput="takanonSearch(this.value)" autocomplete="off">
+          <input type="text" id="takanon-member-input" class="ui-input" placeholder="חפש לפי שם..." data-input="takanon-search" autocomplete="off">
           <div id="takanon-search-results" class="takanon-search-dropdown" style="display:none;"></div>
         </div>
         <div id="takanon-member-card" class="takanon-member-card" style="display:none;"></div>
@@ -1667,6 +1763,16 @@ function renderRulesScreen() {
 
     ${additionalHtml}
   `;
+
+  // תמונת מתנה שלא נטענה מוחלפת באייקון ברירת המחדל (במקום onerror מוטמע)
+  container.querySelectorAll("img.takanon-prize-thumb").forEach(img => {
+    img.addEventListener("error", () => {
+      const fallback = document.createElement("div");
+      fallback.className = "takanon-prize-emoji";
+      fallback.textContent = img.dataset.fallback || "";
+      img.replaceWith(fallback);
+    }, { once: true });
+  });
 }
 
 window.takanonSearch = function(term) {
@@ -1688,7 +1794,7 @@ window.takanonSearch = function(term) {
     return;
   }
   resultsEl.innerHTML = matches.map(m =>
-    `<div class="takanon-search-item" onclick="takanonShowMember('${escapeHtml(String(m.id))}')">
+    `<div class="takanon-search-item" data-click="takanon-pick" data-id="${escapeHtml(String(m.id))}">
       <span class="takanon-search-name">${escapeHtml(m.fullName)}</span>
       <span class="takanon-search-meta">${escapeHtml(m.yeshiva || m.yeshivaType || "")}</span>
     </div>`
@@ -1896,7 +2002,7 @@ function renderExpenseCategories() {
   const cats = getExpenseCategories();
   el.innerHTML = cats.map((c, i) => `
     <span class="cat-chip">${escapeHtml(c)}
-      <button onclick="removeExpenseCategory(${i})" title="מחק קטגוריה"><span class="material-icons-regular">close</span></button>
+      <button type="button" data-click="remove-expense-category" data-index="${i}" title="מחק קטגוריה"><span class="material-icons-regular">close</span></button>
     </span>`).join("");
 }
 
@@ -1965,7 +2071,7 @@ function renderDataHealth() {
     const cls = r.count === 0 ? "ok" : r.sev;
     const icon = r.count === 0 ? "check_circle" : r.icon;
     const clickable = r.count > 0;
-    return `<div class="health-row ${cls} ${clickable ? "clickable" : ""}" ${clickable ? `onclick="openDataHealthDetail('${r.type}')"` : ""}>
+    return `<div class="health-row ${cls} ${clickable ? "clickable" : ""}" ${clickable ? `data-click="health-detail" data-type="${r.type}"` : ""}>
         <span class="material-icons-regular health-icon">${icon}</span>
         <div class="health-text"><div class="health-title">${escapeHtml(r.title)}</div></div>
         <div class="health-count">${r.count}</div>
@@ -2015,7 +2121,7 @@ function renderFixRow(type, m) {
   const sub = escapeHtml(m.yeshiva || m.address || "");
   let control = "";
   if (type === "type") {
-    control = `<select class="ui-select" onchange="applyHealthFix('${m.id}','yeshivaType',this.value)">
+    control = `<select class="ui-select" data-change="health-fix-select" data-id="${escapeHtml(m.id)}" data-field="yeshivaType">
         <option value="">בחר...</option>
         <option value="חיידר">חיידר</option>
         <option value="ישיבה קטנה">ישיבה קטנה</option>
@@ -2023,13 +2129,13 @@ function renderFixRow(type, m) {
         <option value="קיבוץ">קיבוץ</option>
       </select>`;
   } else if (type === "yeshiva") {
-    control = `<input type="text" class="ui-input" placeholder="שם הישיבה" id="fix-${m.id}">
-      <button class="btn btn-solid-blue fix-save" onclick="applyHealthFix('${m.id}','yeshiva',document.getElementById('fix-${m.id}').value)">שמור</button>`;
+    control = `<input type="text" class="ui-input" placeholder="שם הישיבה" id="fix-${escapeHtml(m.id)}">
+      <button type="button" class="btn btn-solid-blue fix-save" data-click="health-fix-save" data-id="${escapeHtml(m.id)}" data-field="yeshiva">שמור</button>`;
   } else if (type === "phone") {
-    control = `<input type="text" class="ui-input" placeholder="050-0000000" id="fix-${m.id}" style="direction:ltr;text-align:right;">
-      <button class="btn btn-solid-blue fix-save" onclick="applyHealthFix('${m.id}','phone',document.getElementById('fix-${m.id}').value)">שמור</button>`;
+    control = `<input type="text" class="ui-input" placeholder="050-0000000" id="fix-${escapeHtml(m.id)}" style="direction:ltr;text-align:right;">
+      <button type="button" class="btn btn-solid-blue fix-save" data-click="health-fix-save" data-id="${escapeHtml(m.id)}" data-field="phone">שמור</button>`;
   }
-  return `<div class="fix-row" id="fixrow-${m.id}">
+  return `<div class="fix-row" id="fixrow-${escapeHtml(m.id)}">
       <div class="fix-name">${name}${sub ? `<div class="fix-sub">${sub}</div>` : ""}</div>
       ${control}
     </div>`;
@@ -2050,7 +2156,7 @@ function renderDupesList() {
       <div class="dupe-group-title">${escapeHtml(name)} (${arr.length})</div>
       ${arr.map(m => `<div class="fix-row">
         <div class="fix-name" style="font-weight:500;">${escapeHtml(m.yeshiva || "ללא ישיבה")} <span class="fix-sub">${escapeHtml(m.phone || "ללא טלפון")}</span></div>
-        <button class="btn btn-outline fix-save" onclick="openMemberFromHealth('${m.id}')">פתח פרופיל</button>
+        <button type="button" class="btn btn-outline fix-save" data-click="health-open-member" data-id="${escapeHtml(m.id)}">פתח פרופיל</button>
       </div>`).join("")}
     </div>`).join("");
 }
@@ -2100,7 +2206,7 @@ function renderBackupPanel() {
   }
   const lastSyncEl = document.getElementById("last-sync-time");
   if (lastSyncEl) {
-    const ts = localStorage.getItem("ezer_last_sync");
+    const ts = cacheStore.get(LAST_SYNC_KEY);
     lastSyncEl.textContent = ts ? formatSyncTime(ts) : "טרם סונכרן";
   }
 }
@@ -2186,7 +2292,7 @@ function renderUsersTable() {
     return `<tr data-user-id="${escapeHtml(u.id || "")}">
       <td style="font-weight:bold;">${escapeHtml(u.username)}${isAdminRow ? ` <span class="role-chip">מנהל</span>` : ""}</td>
       ${boxes}
-      <td class="no-export">${isAdminRow || !u.id ? "" : `<button class="btn btn-outline users-save-btn" style="padding:5px 12px; font-size:12px;" onclick="saveUserPermissions('${escapeHtml(dashboardJsString(u.id))}', this)">שמור</button>`}</td>
+      <td class="no-export">${isAdminRow || !u.id ? "" : `<button type="button" class="btn btn-outline users-save-btn" style="padding:5px 12px; font-size:12px;" data-click="save-user-perms" data-user-id="${escapeHtml(u.id)}">שמור</button>`}</td>
     </tr>`;
   }).join("");
 }
@@ -2222,7 +2328,7 @@ function loadState() {
   state.donations = readStorageArray(STORAGE_KEYS.DONATIONS); 
   state.expenses = readStorageArray(STORAGE_KEYS.EXPENSES); 
   state.purimAddresses = readStorageArray(STORAGE_KEYS.PURIM);
-  try { const raw = localStorage.getItem(STORAGE_KEYS.GRANTS_ARCHIVE); state.grantsArchive = (raw && raw !== "undefined" && raw !== "null") ? JSON.parse(raw) : null; } catch (e) { state.grantsArchive = null; }
+  try { const raw = cacheStore.get(STORAGE_KEYS.GRANTS_ARCHIVE); state.grantsArchive = (raw && raw !== "undefined" && raw !== "null") ? JSON.parse(raw) : null; } catch (e) { state.grantsArchive = null; }
   state.settings = readStorageObject(STORAGE_KEYS.SETTINGS, DEFAULT_SETTINGS);
   
   let savedUsers = readStorageArray(STORAGE_KEYS.USERS);
@@ -2241,17 +2347,18 @@ function loadState() {
   }
 }
 
-function readStorageArray(key) { try { const raw = localStorage.getItem(key); if (!raw || raw === "undefined" || raw === "null") return []; return JSON.parse(raw) || []; } catch (e) { return []; } }
-function readStorageObject(key, fallback) { try { const raw = localStorage.getItem(key); if (!raw || raw === "undefined" || raw === "null") return { ...fallback }; return { ...fallback, ...JSON.parse(raw) }; } catch (e) { return { ...fallback }; } }
+function readStorageArray(key) { try { const raw = cacheStore.get(key); if (!raw || raw === "undefined" || raw === "null") return []; return JSON.parse(raw) || []; } catch (e) { return []; } }
+function readStorageObject(key, fallback) { try { const raw = cacheStore.get(key); if (!raw || raw === "undefined" || raw === "null") return { ...fallback }; return { ...fallback, ...JSON.parse(raw) }; } catch (e) { return { ...fallback }; } }
 
+// עותק מקומי ב-sessionStorage (נמחק בסגירת הדפדפן). כשל בכתיבה (למשל מקום מלא) לא עוצר את השמירה לשרת.
 function saveState() { 
-  localStorage.setItem(STORAGE_KEYS.MEMBERS, JSON.stringify(state.members)); 
-  localStorage.setItem(STORAGE_KEYS.DONATIONS, JSON.stringify(state.donations)); 
-  localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(state.expenses)); 
-  localStorage.setItem(STORAGE_KEYS.PURIM, JSON.stringify(state.purimAddresses)); 
-  localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(state.settings));
-  localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(state.users));
-  if (state.grantsArchive) localStorage.setItem(STORAGE_KEYS.GRANTS_ARCHIVE, JSON.stringify(state.grantsArchive));
+  cacheStore.set(STORAGE_KEYS.MEMBERS, JSON.stringify(state.members)); 
+  cacheStore.set(STORAGE_KEYS.DONATIONS, JSON.stringify(state.donations)); 
+  cacheStore.set(STORAGE_KEYS.EXPENSES, JSON.stringify(state.expenses)); 
+  cacheStore.set(STORAGE_KEYS.PURIM, JSON.stringify(state.purimAddresses)); 
+  cacheStore.set(STORAGE_KEYS.SETTINGS, JSON.stringify(state.settings));
+  cacheStore.set(STORAGE_KEYS.USERS, JSON.stringify(state.users));
+  if (state.grantsArchive) cacheStore.set(STORAGE_KEYS.GRANTS_ARCHIVE, JSON.stringify(state.grantsArchive));
 }
 
 function switchScreen(screenId, pushToHistory = true) {
@@ -2435,7 +2542,7 @@ function renderDashboardAttention({ summaries, totalDonations, currentYear }) {
   }
 
   el.innerHTML = items.slice(0, 5).map(item => `
-    <button class="dashboard-attention-item" type="button" onclick="openDashboardDrill('${escapeHtml(dashboardJsString(item.drill))}', '${escapeHtml(dashboardJsString(item.category || ""))}')">
+    <button class="dashboard-attention-item" type="button" data-click="dashboard-drill" data-type="${escapeHtml(item.drill)}" data-category="${escapeHtml(item.category || "")}">
       <span class="material-icons-regular dashboard-item-icon ${item.tone}">${item.icon}</span>
       <span>
         <span class="dashboard-item-title">${escapeHtml(item.title)}</span>
@@ -2810,7 +2917,7 @@ function renderDashboardSegments(summaries) {
   el.innerHTML = rows.map(([name, data]) => {
     const pct = data.obligated > 0 ? Math.min(100, Math.round((data.reached / data.obligated) * 100)) : 0;
     return `
-      <button class="dashboard-segment-item" type="button" onclick="openDashboardDrill('segment', '${escapeHtml(dashboardJsString(name))}')">
+      <button class="dashboard-segment-item" type="button" data-click="dashboard-drill" data-type="segment" data-category="${escapeHtml(name)}">
         <span>
           <span class="dashboard-item-title">${escapeHtml(name)}</span>
           <span class="dashboard-item-sub">${data.reached.toLocaleString("he-IL")} מתוך ${data.obligated.toLocaleString("he-IL")} הגיעו לחובה</span>
@@ -2828,10 +2935,6 @@ function getDashboardSelectedYear() {
   return yearSelect ? (yearSelect.value || getCampaignYear()) : getCampaignYear();
 }
 
-function dashboardJsString(value) {
-  return String(value ?? "").replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/\r?\n/g, " ");
-}
-
 function getDashboardMemberLabel(member) {
   return `${member.firstName || ""} ${member.lastName || ""}`.trim() || member.fullName || "ללא שם";
 }
@@ -2845,7 +2948,7 @@ function getDashboardMemberMeta(member) {
 
 function dashboardMemberAction(memberId) {
   if (!memberId) return "";
-  return `<button class="dashboard-drill-open-member" type="button" onclick="openDashboardMember('${escapeHtml(dashboardJsString(memberId))}')">פתח כרטיס</button>`;
+  return `<button class="dashboard-drill-open-member" type="button" data-click="dashboard-open-member" data-id="${escapeHtml(memberId)}">פתח כרטיס</button>`;
 }
 
 function buildDashboardMemberCells(row, mode = "full") {
@@ -2898,7 +3001,7 @@ function ensureDashboardDrillModal() {
   modal.className = "modal-overlay dashboard-drill-modal";
   modal.innerHTML = `
     <div class="modal-content app-modal">
-      <button class="modal-close" type="button" onclick="closeDashboardDrill()" aria-label="סגור">
+      <button class="modal-close" type="button" data-click="dashboard-drill-close" aria-label="סגור">
         <span class="material-icons-regular">close</span>
       </button>
       <div class="modal-inner" id="dashboard-drill-content"></div>
@@ -3273,7 +3376,11 @@ function renderMembersTable() {
     const tr = document.createElement("tr");
     tr.style.cursor = "pointer";
     tr.dataset.memberId = row.id;
-    tr.onclick = () => { if (!state.membersEditMode) loadMemberProfile(row.id); };
+    tr.addEventListener("click", (e) => {
+      const action = e.target.closest("[data-click]");
+      if (action && tr.contains(action)) return; // כפתור בתוך השורה (מחיקה) מטופל בנפרד
+      if (!state.membersEditMode) loadMemberProfile(row.id);
+    });
 
     let shiurDisplay = row.shiur || "---";
     if(row.yeshivaType === "חיידר") shiurDisplay = "---";
@@ -3285,7 +3392,7 @@ function renderMembersTable() {
     if (!String(row.phone || "").trim()) missing.push("טלפון");
     if (!String(row.address || "").trim()) missing.push("כתובת");
     const star = missing.length ? `<span class="missing-star" title="חסר: ${escapeHtml(missing.join(", "))}">*</span>` : "";
-    const deleteCell = isAdmin ? `<td class="no-export" style="text-align:center;"><button class="grants-archive-del" title="מחק בחור" onclick="event.stopPropagation(); deleteMemberRow('${escapeHtml(dashboardJsString(row.id))}')"><span class="material-icons-regular">delete_outline</span></button></td>` : "";
+    const deleteCell = isAdmin ? `<td class="no-export" style="text-align:center;"><button type="button" class="grants-archive-del" title="מחק בחור" data-click="delete-member" data-id="${escapeHtml(row.id)}"><span class="material-icons-regular">delete_outline</span></button></td>` : "";
 
     tr.innerHTML = `<td data-field="firstName">${escapeHtml(row.firstName)}${star}</td><td data-field="lastName">${escapeHtml(row.lastName)}</td><td data-field="fatherName">${escapeHtml(row.fatherName || "---")}</td><td data-field="yeshiva">${escapeHtml(row.yeshiva)}</td><td data-field="shiur">${escapeHtml(shiurDisplay)}</td><td>${escapeHtml(cityDisplay)}</td><td class="amount-cell" style="font-weight: bold; color: var(--gold-dark);">${escapeHtml(formatCurrency(row.collectedThisYear))}</td>${deleteCell}`;
     tbody.appendChild(tr);
@@ -3426,7 +3533,7 @@ function renderDailyReport() {
             const amt = Number(d.amount) || 0;
             totalInc += amt;
             
-            incHtml += `<tr class="clickable-row" onclick="openDonationModal(null, '${escapeHtml(dashboardJsString(d.id))}')" title="לחיצה לעריכה">
+            incHtml += `<tr class="clickable-row" data-click="edit-donation" data-id="${escapeHtml(d.id)}" title="לחיצה לעריכה">
                 <td>${escapeHtml(formatDateDisplay(d.date))}</td>
                 <td><strong>${escapeHtml(name)}</strong><br><span style="font-size:11px;color:var(--text-secondary);">${escapeHtml(d.notes)}</span></td>
                 <td class="amount-cell" style="font-weight: bold; color: var(--success);">${escapeHtml(formatCurrency(amt))}</td>
@@ -3445,7 +3552,7 @@ function renderDailyReport() {
             const amt = Number(e.amount) || 0;
             totalExp += amt;
             
-            expHtml += `<tr class="clickable-row" onclick="openExpenseModal('${escapeHtml(dashboardJsString(e.id))}')" title="לחיצה לעריכה">
+            expHtml += `<tr class="clickable-row" data-click="edit-expense" data-id="${escapeHtml(e.id)}" title="לחיצה לעריכה">
                 <td>${escapeHtml(formatDateDisplay(e.date))}</td>
                 <td><strong>${escapeHtml(e.description)}</strong><br><span style="background:var(--surface-light); border-radius:8px; padding:2px 6px; font-size:11px;">${escapeHtml(e.category)}</span></td>
                 <td class="amount-cell" style="font-weight: bold; color: var(--danger);">${escapeHtml(formatCurrency(amt))}</td>
@@ -3960,8 +4067,8 @@ function renderGrantsArchive() {
           <td style="direction:ltr; text-align:right;">${r.id ? escapeHtml(r.id) : "—"}</td>
           <td style="direction:ltr; text-align:right;">${r.phone ? escapeHtml(r.phone) : "—"}</td>
           <td>${formatArchiveDate(r.date)}</td>
-          <td class="no-export" style="text-align:center;"><button class="grants-archive-del grants-archive-edit" title="עריכה" onclick="editGrantsArchiveRecipient(${i})"><span class="material-icons-regular">edit</span></button></td>
-          <td class="no-export" style="text-align:center;"><button class="grants-archive-del" title="הסר" onclick="removeGrantsArchiveRecipient(${i})"><span class="material-icons-regular">close</span></button></td>
+          <td class="no-export" style="text-align:center;"><button type="button" class="grants-archive-del grants-archive-edit" title="עריכה" data-click="grants-recipient-edit" data-index="${i}"><span class="material-icons-regular">edit</span></button></td>
+          <td class="no-export" style="text-align:center;"><button type="button" class="grants-archive-del" title="הסר" data-click="grants-recipient-remove" data-index="${i}"><span class="material-icons-regular">close</span></button></td>
         </tr>`).join("");
     }
   }
@@ -4030,7 +4137,7 @@ function renderGrantsArchive() {
         <td>${escapeHtml(payment.description || "—")}</td>
         <td>${escapeHtml(payment.method || "—")}</td>
         <td class="amount-cell" style="font-weight:800;">${formatCurrency(payment.amount)}</td>
-        <td class="no-export">${canEditLegacy ? `<button type="button" class="btn btn-outline bill-row-btn" onclick="openLegacyAssign('${escapeHtml(dashboardJsString(legacyPaymentKey(payment)))}')">שייך למחצית</button>` : ""}</td>
+        <td class="no-export">${canEditLegacy ? `<button type="button" class="btn btn-outline bill-row-btn" data-click="legacy-assign-open" data-key="${escapeHtml(legacyPaymentKey(payment))}">שייך למחצית</button>` : ""}</td>
       </tr>`).join("");
   }
   const paymentsTotalEl = document.getElementById("grants-payments-total");
@@ -4045,23 +4152,23 @@ function renderGrantsPackageEditorHtml(groups) {
     <div class="grants-pkg-group grants-pkg-group--editing">
       <div class="grants-pkg-edit-labels grants-pkg-edit-labels--group"><span>שם החנות</span><span>הנחה</span><span></span></div>
       <div class="grants-pkg-group-head-edit">
-        <input type="text" class="ui-input" value="${escapeHtml(group.store || "")}" placeholder="שם חנות" oninput="updateGrantsPkgGroupField(${gIdx},'store',this.value)">
-        <input type="text" class="ui-input" value="${escapeHtml(group.discount || "")}" placeholder="הנחה (למשל 15%)" oninput="updateGrantsPkgGroupField(${gIdx},'discount',this.value)">
-        <button class="grants-archive-del" title="הסר חנות" onclick="removeGrantsPkgGroup(${gIdx})"><span class="material-icons-regular">close</span></button>
+        <input type="text" class="ui-input" value="${escapeHtml(group.store || "")}" placeholder="שם חנות" data-input="pkg-group-field" data-g="${gIdx}" data-field="store">
+        <input type="text" class="ui-input" value="${escapeHtml(group.discount || "")}" placeholder="הנחה (למשל 15%)" data-input="pkg-group-field" data-g="${gIdx}" data-field="discount">
+        <button type="button" class="grants-archive-del" title="הסר חנות" data-click="pkg-remove-group" data-g="${gIdx}"><span class="material-icons-regular">close</span></button>
       </div>
       ${(group.items || []).length ? `<div class="grants-pkg-edit-labels"><span>מוצר</span><span>כמות לחתן</span><span>מחיר בחנות</span><span>עלות לארגון (ליחידה)</span><span></span></div>` : ""}
       ${(group.items || []).map((it, iIdx) => `
         <div class="grants-pkg-item-edit">
-          <input type="text" class="ui-input" value="${escapeHtml(it.name || "")}" placeholder="שם מוצר" oninput="updateGrantsPkgItemField(${gIdx},${iIdx},'name',this.value)">
-          <input type="number" class="ui-input" value="${pkgQty(it)}" placeholder="כמות" min="0" oninput="updateGrantsPkgItemField(${gIdx},${iIdx},'qty',this.value)">
-          <input type="number" class="ui-input" value="${Number(it.storePrice) || 0}" placeholder="מחיר בחנות" min="0" step="0.01" oninput="updateGrantsPkgItemField(${gIdx},${iIdx},'storePrice',this.value)">
-          <input type="number" class="ui-input" value="${Number(it.orgPrice != null ? it.orgPrice : (it.value || 0))}" placeholder="עלות לארגון" min="0" step="0.01" oninput="updateGrantsPkgItemField(${gIdx},${iIdx},'orgPrice',this.value)">
-          <button class="grants-archive-del" title="הסר מוצר" onclick="removeGrantsPkgItem(${gIdx},${iIdx})"><span class="material-icons-regular">close</span></button>
+          <input type="text" class="ui-input" value="${escapeHtml(it.name || "")}" placeholder="שם מוצר" data-input="pkg-item-field" data-g="${gIdx}" data-i="${iIdx}" data-field="name">
+          <input type="number" class="ui-input" value="${pkgQty(it)}" placeholder="כמות" min="0" data-input="pkg-item-field" data-g="${gIdx}" data-i="${iIdx}" data-field="qty">
+          <input type="number" class="ui-input" value="${Number(it.storePrice) || 0}" placeholder="מחיר בחנות" min="0" step="0.01" data-input="pkg-item-field" data-g="${gIdx}" data-i="${iIdx}" data-field="storePrice">
+          <input type="number" class="ui-input" value="${Number(it.orgPrice != null ? it.orgPrice : (it.value || 0))}" placeholder="עלות לארגון" min="0" step="0.01" data-input="pkg-item-field" data-g="${gIdx}" data-i="${iIdx}" data-field="orgPrice">
+          <button type="button" class="grants-archive-del" title="הסר מוצר" data-click="pkg-remove-item" data-g="${gIdx}" data-i="${iIdx}"><span class="material-icons-regular">close</span></button>
         </div>`).join("")}
-      <button type="button" class="grants-pkg-add-row-btn" onclick="addGrantsPkgItem(${gIdx})"><span class="material-icons-regular">add</span> הוסף מוצר</button>
+      <button type="button" class="grants-pkg-add-row-btn" data-click="pkg-add-item" data-g="${gIdx}"><span class="material-icons-regular">add</span> הוסף מוצר</button>
     </div>`).join("");
 
-  return groupsHtml + `<button type="button" class="grants-pkg-add-row-btn grants-pkg-add-group-btn" onclick="addGrantsPkgGroup()"><span class="material-icons-regular">add_business</span> הוסף חנות</button>`;
+  return groupsHtml + `<button type="button" class="grants-pkg-add-row-btn grants-pkg-add-group-btn" data-click="pkg-add-group"><span class="material-icons-regular">add_business</span> הוסף חנות</button>`;
 }
 
 window.toggleGrantsPackageEditMode = function() {
@@ -4427,13 +4534,13 @@ function renderStoreBills(archive, year) {
         ? `<span class="bill-status bill-status--paid">שולם${bill.paidDate ? ` ב-${escapeHtml(formatDateDisplay(bill.paidDate))}` : ""}${bill.method ? ` · ${escapeHtml(bill.method)}` : ""}</span>`
         : `<span class="bill-status bill-status--due">ממתין לתשלום</span>`;
     const receipt = bill && bill.receipt && bill.receipt.path
-      ? `<button type="button" class="bill-receipt-link" onclick="viewStoreBillReceipt('${escapeHtml(dashboardJsString(bill.bid))}')"><span class="material-icons-regular">attach_file</span> צפייה</button>`
+      ? `<button type="button" class="bill-receipt-link" data-click="receipt-view" data-bid="${escapeHtml(bill.bid)}"><span class="material-icons-regular">attach_file</span> צפייה</button>`
       : `<span style="color:var(--text-muted);">—</span>`;
     const action = !canEdit ? "" : bill && bill.legacy
-      ? `<button type="button" class="btn btn-outline bill-row-btn" onclick="openLegacyAssign('${escapeHtml(dashboardJsString(bill.key))}')">שיוך</button>`
+      ? `<button type="button" class="btn btn-outline bill-row-btn" data-click="legacy-assign-open" data-key="${escapeHtml(bill.key)}">שיוך</button>`
       : bill
-      ? `<button type="button" class="btn btn-outline bill-row-btn" onclick="openStoreBillModal('${escapeHtml(dashboardJsString(bill.bid))}')">עריכה</button>`
-      : `<button type="button" class="btn btn-outline bill-row-btn" onclick="openStoreBillModal(null, '${escapeHtml(dashboardJsString(store))}')">הזן חיוב</button>`;
+      ? `<button type="button" class="btn btn-outline bill-row-btn" data-click="store-bill-open" data-bid="${escapeHtml(bill.bid)}">עריכה</button>`
+      : `<button type="button" class="btn btn-outline bill-row-btn" data-click="store-bill-open" data-store="${escapeHtml(store)}">הזן חיוב</button>`;
     return `<tr class="${bill && bill.paid ? "bill-row--paid" : ""}">
       <td style="font-weight:700;">${escapeHtml(store)}</td>
       <td class="amount-cell" style="color:var(--text-secondary);">${expected !== null ? formatCurrency(expected) : "—"}</td>
@@ -4511,8 +4618,8 @@ function renderStoreBillReceiptCurrent(bill) {
   if (!el) return;
   if (bill && bill.receipt && bill.receipt.path && !storeBillFileCleared) {
     el.innerHTML = `<span class="material-icons-regular">attach_file</span> ${escapeHtml(bill.receipt.name || "קבלה")}
-      <button type="button" class="bill-receipt-link" onclick="viewStoreBillReceipt('${escapeHtml(dashboardJsString(bill.bid))}')">צפייה</button>
-      <button type="button" class="bill-receipt-link bill-receipt-remove" onclick="clearStoreBillReceipt()">הסר</button>`;
+      <button type="button" class="bill-receipt-link" data-click="receipt-view" data-bid="${escapeHtml(bill.bid)}">צפייה</button>
+      <button type="button" class="bill-receipt-link bill-receipt-remove" data-click="receipt-clear">הסר</button>`;
   } else {
     el.innerHTML = `<span style="color:var(--text-muted);">לא צורפה קבלה</span>`;
   }
@@ -4717,25 +4824,25 @@ function renderPurimGroups() {
                     <span style="font-size:11px; font-weight:700; color:var(--text-muted); white-space:nowrap; text-transform:uppercase; letter-spacing:0.4px;">סכומים סופיים</span>
                     <div class="purim-sums-display" style="display:flex; gap:6px; flex-wrap:wrap; flex:1; overflow-x:auto;">${sumsInner}</div>
                     <div class="purim-group-actions" style="display:flex; gap:5px; flex-shrink:0; align-items:center; flex-wrap:wrap;">
-                        <button class="purim-action-btn purim-edit-btn" onclick="togglePurimGroupEdit('${key}')">
+                        <button type="button" class="purim-action-btn purim-edit-btn" data-click="purim-edit" data-key="${key}">
                             <span class="material-icons-regular" style="font-size:14px;">edit</span> מצב עריכה
                         </button>
-                        <button class="purim-action-btn purim-cancel-btn" onclick="cancelPurimGroupEdit('${key}')" style="display:none; border-color:#dc2626; color:#dc2626;">
+                        <button type="button" class="purim-action-btn purim-cancel-btn" data-click="purim-cancel" data-key="${key}" style="display:none; border-color:#dc2626; color:#dc2626;">
                             <span class="material-icons-regular" style="font-size:14px;">close</span> ביטול
                         </button>
-                        <button class="purim-action-btn purim-save-btn" onclick="togglePurimGroupEdit('${key}')" style="display:none; border-color:#16a34a; color:#15803d; background:#f0fdf4;">
+                        <button type="button" class="purim-action-btn purim-save-btn" data-click="purim-edit" data-key="${key}" style="display:none; border-color:#16a34a; color:#15803d; background:#f0fdf4;">
                             <span class="material-icons-regular" style="font-size:14px;">save</span> שמור
                         </button>
-                        <button class="purim-action-btn" onclick="printPurimGroup('${key}')" title="הדפסה">
+                        <button type="button" class="purim-action-btn" data-click="purim-print" data-key="${key}" title="הדפסה">
                             <span class="material-icons-regular" style="font-size:14px;">print</span>
                         </button>
-                        <button class="purim-action-btn" onclick="exportPurimGroupToExcel('${key}')" title="הורדה לאקסל">
+                        <button type="button" class="purim-action-btn" data-click="purim-export" data-key="${key}" title="הורדה לאקסל">
                             <svg width="18" height="18" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="4" fill="#217346"/><path d="M13 6h6v2h-6V6zm0 4h6v2h-6v-2zm0 4h6v2h-6v-2z" fill="#fff" opacity=".6"/><path d="M5 6l3 5-3 5h2.5l1.8-3.2L11 16h2.5l-3-5 3-5H11L9.3 9.2 7.5 6H5z" fill="#fff"/></svg>
                         </button>
-                        <button class="purim-action-btn" onclick="togglePurimSpacing(this, '${key}')">
+                        <button type="button" class="purim-action-btn" data-click="purim-spacing" data-key="${key}">
                             <span class="material-icons-regular" style="font-size:14px;">density_large</span> רווח
                         </button>
-                        <button class="purim-action-btn" onclick="togglePurimYears()">
+                        <button type="button" class="purim-action-btn" data-click="purim-years">
                             <span class="material-icons-regular" style="font-size:14px;">${state.purimShowAllYears ? 'unfold_less' : 'unfold_more'}</span>
                             ${state.purimShowAllYears ? 'פחות שנים' : 'כל השנים'}
                         </button>
@@ -4969,9 +5076,17 @@ window.printPurimGroup = function(key) {
         <div class="meta">צדקת רבי שמעון · ${getPurimRowsFor(g.city, g.group).length} כתובות · הודפס ${formatDateDisplay(new Date())}</div>
         <div class="sums">סכומים סופיים: ${sums}</div>
         ${clone.outerHTML}
-        <script>window.onload = () => { window.print(); window.close(); }<\/script>
         </body></html>`);
+    // ההדפסה מופעלת מכאן ולא מסקריפט בתוך החלון החדש (מדיניות האבטחה חוסמת סקריפט מוטמע)
+    let printed = false;
+    const printAndClose = () => {
+        if (printed) return;
+        printed = true;
+        try { win.focus(); win.print(); } finally { win.close(); }
+    };
+    win.addEventListener("load", printAndClose);
     win.document.close();
+    setTimeout(printAndClose, 500);
 };
 
 window.exportPurimGroupToExcel = function(key) {
@@ -5491,7 +5606,6 @@ function performLogout(isAuto = false) {
     const pending = readPendingWrites().length;
     if (!isAuto && pending && !confirm(`${pending} שינויים עדיין לא נשמרו בשרת (אין חיבור). הם יישארו שמורים במחשב הזה ויישלחו בכניסה הבאה. לצאת בכל זאת?`)) return;
     if (isAuto) saveFormDraft();
-    sessionStorage.removeItem("ezer_active_session");
     if (window.SB) { try { SB.signOut(); } catch (e) {} }
     // מוחקים את העותק המקומי של הנתונים (שמות, טלפונים, כתובות, הפקדות) כדי שלא יישאר במחשב
     clearLocalDataCache();
@@ -5500,11 +5614,12 @@ function performLogout(isAuto = false) {
     setTimeout(() => location.reload(), 150);
 }
 
+// תור השמירות הממתינות (PENDING_WRITES_KEY) לא נמחק כאן בכוונה - הוא יישלח בכניסה הבאה
 function clearLocalDataCache() {
-  try {
-    Object.values(STORAGE_KEYS).forEach(k => localStorage.removeItem(k));
-    localStorage.removeItem("ezer_last_sync");
-  } catch (e) {}
+  Object.values(STORAGE_KEYS).concat(LAST_SYNC_KEY).forEach(k => {
+    cacheStore.remove(k);
+    try { localStorage.removeItem(k); } catch (e) {}
+  });
 }
 
 // ===== שמירת טופס פתוח כשהמערכת ננעלת עקב חוסר פעילות =====

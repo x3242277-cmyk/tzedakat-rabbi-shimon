@@ -6,46 +6,39 @@
   <meta name="theme-color" content="#101014">
   <meta name="description" content="מערכת ניהול גבייה, זכאות ומענקים — צדקת רבי שמעון">
   <title>צדקת רבי שמעון | מערכת ניהול</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="icon" href="assets/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <link rel="stylesheet" href="style.css">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
+  <script src="vendor/chart.js/chart.umd.min.js"></script>
+  <script src="supabase-integration.js"></script>
 </head>
 <body>
 
-  <script>
-    try {
-      var s = sessionStorage.getItem("ezer_active_session");
-      if (s && JSON.parse(s).username) {
-        document.documentElement.style.setProperty('--login-init-display','none');
-      }
-    } catch(e) {}
-  </script>
-  <div id="login-screen" class="login-overlay" style="display:var(--login-init-display,flex)">
+  <div id="login-screen" class="login-overlay">
     <div class="login-card">
-      <img src="https://i.ibb.co/35GFFgB9/1-optimized.png" alt="לוגו צדקת רבי שמעון" id="login-logo" style="display: block; margin: 0 auto 20px auto; width: 120px; height: auto;">
+      <img src="assets/logo.png" alt="לוגו צדקת רבי שמעון" id="login-logo" width="120" height="120" style="display: block; margin: 0 auto 20px auto; width: 120px; height: auto;">
       <h2 style="color: var(--gold-main); margin-bottom: 5px; font-weight: 800; font-size: 24px;">צדקת רבי שמעון</h2>
-      
+
       <div id="login-loader-area" style="padding: 30px 0;">
          <div class="sleek-spinner"></div>
          <p style="color: var(--text-secondary); margin-top: 15px; font-weight: 600; font-size: 14px;">מסנכרן נתונים מאובטחים...</p>
       </div>
 
-      <div id="login-form-area" style="display: none; opacity: 0; transition: opacity 0.6s ease-in-out;">
+      <form id="login-form-area" novalidate style="display: none; opacity: 0; transition: opacity 0.6s ease-in-out;">
           <p style="color: var(--text-secondary); margin-bottom: 30px; font-size: 14px;">הזן פרטי זיהוי לכניסה למערכת</p>
-          
+
           <div class="form-group" style="text-align: right; margin-bottom: 20px;">
-            <label>שם משתמש</label>
-            <select id="login-username" class="ui-select"></select>
+            <label for="login-username">שם משתמש</label>
+            <input type="text" id="login-username" name="username" class="ui-input" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="שם המשתמש באנגלית" style="direction: ltr; text-align: right;">
           </div>
           <div class="form-group" style="text-align: right; margin-bottom: 30px;">
-            <label>סיסמה</label>
-            <input type="password" id="login-password" class="ui-input" placeholder="הקלידו סיסמה...">
+            <label for="login-password">סיסמה</label>
+            <input type="password" id="login-password" name="password" class="ui-input" autocomplete="current-password" placeholder="הקלידו סיסמה...">
           </div>
-          
-          <button id="btn-login" class="btn btn-solid-blue" style="width: 100%; font-size: 16px; padding: 14px;">היכנס למערכת</button>
-          <div id="login-error" style="color: var(--danger); margin-top: 15px; font-weight: bold; display: none;">סיסמה שגויה, נסה שוב.</div>
-      </div>
+
+          <button type="submit" id="btn-login" class="btn btn-solid-blue" style="width: 100%; font-size: 16px; padding: 14px;">היכנס למערכת</button>
+          <div id="login-error" role="alert" style="color: var(--danger); margin-top: 15px; font-weight: bold; display: none;"></div>
+      </form>
     </div>
   </div>
 
@@ -53,7 +46,7 @@
     
     <aside class="sidebar">
       <div class="sidebar-header" style="display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px; margin-bottom: 24px; padding-top: 10px;">
-        <img src="https://i.ibb.co/35GFFgB9/1-optimized.png" alt="לוגו צדקת רבי שמעון" id="sidebar-logo" style="width: 126px; height: auto; cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
+        <img src="assets/logo.png" alt="לוגו צדקת רבי שמעון" id="sidebar-logo" width="126" height="126" style="width: 126px; height: auto;">
         <div>
           <h2 style="font-size: 22px; color: var(--gold-main); margin: 0; font-weight: 800;">צדקת רבי שמעון</h2>
           <div class="brand-subtitle" style="font-size: 12px; color: var(--text-sidebar);">ניהול גבייה, זכאות ומענקים</div>
@@ -110,7 +103,7 @@
             <div class="dashboard-hero-controls">
               <div class="dashboard-year-card">
                 <label for="dashboard-year-filter">שנת פעילות</label>
-                <select id="dashboard-year-filter" onchange="renderDashboard()" class="dashboard-year-select">
+                <select id="dashboard-year-filter" data-change="dashboard-year" class="dashboard-year-select">
                   <option value='תשפ"ז'>תשפ"ז</option>
                   <option value='תשפ"ו' selected>תשפ"ו</option>
                   <option value='תשפ"ה'>תשפ"ה</option>
@@ -133,42 +126,42 @@
           </div>
 
           <div class="dashboard-kpi-grid">
-            <button class="dashboard-kpi-card" onclick="openDashboardDrill('collected')" type="button">
+            <button class="dashboard-kpi-card" data-click="dashboard-drill" data-type="collected" type="button">
               <span class="material-icons-regular">account_balance_wallet</span>
               <div>
                 <div class="dashboard-kpi-label">נגבה השנה</div>
                 <div class="dashboard-kpi-value" id="dashboard-kpi-collected">₪0</div>
               </div>
             </button>
-            <button class="dashboard-kpi-card" onclick="openDashboardDrill('target')" type="button">
+            <button class="dashboard-kpi-card" data-click="dashboard-drill" data-type="target" type="button">
               <span class="material-icons-regular">flag</span>
               <div>
                 <div class="dashboard-kpi-label">יעד כולל</div>
                 <div class="dashboard-kpi-value" id="dashboard-kpi-target">₪0</div>
               </div>
             </button>
-            <button class="dashboard-kpi-card dashboard-kpi-card--urgent" onclick="openDashboardDrill('missing')" type="button">
+            <button class="dashboard-kpi-card dashboard-kpi-card--urgent" data-click="dashboard-drill" data-type="missing" type="button">
               <span class="material-icons-regular">priority_high</span>
               <div>
                 <div class="dashboard-kpi-label">חסר להשלמה</div>
                 <div class="dashboard-kpi-value" id="dashboard-kpi-missing">₪0</div>
               </div>
             </button>
-            <button class="dashboard-kpi-card" onclick="openDashboardDrill('eligible')" type="button">
+            <button class="dashboard-kpi-card" data-click="dashboard-drill" data-type="eligible" type="button">
               <span class="material-icons-regular">workspace_premium</span>
               <div>
                 <div class="dashboard-kpi-label">עמדו ביעד השנתי</div>
                 <div class="dashboard-kpi-value" id="dashboard-kpi-eligible">0</div>
               </div>
             </button>
-            <button class="dashboard-kpi-card dashboard-kpi-card--warning" onclick="openDashboardDrill('debt')" type="button">
+            <button class="dashboard-kpi-card dashboard-kpi-card--warning" data-click="dashboard-drill" data-type="debt" type="button">
               <span class="material-icons-regular">report</span>
               <div>
                 <div class="dashboard-kpi-label">חובות עד שנה קודמת</div>
                 <div class="dashboard-kpi-value" id="dashboard-kpi-debt">0</div>
               </div>
             </button>
-            <button class="dashboard-kpi-card dashboard-progress-card" onclick="openDashboardDrill('progress')" type="button">
+            <button class="dashboard-kpi-card dashboard-progress-card" data-click="dashboard-drill" data-type="progress" type="button">
               <span class="material-icons-regular">trending_up</span>
               <div>
                 <div class="dashboard-kpi-label">התקדמות כללית</div>
@@ -213,7 +206,7 @@
                 <button class="dashboard-action-btn" id="quick-add-donation" type="button"><span class="qa-icon-badge"><span class="material-icons-regular">payments</span></span><strong>רישום הפקדה</strong></button>
                 <button class="dashboard-action-btn" id="quick-add-member" type="button"><span class="qa-icon-badge"><span class="material-icons-regular">person_add</span></span><strong>הוספת בחור</strong></button>
                 <button class="dashboard-action-btn" id="quick-add-expense" type="button"><span class="qa-icon-badge"><span class="material-icons-regular">receipt_long</span></span><strong>הוספת הוצאה</strong></button>
-                <button class="dashboard-action-btn" onclick="openNedarimModal()" type="button"><span class="qa-icon-badge"><span class="material-icons-regular">credit_card</span></span><strong>סליקת אשראי</strong></button>
+                <button class="dashboard-action-btn" data-click="open-nedarim" type="button"><span class="qa-icon-badge"><span class="material-icons-regular">credit_card</span></span><strong>סליקת אשראי</strong></button>
                 <button class="dashboard-action-btn drill-down-card" data-drill="daily-report-screen" type="button"><span class="qa-icon-badge"><span class="material-icons-regular">summarize</span></span><strong>דוח יומי</strong></button>
                 <button class="dashboard-action-btn drill-down-card" data-drill="grants-screen" type="button"><span class="qa-icon-badge"><span class="material-icons-regular">redeem</span></span><strong>מענקים</strong></button>
               </div>
@@ -264,10 +257,10 @@
               </div>
               <div class="members-inline-checks">
                 <label class="members-radio-label">
-                  <input type="checkbox" id="filter-type-small" onchange="updateTypeFilter()"> ישי"ק
+                  <input type="checkbox" id="filter-type-small" data-change="type-filter"> ישי"ק
                 </label>
                 <label class="members-radio-label">
-                  <input type="checkbox" id="filter-type-big" onchange="updateTypeFilter()"> ישי"ג
+                  <input type="checkbox" id="filter-type-big" data-change="type-filter"> ישי"ג
                 </label>
                 <label class="members-radio-label" style="border-right:1px solid var(--border-color); padding-right:10px; margin-right:4px;">
                   <input type="checkbox" id="filter-show-married"> נשואים
@@ -275,11 +268,11 @@
               </div>
             </div>
             <div class="toolbar-actions" style="flex-shrink:0;">
-              <button class="members-toolbar-btn" id="btn-members-edit-cancel" title="בטל עריכה" style="display:none; border-color:#dc2626; color:#dc2626;" onclick="cancelMembersEdit()"><span class="material-icons-regular">close</span></button>
-              <button class="members-toolbar-btn" id="btn-members-edit-mode" title="מצב עריכה" onclick="handleMembersEditButton()"><span class="material-icons-regular">edit</span></button>
+              <button class="members-toolbar-btn" id="btn-members-edit-cancel" title="בטל עריכה" style="display:none; border-color:#dc2626; color:#dc2626;" data-click="members-edit-cancel"><span class="material-icons-regular">close</span></button>
+              <button class="members-toolbar-btn" id="btn-members-edit-mode" title="מצב עריכה" data-click="members-edit-toggle"><span class="material-icons-regular">edit</span></button>
               <button class="members-toolbar-btn" id="btn-clear-members-filters" title="נקה סינונים"><span class="material-icons-regular">filter_alt_off</span></button>
-              <button class="members-toolbar-btn" title="צפוף/רווח" onclick="document.querySelector('#members-screen .data-table').classList.toggle('compact-view')"><span class="material-icons-regular">density_small</span></button>
-              <button class="members-toolbar-btn" onclick="window.print()" title="הדפסה"><span class="material-icons-regular">print</span></button>
+              <button class="members-toolbar-btn" title="צפוף/רווח" data-click="members-density"><span class="material-icons-regular">density_small</span></button>
+              <button class="members-toolbar-btn" data-click="print" title="הדפסה"><span class="material-icons-regular">print</span></button>
               <button class="members-toolbar-btn" id="btn-export-members" title="הורדה לאקסל">
                 <svg width="18" height="18" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="4" fill="#217346"/><path d="M13 6h6v2h-6V6zm0 4h6v2h-6v-2zm0 4h6v2h-6v-2z" fill="#fff" opacity=".6"/><path d="M5 6l3 5-3 5h2.5l1.8-3.2L11 16h2.5l-3-5 3-5H11L9.3 9.2 7.5 6H5z" fill="#fff"/></svg>
               </button>
@@ -397,7 +390,7 @@
               </div>
             </div>
             <div class="toolbar-actions">
-              <button class="btn btn-outline" style="padding: 8px 12px;" onclick="window.print()"><span class="material-icons-regular" style="font-size: 18px;">print</span></button>
+              <button class="btn btn-outline" style="padding: 8px 12px;" data-click="print" title="הדפסה"><span class="material-icons-regular" style="font-size: 18px;">print</span></button>
               <button class="btn btn-solid-blue" id="btn-report-add-donation">＋ רישום תרומה</button>
               <button class="btn btn-danger-outline" id="btn-report-add-expense" style="border: 1px solid var(--danger); background: transparent;">− רישום הוצאה</button>
             </div>
@@ -450,7 +443,7 @@
       <section id="expenses-summary-screen" class="content-screen">
         <div class="exp-year-bar">
           <label for="expenses-year-filter" style="font-size:13px; font-weight:700; color:var(--text-secondary);">שנת ניתוח:</label>
-          <select id="expenses-year-filter" class="ui-select" style="min-width:130px;" onchange="onExpensesYearChange()"></select>
+          <select id="expenses-year-filter" class="ui-select" style="min-width:130px;" data-change="expenses-year"></select>
         </div>
         <div class="metrics-row metrics-row-4">
           <div class="metric-card no-click">
@@ -488,7 +481,7 @@
 
         <div style="display:flex;justify-content:space-between;align-items:center;margin:20px 0 12px;">
           <h3 class="page-title small">פירוט לפי קטגוריה ושנה</h3>
-          <button class="btn btn-outline" style="font-size:12px;padding:5px 12px;" onclick="toggleExpenseYears()">
+          <button class="btn btn-outline" style="font-size:12px;padding:5px 12px;" data-click="toggle-expense-years">
             <span id="exp-years-btn-text">הצג כל השנים</span>
           </button>
         </div>
@@ -509,21 +502,21 @@
             <div class="filter-group grants-year-filter">
               <label>שנה</label>
               <div class="grants-year-filter-row">
-                <select id="grants-year-select" class="ui-select" onchange="selectGrantsArchiveYear(this.value)"></select>
-                <button type="button" class="grants-year-add-btn" onclick="addGrantsArchiveYear()" title="הוספת שנה"><span class="material-icons-regular">add</span></button>
+                <select id="grants-year-select" class="ui-select" data-change="grants-year"></select>
+                <button type="button" class="grants-year-add-btn" data-click="grants-add-year" title="הוספת שנה"><span class="material-icons-regular">add</span></button>
               </div>
             </div>
             <div class="filter-group">
               <label>&nbsp;</label>
               <div class="grants-view-toggle" id="grants-view-toggle">
-                <button type="button" class="grants-view-btn active" data-view="grant" onclick="switchGrantsView('grant')"><span class="material-icons-regular">redeem</span> נתינת המענק</button>
-                <button type="button" class="grants-view-btn" data-view="payments" onclick="switchGrantsView('payments')"><span class="material-icons-regular">payments</span> תשלומים לחנויות</button>
+                <button type="button" class="grants-view-btn active" data-view="grant" data-click="grants-view"><span class="material-icons-regular">redeem</span> נתינת המענק</button>
+                <button type="button" class="grants-view-btn" data-view="payments" data-click="grants-view"><span class="material-icons-regular">payments</span> תשלומים לחנויות</button>
               </div>
             </div>
           </div>
           <div class="toolbar-actions">
-            <button class="members-toolbar-btn members-toolbar-btn--excel" onclick="exportGrantsToExcel()" title="הורדה לאקסל"><span class="material-icons-regular">download</span> ייצוא</button>
-            <button class="members-toolbar-btn" onclick="window.print()" title="הדפסה"><span class="material-icons-regular">print</span> הדפס</button>
+            <button class="members-toolbar-btn members-toolbar-btn--excel" data-click="grants-export" title="הורדה לאקסל"><span class="material-icons-regular">download</span> ייצוא</button>
+            <button class="members-toolbar-btn" data-click="print" title="הדפסה"><span class="material-icons-regular">print</span> הדפס</button>
           </div>
         </div>
 
@@ -535,8 +528,8 @@
               <div class="grants-archive-panel-head">
                 <h3 class="page-title small" style="margin:0;">מקבלי המענק <span id="grants-archive-year-label"></span></h3>
                 <div class="grants-archive-head-actions">
-                  <button class="members-toolbar-btn members-toolbar-btn--gold" onclick="toggleGrantsAddForm()" id="grants-archive-add-btn" title="הוספת חתן"><span class="material-icons-regular">person_add</span> הוסף חתן</button>
-                  <button class="members-toolbar-btn members-toolbar-btn--excel" onclick="exportGrantsArchiveRecipients()" title="הורדה לאקסל"><span class="material-icons-regular">download</span> אקסל</button>
+                  <button class="members-toolbar-btn members-toolbar-btn--gold" data-click="grants-add-form-toggle" id="grants-archive-add-btn" title="הוספת חתן"><span class="material-icons-regular">person_add</span> הוסף חתן</button>
+                  <button class="members-toolbar-btn members-toolbar-btn--excel" data-click="grants-export-recipients" title="הורדה לאקסל"><span class="material-icons-regular">download</span> אקסל</button>
                 </div>
               </div>
               <div id="grants-archive-add-form" class="grants-archive-add-form hidden">
@@ -549,8 +542,8 @@
                 <div class="form-group"><label for="grants-add-phone">טלפון</label><input type="text" id="grants-add-phone" class="ui-input" inputmode="tel" style="direction:ltr; text-align:right;"></div>
                 <div class="form-group"><label for="grants-add-date">תאריך</label><input type="date" id="grants-add-date" class="ui-input"></div>
                 <div class="grants-add-actions">
-                  <button class="btn btn-solid-blue" id="grants-add-submit" onclick="submitGrantsAddRecipient()"><span class="material-icons-regular" style="font-size:15px;vertical-align:middle;">check</span> הוסף</button>
-                  <button class="btn btn-outline" onclick="toggleGrantsAddForm(false)">ביטול</button>
+                  <button class="btn btn-solid-blue" id="grants-add-submit" data-click="grants-add-submit"><span class="material-icons-regular" style="font-size:15px;vertical-align:middle;">check</span> הוסף</button>
+                  <button class="btn btn-outline" data-click="grants-add-form-close">ביטול</button>
                 </div>
               </div>
               <div id="grants-archive-recipients-note" class="grants-archive-note"></div>
@@ -571,8 +564,8 @@
                   <p class="settings-card-sub" style="margin:0;">שווי חבילה לחתן <strong id="grants-archive-pkg-total"></strong></p>
                 </div>
                 <div class="grants-archive-head-actions">
-                  <button class="members-toolbar-btn members-toolbar-btn--gold" id="grants-pkg-edit-btn" onclick="toggleGrantsPackageEditMode()" title="עריכת תכולת המענק"><span class="material-icons-regular">edit</span> ערוך תכולה</button>
-                  <button class="members-toolbar-btn hidden" id="grants-pkg-cancel-btn" onclick="cancelGrantsPackageEdit()">ביטול</button>
+                  <button class="members-toolbar-btn members-toolbar-btn--gold" id="grants-pkg-edit-btn" data-click="grants-pkg-edit" title="עריכת תכולת המענק"><span class="material-icons-regular">edit</span> ערוך תכולה</button>
+                  <button class="members-toolbar-btn hidden" id="grants-pkg-cancel-btn" data-click="grants-pkg-cancel">ביטול</button>
                 </div>
               </div>
               <div id="grants-archive-package"></div>
@@ -588,8 +581,8 @@
                 <p class="settings-card-sub" style="margin:0;">בכל מחצית משלמים לכל חנות לפי הקבלות על מה שמומש באותה מחצית</p>
               </div>
               <div class="grants-view-toggle" id="bills-half-toggle">
-                <button type="button" class="grants-view-btn active" data-half="א" onclick="switchBillsHalf('א')">מחצית א' · תשרי–אדר</button>
-                <button type="button" class="grants-view-btn" data-half="ב" onclick="switchBillsHalf('ב')">מחצית ב' · ניסן–אלול</button>
+                <button type="button" class="grants-view-btn active" data-half="א" data-click="bills-half">מחצית א' · תשרי–אדר</button>
+                <button type="button" class="grants-view-btn" data-half="ב" data-click="bills-half">מחצית ב' · ניסן–אלול</button>
               </div>
             </div>
             <div class="grants-archive-stats store-bills-stats" id="store-bills-stats"></div>
@@ -611,7 +604,7 @@
               </table>
             </div>
             <div class="store-bills-footnote" id="store-bills-footnote"></div>
-            <button type="button" class="grants-pkg-add-row-btn store-bills-add" onclick="openStoreBillModal(null)"><span class="material-icons-regular">add_business</span> הוסף תשלום לחנות אחרת</button>
+            <button type="button" class="grants-pkg-add-row-btn store-bills-add" data-click="store-bill-open"><span class="material-icons-regular">add_business</span> הוסף תשלום לחנות אחרת</button>
           </div>
 
           <div class="card-panel legacy-payments-panel hidden" id="legacy-payments-panel">
@@ -746,7 +739,7 @@
               <span class="material-icons-regular">info</span>
               <div>
                 <strong>הוספת משתמש חדש או איפוס סיסמה</strong> נעשים בלוח הבקרה של Supabase: Authentication → Users → Add user (מייל בסגנון <span dir="ltr">name@tzedaka.local</span> וסיסמה).
-                כדי שהשם יופיע ברשימת הכניסה, צריך להוסיף אותו גם לקוד (USER_EMAIL_MAP).
+                בכניסה למערכת המשתמש מקליד רק את החלק שלפני ה-@ (למשל <span dir="ltr">name</span>). השם בעברית שמוצג במערכת נלקח מהעמודה display_name בטבלת profiles.
               </div>
             </div>
           </div>
@@ -767,7 +760,7 @@
       <div class="modal-content app-modal" style="max-width: 640px; max-height: 85vh; display: flex; flex-direction: column;">
         <div style="padding: 18px 24px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
           <h3 id="data-health-modal-title" style="margin: 0; font-size: 18px; font-weight: 800; color: var(--text-main);">תיקון נתונים</h3>
-          <button onclick="document.getElementById('data-health-modal').classList.remove('open')" style="background: none; border: none; cursor: pointer; display: flex; width: 34px; height: 34px; border-radius: 50%; align-items: center; justify-content: center; color: var(--text-secondary);"><span class="material-icons-regular">close</span></button>
+          <button type="button" data-click="health-modal-close" aria-label="סגור" style="background: none; border: none; cursor: pointer; display: flex; width: 34px; height: 34px; border-radius: 50%; align-items: center; justify-content: center; color: var(--text-secondary);"><span class="material-icons-regular">close</span></button>
         </div>
         <div id="data-health-modal-body" style="padding: 16px 24px; overflow-y: auto; flex: 1;"></div>
       </div>
@@ -900,7 +893,7 @@
       
       <div style="padding: 16px 24px; background: rgba(212, 175, 55, 0.05); border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
         <h3 style="margin: 0; font-size: 18px; font-weight: 800; color: var(--gold-dark);">סליקת אשראי - צדקת רבי שמעון</h3>
-        <button id="btn-close-nedarim" title="סגור / סיימתי תשלום" style="background: none; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 50%; color: var(--text-secondary); transition: background 0.15s;" onmouseover="this.style.background='rgba(0,0,0,0.06)'" onmouseout="this.style.background='none'">
+        <button id="btn-close-nedarim" type="button" class="nedarim-close-btn" title="סגור / סיימתי תשלום" aria-label="סגור / סיימתי תשלום">
           <span class="material-icons-regular" style="font-size: 26px;">close</span>
         </button>
       </div>
@@ -957,14 +950,14 @@
 
   <div id="legacy-assign-modal" class="modal-overlay">
     <div class="modal-content app-modal" style="max-width: 460px;">
-      <button class="modal-close" type="button" onclick="closeLegacyAssign()">✖</button>
+      <button class="modal-close" type="button" data-click="legacy-assign-close">✖</button>
       <div class="modal-inner">
         <h3 class="page-title small" style="margin-bottom: 6px;">שיוך תשלום ישן למחצית</h3>
         <div id="legacy-assign-desc" class="modal-meta"></div>
         <div class="legacy-assign-options">
-          <button type="button" class="legacy-assign-option" data-half="א" onclick="saveLegacyAssign('א')"><strong>מחצית א'</strong><span>תשרי–אדר</span></button>
-          <button type="button" class="legacy-assign-option" data-half="ב" onclick="saveLegacyAssign('ב')"><strong>מחצית ב'</strong><span>ניסן–אלול</span></button>
-          <button type="button" class="legacy-assign-option" data-half="none" onclick="saveLegacyAssign('none')"><strong>לא משויך</strong><span>להשאיר ברשימת התשלומים הישנים</span></button>
+          <button type="button" class="legacy-assign-option" data-half="א" data-click="legacy-assign-save"><strong>מחצית א'</strong><span>תשרי–אדר</span></button>
+          <button type="button" class="legacy-assign-option" data-half="ב" data-click="legacy-assign-save"><strong>מחצית ב'</strong><span>ניסן–אלול</span></button>
+          <button type="button" class="legacy-assign-option" data-half="none" data-click="legacy-assign-save"><strong>לא משויך</strong><span>להשאיר ברשימת התשלומים הישנים</span></button>
         </div>
       </div>
     </div>
@@ -972,7 +965,7 @@
 
   <div id="store-bill-modal" class="modal-overlay">
     <div class="modal-content app-modal" style="max-width: 600px;">
-      <button class="modal-close" type="button" onclick="closeStoreBillModal()">✖</button>
+      <button class="modal-close" type="button" data-click="store-bill-close">✖</button>
       <div class="modal-inner">
         <h3 class="page-title small" id="store-bill-title" style="margin-bottom: 6px;">תשלום לחנות</h3>
         <div id="store-bill-meta" class="modal-meta"></div>
@@ -1006,9 +999,9 @@
         <div class="form-group" style="margin-top: 14px;"><label for="store-bill-notes">הערות</label><input type="text" id="store-bill-notes" class="ui-input"></div>
 
         <div class="form-actions-row" style="margin-top: 20px;">
-          <button class="btn btn-outline" type="button" onclick="closeStoreBillModal()">ביטול</button>
-          <button class="btn btn-solid-blue" type="button" id="store-bill-save" onclick="saveStoreBill()">שמור</button>
-          <button class="btn btn-danger-outline" type="button" id="store-bill-delete" onclick="deleteStoreBill()" style="display:none; margin-right:auto;">מחק</button>
+          <button class="btn btn-outline" type="button" data-click="store-bill-close">ביטול</button>
+          <button class="btn btn-solid-blue" type="button" id="store-bill-save" data-click="store-bill-save">שמור</button>
+          <button class="btn btn-danger-outline" type="button" id="store-bill-delete" data-click="store-bill-delete" style="display:none; margin-right:auto;">מחק</button>
         </div>
       </div>
     </div>
@@ -1021,14 +1014,13 @@
         <span class="material-icons-regular" style="font-size: 48px; color: var(--warning); margin-bottom: 15px;">timer</span>
         <h3 class="page-title small" style="margin-bottom: 10px; color: var(--text-main);">המערכת עומדת להינעל</h3>
         <p style="color: var(--text-secondary); margin-bottom: 25px; font-size: 15px;">זיהינו חוסר פעילות. למען אבטחת הנתונים, המערכת תתנתק בעוד <strong id="timeout-countdown" style="color: var(--danger); font-size: 18px;">20</strong> שניות.</p>
-        <button class="btn btn-solid-blue" onclick="resetIdleTimer()" style="width: 100%;">השאר אותי מחובר</button>
+        <button class="btn btn-solid-blue" data-click="idle-stay" style="width: 100%;">השאר אותי מחובר</button>
       </div>
     </div>
   </div>
 
   <datalist id="members-datalist"></datalist>
 
-  <script src="supabase-integration.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
