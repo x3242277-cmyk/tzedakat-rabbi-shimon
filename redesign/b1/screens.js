@@ -118,13 +118,14 @@
     var years = st.all ? X.years : X.years.slice(-2), cur = X.years[X.years.length - 1];
     var total = X.groups.reduce(function (a, x) { return a + x.sums[cur]; }, 0), addrs = X.groups.reduce(function (a, x) { return a + x.addresses; }, 0);
     var rows = gr.rows.map(function (r, ri) {
-      return '<div class="trow">' + tc('מס׳', '<b class="num">' + r.n + '</b>') + tc('משפחה', '<b>' + esc(r.family) + '</b><i>' + esc(r.first) + '</i>') +
-        tc('כתובת', esc(r.street) + ' ' + r.house + '<i>דירה ' + r.apt + '</i>') +
+      return (st.edit ? '<div class="trow">' : '<button type="button" class="trow" data-scr="visit:' + ri + '">') + tc('מס׳', '<b class="num">' + r.n + '</b>') + tc('משפחה', '<b>' + esc(r.family) + ' <small>' + esc(r.first) + '</small></b>') +
+        tc('כתובת', '<span>' + esc(r.street) + ' ' + r.house + ' <small>דירה ' + r.apt + '</small></span>') +
         years.map(function (y) {
           var v = r.amounts[y];
           if (st.edit && y === cur) return tc(y, '<label class="uin uin-s" dir="ltr"><span class="pre">₪</span><input type="text" inputmode="numeric" value="' + (v || '') + '" data-scrin="purim:' + ri + '" aria-label="סכום ' + esc(y) + ' ל' + esc(r.family) + '"></label>', 'yc');
           return tc(y, v ? (y === cur ? '<b>' + nis(v) + '</b>' : nis(v)) : '<i>—</i>', 'yc');
-        }).join('') + tc('הערות', r.note ? esc(r.note) : '<i>—</i>', 'note') + '</div>';
+        }).join('') + tc('דקות', st.edit ? '<label class="uin uin-s"><input type="text" inputmode="numeric" value="' + (r.stay || '') + '" placeholder="' + RT.per + '" data-scrin="pstay:' + ri + '" aria-label="דקות בכתובת של ' + esc(r.family) + '"></label>' : stayH(r, stayOf(r, routeCfg())), 'yc') +
+        tc('הערות', r.note ? esc(r.note) : '<i>—</i>', 'note') + (st.edit ? '</div>' : '</button>');
     }).join('');
     var colSum = years.map(function (y) { return gr.rows.reduce(function (a, r) { return a + (r.amounts[y] || 0); }, 0); });
     var head = factsH([[num(addrs), 'כתובות', 'ב-' + X.groups.length + ' קבוצות'], ['₪' + num(total), 'נאסף בפורים', 'בשנת ' + cur], [X.cities.length, 'ערים', X.cities.join(', ')]]) +
@@ -141,9 +142,9 @@
       '<div class="sums"><span class="sums-l"><b>' + esc(gr.city) + ' · ' + esc(gr.group) + '</b>סכום סופי לקבוצה</span>' + X.years.map(function (y) {
         return '<span class="sum' + (y === cur ? ' is-now' : '') + '"><i>' + esc(y) + '</i><b>' + nis(gr.sums[y]) + '</b></span>';
       }).join('') + '</div>' +
-      tlH('44px minmax(0,1.1fr) minmax(0,1.3fr) ' + years.map(function () { return 'minmax(0,.7fr)'; }).join(' ') + ' minmax(0,1.2fr)', ['מס׳', 'משפחה', 'כתובת'].concat(years.map(esc)).concat(['הערות']), rows, 'tl-purim') +
-      '<div class="tl-sum" style="--cols:44px minmax(0,1.1fr) minmax(0,1.3fr) ' + years.map(function () { return 'minmax(0,.7fr)'; }).join(' ') + ' minmax(0,1.2fr)"><span></span><span><b>סך הכול ברשימה</b></span><span></span>' +
-      colSum.map(function (v) { return '<span><b>' + nis(v) + '</b></span>'; }).join('') + '<span></span></div>' +
+      tlH('36px minmax(0,1.1fr) minmax(0,1.3fr) ' + years.map(function () { return 'minmax(0,.7fr)'; }).join(' ') + ' minmax(0,.9fr) minmax(0,1.2fr)', ['מס׳', 'משפחה', 'כתובת'].concat(years.map(esc)).concat(['דקות בכתובת', 'הערות']), rows, 'tl-purim') +
+      '<div class="tl-sum" style="--cols:36px minmax(0,1.1fr) minmax(0,1.3fr) ' + years.map(function () { return 'minmax(0,.7fr)'; }).join(' ') + ' minmax(0,.9fr) minmax(0,1.2fr)"><span></span><span><b>סך הכול ברשימה</b></span><span></span>' +
+      colSum.map(function (v) { return '<span><b>' + nis(v) + '</b></span>'; }).join('') + '<span></span><span></span></div>' +
       '<p class="ml-foot">מוצגות ' + gr.rows.length + ' כתובות לדוגמה מתוך ' + gr.addresses + ' בקבוצה</p>';
   }
 
@@ -395,6 +396,15 @@
         fldH('תאריך התשלום', inH('b-date', b.paidOn || D.settings.todayLabel, 'inputmode="numeric" dir="ltr" style="text-align:right"') + g('calendar'), 'paid-only' + (b.status === 'שולם' ? '' : ' is-off'), 'b-date') +
         '<div class="fld"><span class="lb">קבלה</span><button type="button" class="btn btn-s btn-o upl" data-scr="demo:כאן בוחרים קובץ קבלה, PDF או תמונה (הדגמה)">' + (b.receipt ? 'החלפת הקבלה' : 'צירוף קבלה') + '</button></div>' +
         '<p class="err fld w2" id="' + P + 'ferr" role="alert"></p></div></div>' + foot('שמירת התשלום') + '</form>';
+    } else if (kind === 'visit') {
+      var vr = arg, wt = vr.win ? (vr.win.from ? 'from' : 'to') : '';
+      h = '<form data-form="visit" novalidate><div class="sheet-s">' + X + '<h2 class="fh"><span class="lt">' + esc(vr.street) + ' ' + vr.house + ' · דירה ' + vr.apt + '</span>' + esc(vr.family) + ' ' + esc(vr.first) + '</h2><div class="dform">' +
+        '<div class="fld amt"><label for="' + P + 'v-stay">דקות בכתובת</label><div class="uin"><input id="' + P + 'v-stay" type="text" inputmode="numeric" value="' + (vr.stay || '') + '" placeholder="' + RT.per + '" autocomplete="off" data-scrin="mins"></div></div>' +
+        '<div class="fld"><span class="lb">קומה גבוהה בלי מעלית</span><label class="tog"><input type="checkbox" id="' + P + 'v-stairs"' + (vr.stairs ? ' checked' : '') + '><span class="sw"></span>עוד ' + STAIRS_MIN + ' דקות</label></div>' +
+        fldH('מתי אפשר לבוא', '<select id="' + P + 'v-win">' + [['', 'בכל שעה'], ['from', 'רק אחרי שעה מסוימת'], ['to', 'רק עד שעה מסוימת']].map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === wt ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>' + g('down'), '', 'v-win') +
+        fldH('השעה', inH('v-time', vr.win ? (vr.win.from || vr.win.to) : '', 'dir="ltr" style="text-align:right" placeholder="12:30"'), '', 'v-time') +
+        fldH('הערות', inH('v-note', vr.note, 'placeholder="לא חובה"'), 'w2', 'v-note') + '<p class="err fld w2" id="' + P + 'ferr" role="alert"></p></div>' +
+        '<p class="fnote">בלי זמן משלה, הכתובת מקבלת את ברירת המחדל: <b>' + RT.per + ' דקות</b>.</p></div>' + foot('שמירה') + '</form>';
     } else if (kind === 'credit') {
       var step = FORM.step;
       h = '<form data-form="credit" novalidate><div class="sheet-s">' + X + '<h2 class="fh"><span class="lt">נדרים פלוס · שלב ' + step + ' מתוך 3</span>סליקת אשראי</h2><div class="steps">' + [1, 2, 3].map(function (n) { return '<i class="' + (n <= step ? 'on' : '') + '"></i>'; }).join('') + '</div>';
@@ -443,6 +453,12 @@
       else { closeAll(); toast('ההפקדה באשראי נרשמה: ' + ltr('₪' + num(FORM.amt || 0)), 'check'); FORM.step = 1; }
     } else if (kind === 'settings') { toast('היעדים נשמרו (הדגמה)', 'check'); }
     else if (kind === 'plan') { planRead(); scrDraw(); }
+    else if (kind === 'visit') {
+      var vr = FORM.arg, wt = val('v-win'), tm = val('v-time');
+      if (wt && !/^\d{1,2}:\d{2}$/.test(tm)) return formErr('צריך להזין שעה, למשל 12:30');
+      vr.stay = digits('v-stay') || 0; vr.stairs = !!id('v-stairs').checked; vr.win = wt ? (wt === 'from' ? { from: tm } : { to: tm }) : null; vr.note = val('v-note');
+      closeAll(); SC.purim.better = false; if (SC.purim.plan) SC.purim.plan.res = null; scrDraw(); toast('פרטי הביקור נשמרו', 'check');
+    }
     else if (kind === 'cat') {
       name = val('s-cat'); if (!name) return false;
       D.settingsX.categories.push(name); scrDraw(); toast('הקטגוריה נוספה', 'check');
@@ -498,5 +514,6 @@
       if (p[0] === 'pkg') D.grantsX.package[+p[1]].items[+p[2]].value = +d || 0;
       else if (p[0] === 'purim') { var st = SC.purim, gr = purimGroupsOf(st.city)[st.group]; gr.rows[+p[1]].amounts[D.purimX.years[D.purimX.years.length - 1]] = +d || 0; }
       else if (p[0] === 'psum') D.purimX.groups[+p[1]].sums[p[2]] = +d || 0;
+      else if (p[0] === 'pstay') { var ps = SC.purim, pg = purimGroupsOf(ps.city)[ps.group]; pg.rows[+p[1]].stay = +d || 0; }
     });
   }
