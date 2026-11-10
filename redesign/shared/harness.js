@@ -26,11 +26,12 @@ function fragment(k) {
   let out = '<title>צדקת רבי שמעון</title>\n';
   fonts.forEach((u) => { out += `<link rel="stylesheet" href="${u}">\n`; });
   out += `<style>:root{--tz-logo:url("data:image/png;base64,${logo}")}</style>\n`;
-  out += `<style>\n${read(path.join(ROOT, k, 'style.css'))}\n</style>\n`;
-  out += `<div class="tz-${k}" id="tz-${k}" dir="rtl" lang="he">\n${read(path.join(ROOT, k, 'body.html'))}\n</div>\n`;
-  out += `<script>\n${read(path.join(SHARED, 'data.js'))}\n</script>\n`;
+  const src = require('./build.js').sources(k); // כולל screens.css, screens.js ו-data-screens.js
+  out += `<style>\n${src.css}\n</style>\n`;
+  out += `<div class="tz-${k}" id="tz-${k}" dir="rtl" lang="he">\n${src.body}\n</div>\n`;
+  out += `<script>\n${src.data}\n</script>\n`;
   out += imagesScript(TEST_IMAGES);
-  out += `<script>\n${read(path.join(ROOT, k, 'script.js'))}\n</script>\n`;
+  out += `<script>\n${src.js}\n</script>\n`;
   out += `<script>(function(){var d=window.TZ_DIRS&&window.TZ_DIRS[${JSON.stringify(k)}];var r=document.getElementById('tz-${k}');if(d&&d.mount){d.mount(r);if(d.show)d.show();}else{console.error('TZ_DIRS.${k}.mount is missing');}})();</script>\n`;
   return out;
 }

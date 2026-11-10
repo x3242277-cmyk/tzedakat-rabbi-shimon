@@ -4,6 +4,7 @@
   var P = 'tzb1-';
   var D, root, S, M = [], ACT = [], T = [], tickerT = null, lastFocus = null, mounted = false, RM = false;
   var pendingTick = null, stampN = 0, depMember = null, acIdx = -1, closeT = null;
+  var OVS = ['member', 'deposit', 'more', 'form'];
 
   /* ---------- helpers ---------- */
   function $(s, c) { return (c || root).querySelector(s); }
@@ -614,51 +615,21 @@
     }
   }
 
-  /* ---------- soon ---------- */
-  function soonData(k) {
-    var s = D.summary, t = D.settings.targets, gr = D.grants;
-    var X = {
-      grants: { slot: 'maanakim', s: 'חבילת החתן, התשלומים לחנויות ומעקב הזכאות, במקום אחד.', f: [[gr.grooms, 'חתנים השנה', 'קיבלו חבילת חתן'], ['₪' + num(gr.packageValue), 'שווי חבילה', 'ביגוד, נעליים, מצעים וכלי בית'], ['₪' + num(gr.cost), 'עלות המענקים', gr.stores.length + ' חנויות בהסדר']], l: ['רשימת חתנים וזכאות לפי כללי התקנון', 'מעקב תשלומים לכל חנות, כולל תשלום חלקי', 'הפקת שוברים והדפסה'] },
-      purim: { slot: 'purim', s: 'רשימות הכתובות, מסלולי הגבייה והסיכום של יום הפורים.', f: [[s.purimAddresses, 'כתובות', 'ברשימות הגבייה'], ['₪' + num(s.purimThisYear), 'נאסף בפורים', 'בשנת ' + D.settings.campaignYear], [D.yearly.length, 'שנים', 'של נתונים להשוואה']], l: ['חלוקת כתובות למסלולים ולזוגות', 'הזנה מהירה של הסכומים בסוף היום', 'השוואה לשנים קודמות לפי כתובת'] },
-      transactions: { slot: 'tnuot', s: 'כל הפקדה וכל הוצאה, עם סינון, חיפוש וייצוא.', f: [[s.deposits, 'הפקדות', 'מ-' + s.depositors + ' בחורים'], ['₪' + num(s.avgDeposit), 'הפקדה ממוצעת', s.cashShare + '% מזומן · ' + s.creditShare + '% אשראי'], ['₪' + num(s.collected), 'נגבה השנה', 'בקמפיין ' + D.settings.campaignYear]], l: ['סינון לפי תאריך, אמצעי תשלום ובחור', 'ייצוא לקובץ והדפסה לדו״ח חודשי', 'תיקון וביטול הפקדה עם תיעוד'] },
-      expenses: { slot: 'hotzaot', s: 'לאן הולך הכסף: כנסים, מתנות, סעודות והדפסות.', f: [['₪' + num(s.expensesTotal), 'הוצאות השנה', 'ללא מענקים'], [D.expenseCategories.length, 'קטגוריות', 'הגדולה: ' + D.expenseCategories[0].name], ['₪' + num(D.expenseCategories[0].amount), D.expenseCategories[0].name, 'הסעיף הגדול ביותר']], l: ['רישום הוצאה עם קבלה מצורפת', 'חלוקה לקטגוריות ולאירועים', 'הכנסות מול הוצאות לפי חודש'] },
-      rules: { slot: 'takanon', s: 'כללי היעדים, הקנס הכפול והזכאות למענק, בשפה פשוטה.', f: [['₪' + num(t['ישי״ג']), 'יעד ישיבה גדולה', 'לכל בחור, לשנה'], ['₪' + num(t['ישי״ק']), 'יעד ישיבה קטנה', 'לכל בחור, לשנה'], ['×2', 'קנס כפול', 'חוסר ביעד עובר לשנה הבאה']], l: ['התקנון המלא לקריאה ולהדפסה', 'דוגמאות חישוב לכל מסגרת', 'מתנות: טיול מ-₪700, מתנה מ-₪2,000'] },
-      settings: { slot: 'hagdarot', s: 'שנת הקמפיין, היעדים לפי מסגרת, המתנות וההרשאות.', f: [[D.settings.campaignYear, 'שנת הקמפיין', 'אפשר לעדכן ל' + D.settings.todayHebrewYear], [D.frameworks.length, 'מסגרות', 'חיידר, ישי״ק, ישי״ג וקיבוץ'], [D.settings.gifts.length, 'מתנות', 'טיול ומתנה']], l: ['עדכון שנת הקמפיין והיעדים', 'ניהול משתמשים והרשאות', 'גיבוי וייצוא של כל הנתונים'] }
-    };
-    return X[k];
-  }
-  function renderSoon(k) {
-    var x = soonData(k), nav = D.nav.filter(function (n) { return n.key === k; })[0];
-    if (!x || !nav) return false;
-    id('soon').innerHTML = '<div class="band hero soon-hero"><div class="hero-pic">' + slot(x.slot) + '</div><div class="hero-tint"></div>' +
-      '<div class="hero-wave-in" aria-hidden="true"><svg class="hero-wave hero-wave--b" viewBox="0 0 800 640" preserveAspectRatio="none"><path fill="#D1A83C" d="M800,0L190,0C70,80-20,220,40,350C90,460,230,480,180,570C160,605,132,628,120,640L800,640Z"/></svg>' +
-      '<svg class="hero-wave hero-wave--f" viewBox="0 0 800 640" preserveAspectRatio="none"><path fill="url(#' + P + 'g1)" d="M800,0L262,0C150,70,62,200,112,330C152,440,300,470,252,560C232,600,204,626,192,640L800,640Z"/></svg></div>' +
-      '<svg class="hero-mw" viewBox="0 0 390 100" preserveAspectRatio="none" aria-hidden="true"><path fill="#D7B253" opacity=".6" d="M0,100V30C70,70,150,0,240,26C310,46,350,20,390,40V100Z"/><path fill="#D1A83C" d="M0,100V58C80,20,150,84,240,54C310,32,350,60,390,44V100Z"/></svg>' +
-      '<div class="wrap hero-in"><div class="hero-txt"><p class="eyebrow ld a">' + esc(nav.group) + ' · <b>בקרוב</b></p><h1 class="a" style="--d:.06s">' + esc(nav.label) + '</h1>' +
-      '<p class="h-sub a" style="--d:.12s">' + esc(x.s) + '</p><div class="h-cta a" style="--d:.18s"><button type="button" class="btn btn-k" data-go="dashboard">חזרה ללוח הבקרה' + g('chev2') + '</button></div></div></div>' +
-      '<div class="stamp">' + stampSVG(['בקרוב', nav.label, 'בקרוב', 'בבנייה'], 'בקרוב', '', 'בקרוב') + '</div>' +
-      '<svg class="edge edge-b hero-bot" viewBox="0 0 1440 120" preserveAspectRatio="none" aria-hidden="true"><path class="w2" d="M0,120V44C240,104,420,24,700,62C980,100,1180,58,1440,92V120Z"/><path d="M0,120V70C180,22,360,98,620,86C900,72,1100,8,1440,56V120Z"/></svg></div>' +
-      '<div class="wrap soon-body"><div class="soon-grid">' + x.f.map(function (f, i) {
-        var v = String(f[0]), sm = v.length > 6;
-        return '<div class="fact a" style="--d:' + (.2 + i * .07).toFixed(2) + 's"><span class="dsc" dir="' + (/[א-ת]/.test(v) ? 'rtl' : 'ltr') + '"' + (sm ? ' style="font-size:17px"' : '') + '>' + esc(v) + '</span><span><b>' + esc(f[1]) + '</b><i>' + esc(f[2]).replace(/₪[\d,]+/g, function (m) { return ltr(m); }) + '</i></span></div>';
-      }).join('') + '</div><div class="soon-list a" style="--d:.4s"><div><h3>מה יהיה במסך הזה</h3><ul>' + x.l.map(function (l) { return '<li>' + esc(l).replace(/₪[\d,]+/g, function (m) { return ltr(m); }) + '</li>'; }).join('') + '</ul></div>' +
-      '<button type="button" class="btn" data-go="members">בינתיים: לרשימת הבחורים' + g('chev2') + '</button></div></div>';
-    return true;
-  }
+  /*@@SCREENS@@*/
 
   /* ---------- overlays ---------- */
   function showOv(name) {
-    ['member', 'deposit', 'more'].forEach(function (n) { if (n !== name) id('ov-' + n).hidden = true; });
+    OVS.forEach(function (n) { if (n !== name) id('ov-' + n).hidden = true; });
     if (!lastFocus && document.activeElement && root.contains(document.activeElement)) lastFocus = document.activeElement;
     var ov = id('ov-' + name);
     ov.hidden = false; closePops(); tipHide();
     var f = $('[data-close]:not(.ov-bg), button, input', ov);
     if (name !== 'deposit' && f) { try { f.focus({ preventScroll: true }); } catch (e) {} }
   }
-  function anyOv() { return ['member', 'deposit', 'more'].some(function (n) { return !id('ov-' + n).hidden; }); }
+  function anyOv() { return OVS.some(function (n) { return !id('ov-' + n).hidden; }); }
   function closeAll() {
     var was = anyOv();
-    ['member', 'deposit', 'more'].forEach(function (n) { id('ov-' + n).hidden = true; });
+    OVS.forEach(function (n) { id('ov-' + n).hidden = true; });
     closePops(); tipHide(); clearTimeout(closeT);
     if (was && lastFocus && root.contains(lastFocus)) { try { lastFocus.focus({ preventScroll: true }); } catch (e) {} }
     lastFocus = null;
@@ -677,7 +648,7 @@
   function go(view) {
     if (!mounted) return false;
     var real = view === 'dashboard' || view === 'members';
-    if (!real && !renderSoon(view)) return false;
+    if (!real && !renderScreen(view)) return false;
     closeAll();
     S.view = real ? view : 'soon'; S.soon = real ? null : view;
     $$('.view').forEach(function (v) { v.hidden = v.getAttribute('data-view') !== S.view; });
@@ -717,6 +688,7 @@
     if ((el = t.closest('#' + P + 'refresh'))) { refresh(); return; }
     if ((el = t.closest('[data-yr]'))) { closePops(); setYear(el.getAttribute('data-yr')); return; }
     if ((el = t.closest('[data-pick]'))) { acPick(byId(el.getAttribute('data-pick'))); return; }
+    if ((el = t.closest('[data-scr]'))) { scrAct(el.getAttribute('data-scr'), el); return; }
     if ((el = t.closest('[data-close]'))) { closeAll(); return; }
     if ((el = t.closest('[data-act]'))) { act(el.getAttribute('data-act'), el); return; }
     if ((el = t.closest('[data-go]'))) { closePops(); go(el.getAttribute('data-go')); return; }
@@ -736,8 +708,8 @@
     else if (a === 'logout') { closeAll(); toast('בהדגמה אין התנתקות אמיתית', 'logout'); }
     else if (a === 'export') toast('הקובץ מוכן להורדה (הדגמה)', 'check');
     else if (a === 'print') toast('הרשימה נשלחה להדפסה (הדגמה)', 'check');
-    else if (a === 'newmember') toast('טופס בחור חדש ייפתח כאן בגרסה המלאה', 'userplus');
-    else if (a === 'edit') toast('עריכת פרטים תיפתח כאן בגרסה המלאה', 'edit');
+    else if (a === 'newmember') openForm('member');
+    else if (a === 'edit') openForm('member', byId(el.getAttribute('data-mid')) || byId(S.member));
     else if (a === 'clearfilters') { S.filter = 'all'; S.q = ''; S.yeshiva = ''; S.city = ''; S.type = ''; id('q').value = ''; renderFilters(); renderList(true); }
     else if (a === 'dep-for') { var m = byId(el.getAttribute('data-mid')); id('ov-member').hidden = true; openDeposit({ member: m }); }
     else if (a === 'dep-again') { clearTimeout(closeT); openDeposit(); }
@@ -745,9 +717,9 @@
   }
   function qa(k) {
     if (k === 'deposit') openDeposit();
-    else if (k === 'member') { go('members'); toast('טופס בחור חדש ייפתח כאן בגרסה המלאה', 'userplus'); }
-    else if (k === 'expense') go('expenses');
-    else if (k === 'credit') toast('סליקת אשראי תתחבר כאן בגרסה המלאה', 'check');
+    else if (k === 'member') openForm('member');
+    else if (k === 'expense') openForm('expense');
+    else if (k === 'credit') openForm('credit');
     else if (k === 'report') go('transactions');
     else if (k === 'grants') go('grants');
   }
@@ -763,7 +735,7 @@
     if (k === 'near') goMembers({ filter: 'near' });
     else if (k === 'debt') goMembers({ filter: 'debt' });
     else if (k === 'idle') goMembers({ filter: 'none' });
-    else if (k === 'details') { goMembers({}); toast('בגרסה המלאה יוצגו כאן הכרטיסים שחסרים בהם פרטים', 'info'); }
+    else if (k === 'details') { SC.settings.tab = 'health'; go('settings'); }
     else if (k === 'newyear') go('settings');
   }
   function onKey(e) {
@@ -775,7 +747,7 @@
       return;
     }
     if (e.key === 'Tab') {
-      var ov = ['member', 'deposit', 'more'].map(function (n) { return id('ov-' + n); }).filter(function (o) { return !o.hidden; })[0];
+      var ov = OVS.map(function (n) { return id('ov-' + n); }).filter(function (o) { return !o.hidden; })[0];
       if (!ov) return;
       var f = $$('button:not([disabled]),input,select,[tabindex="0"]', ov).filter(function (x) { return x.offsetParent !== null; });
       if (!f.length) return;
@@ -790,6 +762,7 @@
     root.addEventListener('submit', function (e) {
       e.preventDefault();
       if (e.target.id === P + 'dform') saveDeposit();
+      else if (e.target.getAttribute('data-form')) scrSubmit(e.target.getAttribute('data-form'), e.target);
       else if (e.target.id === P + 'qd') { var v = parseInt(String(id('qdamt').value).replace(/[^\d]/g, ''), 10) || ''; openDeposit({ amount: v }); }
     });
     root.addEventListener('input', function (e) {
@@ -836,7 +809,7 @@
     renderNav(); renderHero(); renderFigs(); renderTabs(); renderRows(true); renderFeed(false); renderFws(); renderCharts(); renderPath(); renderLead(); renderHeat();
     id('qdkupa').innerHTML = slot('kupa');
     renderFilters(); renderList(true);
-    tickerNext(); markNav(); bind();
+    tickerNext(); markNav(); bind(); bindScreens();
   }
   function show() {
     if (!mounted) return;
@@ -848,7 +821,7 @@
   function hide() {
     clearInterval(tickerT); tickerT = null;
     T.forEach(clearTimeout); T = [];
-    if (mounted) { ['member', 'deposit', 'more'].forEach(function (n) { id('ov-' + n).hidden = true; }); closePops(); tipHide(); var cv = id('confetti'); cv._run = (cv._run || 0) + 1; cv.hidden = true; }
+    if (mounted) { OVS.forEach(function (n) { id('ov-' + n).hidden = true; }); closePops(); tipHide(); var cv = id('confetti'); cv._run = (cv._run || 0) + 1; cv.hidden = true; }
   }
 
   var API = {
