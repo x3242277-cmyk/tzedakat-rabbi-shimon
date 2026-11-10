@@ -55,7 +55,9 @@
     for (var i = 0; i < 9; i++) {
       var base = 120 + ((gi * 37 + i * 53) % 9) * 40, amounts = {};
       Y.forEach(function (y, yi) { amounts[y] = (gi + i + yi) % 7 === 0 ? 0 : base + yi * 20 + ((i + yi) % 3) * 10; });
-      rows.push({ n: i + 1, family: LAST[(gi * 3 + i * 7) % 16], first: FIRST[(gi * 5 + i * 3) % 16], street: STREETS[(gi * 2 + i) % 10], house: 4 + ((gi * 11 + i * 7) % 60), apt: 1 + ((gi + i * 5) % 18), amounts: amounts, note: i === 2 ? 'לדפוק חזק, קומה ג׳' : i === 6 ? 'רק אחרי הסעודה' : '' });
+      // שלושה רחובות בכל קבוצה: ברחוב הראשון והשלישי הכתובות פזורות לאורך הרחוב, בשני הן צמודות
+      var HOUSES = [[4, 8, 40], [12, 14, 16], [3, 27, 52]];
+      rows.push({ n: i + 1, family: LAST[(gi * 3 + i * 7) % 16], first: FIRST[(gi * 5 + i * 3) % 16], street: STREETS[(gi * 2 + Math.floor(i / 3)) % 10], house: HOUSES[Math.floor(i / 3)][i % 3] + gi, apt: 1 + ((gi + i * 5) % 18), amounts: amounts, note: i === 2 ? 'לדפוק חזק, קומה ג׳' : i === 6 ? 'רק אחרי הסעודה' : '' });
     }
     return { city: gdef[0], group: gdef[1], addresses: gdef[3], sums: sums, rows: rows };
   });

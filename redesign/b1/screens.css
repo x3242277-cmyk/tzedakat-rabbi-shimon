@@ -220,6 +220,13 @@
   .cframe i{font-size:14.5px;font-weight:300;max-width:42ch}
   .upl{align-self:flex-start;margin-top:8px}
   .paid-only.is-off{display:none}
+  .fsheet > .sheet-s{flex:1;min-height:0}
+  .route{margin-top:20px;gap:10px}
+  .route li{grid-template-columns:44px minmax(0,1fr);font-size:14.5px;color:var(--ink-2)}
+  .route li b{font-size:17px;color:var(--ink)}
+  .route .dsc{width:44px;height:44px;font-size:17px}
+  a.btn{text-decoration:none}
+  .sheet-f a.btn .g{width:20px;height:20px}
 
   @media (max-width:1180px){
     .scr-2,.scr-2e{grid-template-columns:minmax(0,1fr)}
