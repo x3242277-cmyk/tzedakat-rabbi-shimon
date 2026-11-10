@@ -15,7 +15,14 @@
   function nis(n) { return '<span dir="ltr">₪' + num(n) + '</span>'; }
   function ltr(s) { return '<span dir="ltr">' + s + '</span>'; }
   function later(fn, ms) { var t = setTimeout(fn, ms); T.push(t); return t; }
-  function mono(m) { return esc(m.first.charAt(0) + '״' + m.last.charAt(0)); }
+  function mono(m) { return m ? esc(String(m.first || '').charAt(0) + '״' + String(m.last || '').charAt(0)) : ''; }
+  function HOST() { return window.TZ_HOST || null; }
+  function upH(v) { v = +v || 0; return '<span class="up' + (v < 0 ? ' dn' : '') + '" dir="ltr">' + (v < 0 ? '−' : '') + Math.abs(v) + '%</span>'; }
+  function pc(a, b) { return b ? Math.round(a / b * 100) : 0; }
+  function AE() { var r = root && root.getRootNode ? root.getRootNode() : document; return (r && r.activeElement) || document.activeElement; }
+  function giftSlot(gf, i) { return ({ 'טיול': 'tiyul', 'מתנה': 'matana' })[gf.name] || ['tiyul', 'matana'][i % 2]; }
+  function yearOpts() { return D.yearOptions && D.yearOptions.length ? D.yearOptions : [D.settings.campaignYear, D.settings.todayHebrewYear, (D.yearly[D.yearly.length - 2] || {}).year].filter(function (y, i, a) { return y && a.indexOf(y) === i; }); }
+  function isDate(v) { return /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(v); }
 
   var GL = {
     plus: '<path d="M12 5v14M5 12h14"/>',
@@ -153,13 +160,15 @@
     id('av').textContent = u.initial; id('uname').textContent = u.name;
     id('userpop').innerHTML = '<div class="pop-h"><b>' + esc(u.name) + '</b>' + esc(u.role) + '</div>' +
       '<button type="button" class="pop-i" data-act="refresh">' + g('refresh') + 'רענון נתונים</button>' +
-      '<button type="button" class="pop-i" data-go="settings">' + g('edit') + 'הגדרות</button>' +
+      (D.nav.some(function (n) { return n.key === 'settings'; }) ? '<button type="button" class="pop-i" data-go="settings">' + g('edit') + 'הגדרות</button>' : '') +
+      (HOST() ? '<button type="button" class="pop-i" data-act="classic">' + g('list') + 'המסך הקודם</button>' : '') +
       '<button type="button" class="pop-i" data-act="logout">' + g('logout') + 'התנתקות</button>';
-    var years = D.yearly.map(function (y) { return y.year; }).reverse();
-    id('yearpop').innerHTML = '<div class="pop-h"><b>שנת הקמפיין</b>כל המספרים מוצגים לפי השנה שנבחרה</div>' +
-      '<button type="button" class="pop-i" data-yr="' + D.settings.todayHebrewYear + '">' + D.settings.todayHebrewYear + '<small>שנה חדשה</small></button>' +
-      years.map(function (y) { return '<button type="button" class="pop-i' + (y === S.year ? ' is-on' : '') + '" data-yr="' + y + '">' + y + (y === D.settings.campaignYear ? '<small>קמפיין נוכחי</small>' : '') + '</button>'; }).join('');
+    var years = D.years && D.years.length ? D.years.slice() : D.yearly.map(function (y) { return y.year; }).reverse();
+    id('yearpop').innerHTML = '<div class="pop-h"><b>שנת הקמפיין</b>' + (HOST() ? 'מספרי לוח הבקרה מוצגים לפי השנה שנבחרה' : 'כל המספרים מוצגים לפי השנה שנבחרה') + '</div>' +
+      (HOST() ? '' : '<button type="button" class="pop-i" data-yr="' + esc(D.settings.todayHebrewYear) + '">' + esc(D.settings.todayHebrewYear) + '<small>שנה חדשה</small></button>') +
+      years.map(function (y) { return '<button type="button" class="pop-i' + (y === S.year ? ' is-on' : '') + '" data-yr="' + esc(y) + '">' + esc(y) + (y === D.settings.campaignYear ? '<small>קמפיין נוכחי</small>' : '') + '</button>'; }).join('');
     var tb = [['dashboard', 'grid', 'לוח בקרה'], ['members', 'user', 'בחורים'], ['transactions', 'list', 'תנועות'], ['grants', 'checkc', 'מענקים'], ['more', 'dots', 'עוד']];
+    tb = tb.filter(function (t) { return t[0] === 'more' || D.nav.some(function (n) { return n.key === t[0]; }); });
     id('tabbar').innerHTML = tb.map(function (t) {
       return '<button type="button" class="tb" ' + (t[0] === 'more' ? 'data-open="more"' : 'data-go="' + t[0] + '"') + ' data-nav="' + t[0] + '">' + BRUSH + g(t[1]) + '<span>' + t[2] + '</span></button>';
     }).join('');
@@ -186,6 +195,7 @@
     var open = pop.hidden; closePops(pop); pop.hidden = !open; btn.setAttribute('aria-expanded', open ? 'true' : 'false');
   }
   function setYear(y) {
+    if (HOST()) { S.year = y; HOST().setYear(y); var hv = $('.view:not([hidden])'); if (hv) play(hv, 1200); toast('מוצגת שנת ' + esc(y), 'calendar'); return; }
     S.year = y;
     $$('[data-year]').forEach(function (el) { el.textContent = y; });
     $$('#' + P + 'yearpop .pop-i').forEach(function (b) { b.classList.toggle('is-on', b.getAttribute('data-yr') === y); });
@@ -223,10 +233,11 @@
     renderStamp();
   }
   function tickerNext() {
-    var ins = ACT.filter(function (a) { return a.type === 'in'; }), el = id('ticker'); if (!el || !ins.length) return;
+    var ins = ACT.filter(function (a) { return a.type === 'in'; }), el = id('ticker'); if (!el) return;
+    if (!ins.length) { el.innerHTML = ''; return; }
     S.tk = ((S.tk == null ? -1 : S.tk) + 1) % ins.length;
     var a = ins[S.tk];
-    el.innerHTML = '<span class="live">הפקדה אחרונה</span><span class="tk"><b>' + esc(a.title) + '</b> · ' + ltr('+₪' + num(a.amount)) + ' · ' + esc(a.method || '') + ' · ' + ltr(a.date.slice(0, 5) + ' ' + a.time) + '</span>';
+    el.innerHTML = '<span class="live">הפקדה אחרונה</span><span class="tk"><b>' + esc(a.title) + '</b> · ' + ltr('+₪' + num(a.amount)) + ' · ' + esc(a.method || '') + ' · ' + ltr(a.date.slice(0, 5) + (a.time ? ' ' + a.time : '')) + '</span>';
   }
 
   /* ---------- figures ---------- */
@@ -237,11 +248,11 @@
         '<span class="l">' + label + '</span><span class="n" dir="ltr">' + n + '</span><span class="c">' + ctx + '</span></button>';
     }
     var wave = '<svg viewBox="0 0 200 20" preserveAspectRatio="none" aria-hidden="true"><path d="M0,10C25,0,25,0,50,10S75,20,100,10S125,0,150,10S175,20,200,10V20H0Z"/></svg>';
-    var r1 = bub('collected', 'bub-y', 'נגבה השנה', '₪<span data-b="collected">' + num(s.collected) + '</span>', '<span class="up" dir="ltr">' + s.growthPct + '%</span> מאשתקד', .6, 'נגבה השנה|אשתקד ₪' + num(s.collectedLastYear) + '|' + s.deposits + ' הפקדות מ-' + s.depositors + ' בחורים') +
+    var r1 = bub('collected', 'bub-y', 'נגבה השנה', '₪<span data-b="collected">' + num(s.collected) + '</span>', (s.collectedLastYear ? upH(s.growthPct) + ' מאשתקד' : 'אין נתוני אשתקד'), .6, 'נגבה השנה|אשתקד ₪' + num(s.collectedLastYear) + '|' + s.deposits + ' הפקדות מ-' + s.depositors + ' בחורים') +
       bub('required', 'bub-w', 'יעד כולל', '₪<span data-b="required">' + num(s.required) + '</span>', 'כולל חובות עבר', .68, 'יעד כולל|יעד בסיס ₪' + num(s.baseTarget) + '|+ חובות עבר ₪' + num(s.pastDebt)) +
       bub('missing', 'bub-k', 'חסר להשלמה', '₪<span data-b="missing">' + num(s.missing) + '</span>', '<b><span data-b="left">' + (100 - s.pct) + '</span>%</b> מהיעד', .76, 'חסר להשלמה|' + s.nearEligible + ' בחורים במרחק של עד ₪500') +
       '<span class="bub bub-pic a-pop" style="--d:.84s">' + slot('coins') + '</span>';
-    var r2 = bub('met', 'bub-w', 'עמדו ביעד', '<span data-b="met">' + s.metTarget + '</span>', 'מתוך ' + s.withTarget + ' עם יעד', .72, 'עמדו ביעד|' + Math.round(s.metTarget / s.withTarget * 100) + '% מבעלי היעד|לחיצה מציגה את הרשימה') +
+    var r2 = bub('met', 'bub-w', 'עמדו ביעד', '<span data-b="met">' + s.metTarget + '</span>', 'מתוך ' + s.withTarget + ' עם יעד', .72, 'עמדו ביעד|' + pc(s.metTarget, s.withTarget) + '% מבעלי היעד|לחיצה מציגה את הרשימה') +
       bub('debt', 'bub-g', 'חובות משנים קודמות', '₪<span data-b="debt">' + num(s.pastDebt) + '</span>', '<b>' + s.debtors + '</b> בחורים', .8, 'חובות משנים קודמות|חוסר ביעד הופך לקנס כפול בשנה הבאה') +
       bub('pct', 'bub-liq', 'אחוז התקדמות', '<span data-b="pct">' + s.pct + '</span>%', s.depositors + ' מפקידים', .88, 'אחוז התקדמות|₪' + num(s.collected) + ' מתוך ₪' + num(s.required), '<span class="liq"><span class="liq-f">' + wave + wave.replace('<svg', '<svg class="w2"') + '</span></span>');
     id('hive').innerHTML = '<div class="hive-r">' + r1 + '</div><div class="hive-r">' + r2 + '</div>';
@@ -268,22 +279,23 @@
     if (k === 'alerts') {
       h = D.alerts.slice(0, 5).map(function (a, i) {
         return srow('data-alert="' + a.key + '"', a.count == null ? g('info') : a.count, a.tone, esc(a.title), esc(a.detail).replace(/₪[\d,]+/g, function (m) { return ltr(m); }), i);
-      }).join('');
+      }).join('') || '<p class="rows-h"><b>הכול מטופל.</b> אין כרגע דבר שדורש טיפול.</p>';
     } else if (k === 'grants') {
       var gr = D.grants;
       h = '<p class="rows-h"><b>' + gr.grooms + ' חתנים</b> קיבלו השנה חבילה בשווי ' + nis(gr.packageValue) + ' · עלות כוללת <b>' + nis(gr.cost) + '</b></p>' +
         gr.stores.map(function (s, i) {
-          var p = Math.round(s.paid / s.expected * 100);
+          var p = Math.min(100, pc(s.paid, s.expected));
           return srow('data-go="grants"', p + '<small>%</small>', p === 100 ? 'good' : p === 0 ? 'bad' : 'warn', esc(s.store), esc(s.status) + ' · ' + nis(s.paid) + ' מתוך ' + nis(s.expected), i);
         }).join('');
+      if (!gr.grooms && !gr.stores.length) h = '<p class="rows-h"><b>עדיין אין חתנים השנה.</b> כשיירשם חתן ראשון, התשלומים לחנויות יופיעו כאן.</p>';
     } else if (k === 'yeshivas') {
       h = D.yeshivas.map(function (y, i) {
         return srow('data-yeshiva="' + esc(y.name) + '"', y.pct == null ? '–' : y.pct + '<small>%</small>', '', esc(y.name), y.members + ' בחורים · ' + (y.pct == null ? esc(y.note) + ', ללא יעד' : 'נאסף ' + nis(y.collected)), i);
-      }).join('');
+      }).join('') || '<p class="rows-h">עדיין אין נתוני ישיבות להצגה.</p>';
     } else {
       var tot = D.expenseCategories.reduce(function (a, c) { return a + c.amount; }, 0);
       h = '<p class="rows-h">סך ההוצאות השנה <b>' + nis(tot) + '</b> · ללא מענקים</p>' + D.expenseCategories.slice(0, 5).map(function (c, i) {
-        return srow('data-go="expenses"', Math.round(c.amount / tot * 100) + '<small>%</small>', '', esc(c.name), nis(c.amount), i);
+        return srow('data-go="expenses"', pc(c.amount, tot) + '<small>%</small>', '', esc(c.name), nis(c.amount), i);
       }).join('');
     }
     var box = id('rows'); box.innerHTML = h;
@@ -292,11 +304,11 @@
   function actHTML(a, isNew) {
     var out = a.type === 'out';
     return '<div class="act' + (out ? ' is-out' : '') + (isNew ? ' is-new' : '') + '"><span class="io" aria-hidden="true">' + (out ? '−' : '+') + '</span>' +
-      '<span class="tx"><b>' + esc(a.title) + '</b><i>' + (a.method ? esc(a.method) + ' · ' : 'הוצאה · ') + ltr(a.date.slice(0, 5)) + ' · ' + ltr(a.time) + '</i></span>' +
+      '<span class="tx"><b>' + esc(a.title) + '</b><i>' + (a.method ? esc(a.method) + ' · ' : 'הוצאה · ') + ltr(a.date.slice(0, 5)) + (a.time ? ' · ' + ltr(a.time) : '') + '</i></span>' +
       '<span class="am" dir="ltr">' + (out ? '−' : '+') + '₪' + num(a.amount) + '</span></div>';
   }
   function renderFeed(markNew) {
-    id('feed').innerHTML = ACT.slice(0, 6).map(function (a, i) { return actHTML(a, markNew && i === 0); }).join('');
+    id('feed').innerHTML = ACT.slice(0, 6).map(function (a, i) { return actHTML(a, markNew && i === 0); }).join('') || '<p class="rows-h">עדיין אין תנועות השנה.</p>';
   }
 
   /* ---------- frameworks ---------- */
@@ -304,11 +316,11 @@
   function renderFws() {
     var C = 2 * Math.PI * 48;
     id('fwgrid').innerHTML = D.frameworks.map(function (f, i) {
-      var pct = f.pct != null ? f.pct : (f.eligible != null ? Math.round(f.eligible / f.members * 100) : null);
+      var pct = f.pct != null ? f.pct : (f.eligible != null ? pc(f.eligible, f.members) : null);
       var ring = '<svg viewBox="0 0 100 100" aria-hidden="true"><circle class="tr' + (pct == null ? ' dash' : '') + '" cx="50" cy="50" r="48"/>';
       if (pct != null) {
-        var a = pct / 100 * Math.PI * 2;
-        ring += '<circle class="pr" cx="50" cy="50" r="48" style="--len:' + C.toFixed(1) + ';--off:' + (C * (1 - pct / 100)).toFixed(1) + ';--i:' + i + '"/>' +
+        var a = Math.min(100, pct) / 100 * Math.PI * 2;
+        ring += '<circle class="pr" cx="50" cy="50" r="48" style="--len:' + C.toFixed(1) + ';--off:' + (C * (1 - Math.min(100, pct) / 100)).toFixed(1) + ';--i:' + i + '"/>' +
           '<circle class="end" cx="' + (50 + 48 * Math.cos(a)).toFixed(2) + '" cy="' + (50 + 48 * Math.sin(a)).toFixed(2) + '" r="2.6"/>';
       }
       ring += '</svg>';
@@ -326,44 +338,45 @@
 
   /* ---------- charts ---------- */
   function renderCharts() {
-    var mx = Math.max.apply(null, D.monthly.map(function (m) { return Math.max(m.amount, m.lastYear); }));
+    var mx = Math.max.apply(null, [1].concat(D.monthly.map(function (m) { return Math.max(m.amount, m.lastYear); })));
     var top = D.monthly.reduce(function (a, m) { return m.amount > a.amount ? m : a; }, D.monthly[0]);
+    if (!top || !top.amount) top = null;
     id('mch').innerHTML = D.monthly.map(function (m, i) {
-      var diff = (m.amount - m.lastYear) / m.lastYear * 100;
+      var diff = m.lastYear ? (m.amount - m.lastYear) / m.lastYear * 100 : null;
       return '<div class="mcol' + (m === top ? ' is-top' : '') + '" tabindex="0" data-m="' + esc(m.month) + '" style="--h:' + (m.amount / mx * 100).toFixed(1) + ';--l:' + (m.lastYear / mx * 100).toFixed(1) + ';--i:' + i + '" ' +
-        'data-tip="' + esc(m.month + ' ' + S.year) + '|השנה ₪' + num(m.amount) + '|אשתקד ₪' + num(m.lastYear) + ' (' + (diff >= 0 ? '+' : '−') + Math.abs(diff).toFixed(1) + '%)" aria-label="' + esc(m.month) + ': ' + num(m.amount) + ' שקלים, אשתקד ' + num(m.lastYear) + '">' +
-        '<span class="bar"><b dir="ltr">' + (m.amount / 1000).toFixed(1) + '</b></span><span class="ly"></span></div>';
+        'data-tip="' + esc(m.month + ' ' + S.year) + '|השנה ₪' + num(m.amount) + '|אשתקד ₪' + num(m.lastYear) + (diff == null ? '' : ' (' + (diff >= 0 ? '+' : '−') + Math.abs(diff).toFixed(1) + '%)') + '" aria-label="' + esc(m.month) + ': ' + num(m.amount) + ' שקלים, אשתקד ' + num(m.lastYear) + '">' +
+        '<span class="bar"><b dir="ltr">' + (m.amount ? (m.amount / 1000).toFixed(1) : '') + '</b></span><span class="ly"></span></div>';
     }).join('');
     id('mchx').innerHTML = D.monthly.map(function (m) { return '<span' + (m === top ? ' class="on"' : '') + '>' + esc(m.month) + '</span>'; }).join('');
     var avg = D.monthly.reduce(function (a, m) { return a + m.amount; }, 0) / 12;
-    id('mchf').innerHTML = '<span>חודש השיא: <b>' + esc(top.month) + ' · ' + nis(top.amount) + '</b></span><span>ממוצע חודשי <b>' + nis(avg) + '</b></span><span>אשתקד בסך הכול <b>' + nis(S.sum.collectedLastYear) + '</b></span>';
-    var ymx = Math.max.apply(null, D.yearly.map(function (y) { return y.boys + y.purim; }));
+    id('mchf').innerHTML = (top ? '<span>חודש השיא: <b>' + esc(top.month) + ' · ' + nis(top.amount) + '</b></span>' : '<span>עדיין אין הפקדות בשנה הזאת</span>') + '<span>ממוצע חודשי <b>' + nis(avg) + '</b></span><span>אשתקד בסך הכול <b>' + nis(S.sum.collectedLastYear) + '</b></span>';
+    var ymx = Math.max.apply(null, [1].concat(D.yearly.map(function (y) { return Math.max(y.boys + y.purim, y.expenses || 0); })));
     id('ych').innerHTML = D.yearly.map(function (y, i) {
       var tot = y.boys + y.purim;
       return '<div class="ycol" tabindex="0" style="--b:' + (y.boys / ymx * 78).toFixed(1) + ';--p:' + (y.purim / ymx * 78).toFixed(1) + ';--e:' + (y.expenses / ymx * 78 + 1).toFixed(1) + ';--i:' + i + '" ' +
         'data-tip="' + esc(y.year) + '|בחורים ₪' + num(y.boys) + '|פורים ₪' + num(y.purim) + '|סה״כ ₪' + num(tot) + '|הוצאות ₪' + num(y.expenses) + '" aria-label="' + esc(y.year) + ': הכנסות ' + num(tot) + ' שקלים">' +
         '<span class="tot">' + ltr('₪' + Math.round(tot / 1000)) + ' אלף</span><span class="p"></span><span class="b"></span><span class="e"></span></div>';
     }).join('');
-    id('ychx').innerHTML = D.yearly.map(function (y) { return '<span' + (y.year === D.settings.campaignYear ? ' class="on"' : '') + '>' + esc(y.year) + '</span>'; }).join('');
-    var cur = D.yearly[D.yearly.length - 1], prev = D.yearly[D.yearly.length - 2];
-    var ct = cur.boys + cur.purim, pt = prev.boys + prev.purim;
+    id('ychx').innerHTML = D.yearly.map(function (y) { return '<span' + (y.year === S.year ? ' class="on"' : '') + '>' + esc(y.year) + '</span>'; }).join('');
+    var yi = D.yearly.map(function (y) { return y.year; }).indexOf(S.year); if (yi < 0) yi = D.yearly.length - 1;
+    var cur = D.yearly[yi] || { year: S.year, boys: 0, purim: 0 }, prev = D.yearly[yi - 1] || null;
+    var ct = cur.boys + cur.purim, pt = prev ? prev.boys + prev.purim : 0;
     id('chsum').innerHTML = '<span><b dir="ltr">₪<span data-n="' + ct + '">' + num(ct) + '</span></b>סך ההכנסות ' + esc(cur.year) + '</span>' +
-      '<span><b><span class="up" dir="ltr">' + ((ct - pt) / pt * 100).toFixed(1) + '%</span></b>מול ' + esc(prev.year) + '</span>' +
+      (pt ? '<span><b>' + upH(((ct - pt) / pt * 100).toFixed(1)) + '</b>מול ' + esc(prev.year) + '</span>' : '') +
       '<span><b dir="ltr">₪<span data-n="' + S.sum.purimThisYear + '">' + num(S.sum.purimThisYear) + '</span></b>פורים · ' + S.sum.purimAddresses + ' כתובות</span>';
   }
 
   /* ---------- gifts path ---------- */
   function pathY(t) { return 50 + 26 * Math.sin(t * Math.PI * 2.6 + .6); }
   function renderPath() {
-    var MAX = 2500, d = '', i, N = 80;
+    var MAX = Math.max.apply(null, [2500].concat(D.settings.gifts.map(function (gf) { return gf.threshold * 1.15; }))), d = '', i, N = 80;
     for (i = 0; i <= N; i++) { var t = i / N; d += (i ? 'L' : 'M') + ((1 - t) * 1000).toFixed(1) + ',' + (pathY(t) * 3.3).toFixed(1); }
     function pos(t) { return '--x:' + ((1 - t) * 100).toFixed(2) + '%;--yy:' + pathY(t).toFixed(2) + '%'; }
     var h = '<svg class="gp-svg" viewBox="0 0 1000 330" preserveAspectRatio="none" aria-hidden="true"><path class="rd" d="' + d + '"/><path class="ct" d="' + d + '"/></svg>';
     h += '<span class="gp-start a-pop" style="' + pos(.012) + ';--d:.4s"><span><b>₪0</b>יוצאים<br>לדרך</span></span>';
-    var gslot = { 'טיול': 'tiyul', 'מתנה': 'matana' };
     D.settings.gifts.forEach(function (gf, gi) {
-      var t = gf.threshold / MAX, cnt = M.filter(function (m) { return m.collected >= gf.threshold; }).length;
-      h += '<div class="gp-stop' + (pathY(t) > 50 ? ' up-side' : '') + ' a-pop" style="' + pos(t) + ';--d:' + (.55 + gi * .15) + 's">' + disc(gslot[gf.name]) +
+      var t = gf.threshold / MAX, cnt = M.filter(function (m) { return !m.married && m.collected >= gf.threshold; }).length;
+      h += '<div class="gp-stop' + (pathY(t) > 50 ? ' up-side' : '') + ' a-pop" style="' + pos(t) + ';--d:' + (.55 + gi * .15) + 's">' + disc(giftSlot(gf, gi)) +
         '<span class="gp-cap"><b>' + esc(gf.name) + '</b><i>מ-' + nis(gf.threshold) + ' · <b>' + cnt + '</b> בחורים כבר שם</i></span></div>';
     });
     D.leaderboard.forEach(function (l, li) {
@@ -371,14 +384,16 @@
       h += '<button type="button" class="gp-ld a-pop' + (li === 0 ? ' r1' : '') + '" style="' + pos(t) + ';--d:' + (.8 + li * .07).toFixed(2) + 's" data-mid="' + l.id + '" data-tip="' + esc(l.name) + '|מקום ' + l.rank + ' · ₪' + num(l.amount) + '|' + esc(l.yeshiva) + '" aria-label="' + esc(l.name) + ', ' + num(l.amount) + ' שקלים">' + mono(m) + '</button>';
     });
     id('gp').innerHTML = h;
+    var road = id('road'); if (road) road.hidden = !D.settings.gifts.length;
   }
 
   /* ---------- leaders + heat ---------- */
   function renderLead() {
+    if (!D.leaderboard.length) { id('lead').innerHTML = disc('gavia', 'a-pop') + '<div class="lead-l"><p class="rows-h">' + (D.can && !D.can.income ? 'הרשימה מוצגת למי שיש לו הרשאת צפייה בהכנסות.' : 'עדיין אין הפקדות השנה. המובילים יופיעו כאן.') + '</p></div>'; return; }
     var mx = D.leaderboard[0].amount;
     id('lead').innerHTML = disc('gavia', 'a-pop') + '<div class="lead-l">' + D.leaderboard.map(function (l, i) {
       var m = byId(l.id);
-      return '<button type="button" class="lrow a' + (i === 0 ? ' r1' : '') + '" style="--d:' + (.4 + i * .07).toFixed(2) + 's" data-mid="' + l.id + '" data-tip="' + esc(l.name) + '|' + Math.round(l.amount / mx * 100) + '% מהמקום הראשון">' +
+      return '<button type="button" class="lrow a' + (i === 0 ? ' r1' : '') + '" style="--d:' + (.4 + i * .07).toFixed(2) + 's" data-mid="' + l.id + '" data-tip="' + esc(l.name) + '|' + pc(l.amount, mx) + '% מהמקום הראשון">' +
         '<span class="rk">' + l.rank + '</span><span class="mg">' + mono(m) + '</span><span class="tx"><b>' + esc(l.name) + '</b><i>' + esc(l.yeshiva) + ' · ' + esc(l.frame) + '</i></span><span class="am" dir="ltr">₪' + num(l.amount) + '</span></button>';
     }).join('') + '</div>';
   }
@@ -399,7 +414,7 @@
       });
     });
     id('heat').innerHTML = '<div class="heat-m" aria-hidden="true">' + mh + '</div><div class="heat-g" role="img" aria-label="מפת הפקדות יומית ל-26 השבועות האחרונים">' + h + '</div>' +
-      '<div class="heat-f"><span>יום השיא: <b>' + ltr(best.date) + ' · ' + nis(best.amount) + '</b> · <b>' + active + '</b> ימים עם הפקדות</span>' +
+      '<div class="heat-f"><span>' + (best ? 'יום השיא: <b>' + ltr(best.date) + ' · ' + nis(best.amount) + '</b> · <b>' + active + '</b> ימים עם הפקדות' : 'אין הפקדות ב-26 השבועות האחרונים') + '</span>' +
       '<span class="heat-k">פחות <i class="hc"></i><i class="hc l1"></i><i class="hc l2"></i><i class="hc l3"></i><i class="hc l4"></i> יותר</span></div>';
   }
 
@@ -411,7 +426,7 @@
     m.status = D.statusOf(m);
     m.gifts = D.settings.gifts.map(function (gf) { return { name: gf.name, threshold: gf.threshold, earned: m.collected >= gf.threshold, missing: Math.max(0, gf.threshold - m.collected) }; });
   }
-  function uniq(k) { var o = {}, r = []; M.forEach(function (m) { if (!o[m[k]]) { o[m[k]] = 1; r.push(m[k]); } }); return r; }
+  function uniq(k) { var o = {}, r = []; M.forEach(function (m) { if (m[k] && !o[m[k]] && (S.married || !m.married)) { o[m[k]] = 1; r.push(m[k]); } }); return r.sort(function (a, b) { return String(a).localeCompare(String(b), 'he'); }); }
   function renderFilters() {
     id('filt').innerHTML = D.statusFilters.map(function (f) {
       var on = f.key === S.filter;
@@ -434,11 +449,13 @@
   function filtered() {
     var q = S.q.trim().replace(/[-\s]/g, '');
     var list = M.filter(function (m) {
-      if (S.filter !== 'all' && m.status.key !== S.filter) return false;
+      if (m.married && !S.married) return false;
+      if (S.filter === 'near') { if (!m.near) return false; }
+      else if (S.filter !== 'all' && m.status.key !== S.filter) return false;
       if (S.yeshiva && m.yeshiva !== S.yeshiva) return false;
       if (S.city && m.city !== S.city) return false;
       if (S.type && m.type !== S.type) return false;
-      if (q) { var hay = (m.full + m.last + m.first + m.yeshiva + m.phone + m.city).replace(/[-\s]/g, ''); if (hay.indexOf(q) === -1) return false; }
+      if (q) { var hay = (m.full + m.last + m.first + m.yeshiva + m.phone + m.city + (m.father || '')).replace(/[-\s]/g, ''); if (hay.indexOf(q) === -1) return false; }
       return true;
     });
     var k = S.sort.k, d = S.sort.d;
@@ -457,8 +474,8 @@
     var pb = m.hasTarget ? '<span class="pbar' + (m.pct >= 100 ? ' full' : '') + '" style="--p:' + m.pct + '"><i></i></span><span dir="ltr">' + m.pct + '%</span>' : '<span class="pbar none"></span><span>—</span>';
     return '<button type="button" class="mrow a" style="--d:' + (Math.min(i, 12) * .028 + .22).toFixed(3) + 's" data-mid="' + m.id + '" aria-label="' + esc(m.full) + ', ' + esc(st.label) + '. פתיחת כרטיס">' +
       '<span class="mg' + mc + '">' + mono(m) + '</span>' +
-      '<span class="c c1"><b>' + esc(m.first) + ' ' + esc(m.last) + '</b><i>בן ' + esc(m.father) + '</i></span>' +
-      '<span class="c c2"><b>' + esc(m.yeshiva) + '</b><i>' + esc(m.frame) + ' · ' + esc(m.city) + '</i></span>' +
+      '<span class="c c1"><b>' + esc(m.first) + ' ' + esc(m.last) + '</b><i>' + (m.father ? 'בן ' + esc(m.father) : (m.married ? 'נשוי' : '')) + '</i></span>' +
+      '<span class="c c2"><b>' + esc(m.yeshiva || 'ללא ישיבה') + '</b><i>' + esc(m.frame) + (m.city ? ' · ' + esc(m.city) : '') + '</i></span>' +
       '<span class="c c3"><b>' + nis(m.collected) + (m.hasTarget ? ' <small>מתוך ' + nis(m.required) + '</small>' : '') + '</b>' +
       (m.debt > 0 ? '<i class="dbt">כולל חוב ' + nis(m.debt) + '</i>' : '<i>' + (m.base ? 'יעד בסיס ' + nis(m.base) : 'ללא יעד שנתי') + '</i>') + '</span>' +
       '<span class="c c4">' + gap + '</span><span class="prog">' + pb + '</span>' +
@@ -470,9 +487,10 @@
       box.innerHTML = '<div class="empty">' + disc('empty') + '<b>לא נמצאו בחורים</b><i>אפשר לנסות חיפוש אחר או לנקות את הסינון</i><button type="button" class="btn" data-act="clearfilters">ניקוי הסינון' + g('chev2') + '</button></div>';
     } else box.innerHTML = list.map(rowHTML).join('');
     if (!animate) $$('.a', box).forEach(function (el) { el.classList.remove('a'); });
-    var sh = id('shown'); if (sh) sh.innerHTML = 'מוצגים <b>' + list.length + '</b> מתוך ' + M.length + ' בדוגמה';
+    var all = M.filter(function (m) { return S.married || !m.married; }).length;
+    var sh = id('shown'); if (sh) sh.innerHTML = 'מוצגים <b>' + list.length + '</b> מתוך ' + all + (HOST() ? '' : ' בדוגמה');
     id('qn').textContent = list.length + ' תוצאות';
-    id('mlfoot').textContent = list.length ? 'סוף הרשימה לדוגמה · במערכת המלאה ' + S.sum.activeMembers + ' בחורים' : '';
+    id('mlfoot').textContent = !list.length ? '' : HOST() ? 'סוף הרשימה · ' + list.length + ' בחורים' : 'סוף הרשימה לדוגמה · במערכת המלאה ' + S.sum.activeMembers + ' בחורים';
   }
 
   /* ---------- member sheet ---------- */
@@ -480,12 +498,12 @@
     if (!m) return;
     S.member = m.id;
     var st = m.status, hist = D.historyOf(m), i;
-    var scale = Math.max(2300, m.required * 1.12, m.collected * 1.06);
+    var scale = Math.max.apply(null, [2300, m.required * 1.12, m.collected * 1.06].concat(m.gifts.map(function (gf) { return gf.threshold * 1.1; })));
+    var canEdit = !HOST() || (D.can && D.can.edit);
     var tags = '<span class="tag t-' + st.tone + '">' + esc(st.label) + '</span>';
     m.gifts.forEach(function (gf) { tags += gf.earned ? '<span class="tag t-gift">זכאי ל' + esc(gf.name) + '</span>' : '<span class="tag t-idle">חסר ' + nis(gf.missing) + ' ל' + esc(gf.name) + '</span>'; });
-    var gslot = { 'טיול': 'tiyul', 'מתנה': 'matana' };
-    var ms = m.gifts.map(function (gf) {
-      return '<span class="ms' + (gf.earned ? ' got' : '') + '" style="--x:' + (gf.threshold / scale * 100).toFixed(1) + '">' + disc(gslot[gf.name]) + '<span><b>' + esc(gf.name) + '</b>' + ltr('₪' + num(gf.threshold)) + '</span></span>';
+    var ms = m.gifts.map(function (gf, gi) {
+      return '<span class="ms' + (gf.earned ? ' got' : '') + '" style="--x:' + (gf.threshold / scale * 100).toFixed(1) + '">' + disc(giftSlot(gf, gi)) + '<span><b>' + esc(gf.name) + '</b>' + ltr('₪' + num(gf.threshold)) + '</span></span>';
     }).join('');
     var eq = '<span class="coin w" style="--i:0"><i>יעד בסיס</i><b>' + nis(m.base) + '</b></span><span class="op">+</span>' +
       '<span class="coin' + (m.debt ? ' r' : '') + '" style="--i:1"><i>חוב עבר (קנס)</i><b>' + nis(m.debt) + '</b></span><span class="op">=</span>' +
@@ -495,23 +513,24 @@
     if (m.debt > 0) {
       why = '<p class="why"><b>למה נדרש ' + nis(m.required) + '?</b> יעד בסיס ' + nis(m.base) + ' + קנס ' + nis(m.debt) + ' = נדרש ' + nis(m.required) + '. בשנה הקודמת חסרו ' + nis(m.debt / 2) + ' ליעד, והחוסר עובר לשנה הבאה כקנס כפול.</p>';
     } else if (!m.hasTarget) {
-      why = '<p class="why"><b>ללא יעד שנתי.</b> ' + (m.type === 'חיידר' ? 'בחיידר עדיין לא בגיל הזכאות.' : 'בקיבוץ הזכאות נשמרת למי שאין לו חוב עבר.') + '</p>';
+      why = '<p class="why"><b>ללא יעד שנתי.</b> ' + (m.type === 'חיידר' ? 'בחיידר עדיין לא בגיל הזכאות.' : m.type === 'קיבוץ' ? 'בקיבוץ הזכאות נשמרת למי שאין לו חוב עבר.' : m.married ? 'נשוי, אינו משתתף בקמפיין.' : 'לא הוגדר לו יעד לשנה הזאת.') + '</p>';
     } else if (m.gap === 0) {
       why = '<p class="why"><b>עמד ביעד.</b> נאסף ' + nis(m.collected) + ' מתוך ' + nis(m.required) + ', והוא זכאי למענק חתן.</p>';
     } else {
       why = '<p class="why"><b>עוד ' + nis(m.gap) + ' ליעד.</b> מה שלא יושלם עד סוף השנה יעבור לשנה הבאה כקנס כפול (' + nis(m.gap * 2) + ').</p>';
     }
     var deps = m.deposits.length ? '<div class="dl">' + m.deposits.map(function (d) {
-      return '<div class="drow"><span class="io" aria-hidden="true">+</span><span>' + ltr(d.date) + '<i>' + esc(d.method) + ' · ' + esc(d.year) + '</i></span><b dir="ltr">₪' + num(d.amount) + '</b></div>';
-    }).join('') + '</div>' : '<div class="nodep">' + disc('empty') + '<span><b>עדיין אין הפקדות השנה</b><i>ההפקדה הראשונה תופיע כאן</i></span></div>';
+      var inner = '<span class="io" aria-hidden="true">+</span><span>' + ltr(d.date) + '<i>' + esc(d.method) + ' · ' + esc(d.year) + (d.note ? ' · ' + esc(d.note) : '') + '</i></span><b dir="ltr">₪' + num(d.amount) + '</b>';
+      return HOST() && canEdit && d.id != null ? '<button type="button" class="drow drow-b" data-act="dep-edit" data-did="' + esc(d.id) + '" aria-label="עריכת ההפקדה">' + inner + '</button>' : '<div class="drow">' + inner + '</div>';
+    }).join('') + '</div>' : '<div class="nodep">' + disc('empty') + '<span><b>' + (HOST() ? 'עדיין אין הפקדות' : 'עדיין אין הפקדות השנה') + '</b><i>ההפקדה הראשונה תופיע כאן</i></span></div>';
     var hh = hist.length ? '<div class="hist">' + hist.map(function (h, hi) {
       return '<div class="hrow' + (hi === hist.length - 1 ? ' now' : '') + '"><span class="yr2">' + esc(h.year) + '</span><span class="tx"><b>' + esc(h.frame) + '</b>' +
         '<i>יעד ' + nis(h.target) + (h.required !== h.target ? ' · נדרש ' + nis(h.required) : '') + ' · נאסף ' + nis(h.collected) + '</i>' +
         '<span class="tag t-' + h.tone + '">' + esc(h.status).replace(/₪[\d,]+/g, function (x) { return ltr(x); }) + '</span></span></div>';
-    }).join('') + '</div>' : '<p class="why">אין היסטוריית זכאות: בחיידר עדיין לא בגיל הזכאות.</p>';
+    }).join('') + '</div>' : '<p class="why">' + (m.type === 'חיידר' ? 'אין היסטוריית זכאות: בחיידר עדיין לא בגיל הזכאות.' : 'אין עדיין היסטוריית זכאות.') + '</p>';
     id('sheet').innerHTML = '<button type="button" class="x" data-close aria-label="סגירת הכרטיס">' + g('close') + '</button><div class="sheet-s">' +
       '<div class="mh"><span class="mg' + (st.tone === 'good' ? ' s-good' : '') + '">' + mono(m) + '</span><div><h2>' + esc(m.full) + '</h2>' +
-      '<p>בן ' + esc(m.father) + ' · <b>' + esc(m.yeshiva) + '</b> · ' + esc(m.frame) + '</p><div class="mh-tags">' + tags + '</div></div></div>' +
+      '<p>' + (m.father ? 'בן ' + esc(m.father) + ' · ' : '') + '<b>' + esc(m.yeshiva || 'ללא ישיבה') + '</b> · ' + esc(m.frame) + (m.married ? ' · נשוי' : '') + '</p><div class="mh-tags">' + tags + '</div></div></div>' +
       '<div class="m-grid"><div class="m-col">' +
         '<div class="m-box"><div class="m-big"><span class="n" dir="ltr"><small>₪</small><span data-n="' + m.collected + '">' + num(m.collected) + '</span></span>' +
           '<span class="l">נאסף השנה' + (m.hasTarget ? '<br><b>' + m.pct + '%</b> מתוך ' + nis(m.required) : '<br><b>ללא יעד</b>') + '</span></div>' +
@@ -519,22 +538,22 @@
           (m.hasTarget ? '<span class="rq" style="--x:' + (m.required / scale * 100).toFixed(1) + '" data-tip="סה״כ נדרש|₪' + num(m.required) + '"></span>' : '') + ms + '</div></div>' +
         '<div class="m-box"><h4>איך מחושב הנדרש</h4><div class="eq">' + eq + '</div>' + why + '</div>' +
       '</div><div class="m-col">' +
-        '<div class="m-box"><h4>פרטי קשר</h4><dl class="info"><div><dt>טלפון</dt><dd dir="ltr">' + esc(m.phone) + '</dd></div><div><dt>כתובת</dt><dd>' + esc(m.address) + '</dd></div></dl></div>' +
-        '<div class="m-box"><h4>הפקדות השנה (' + m.deposits.length + ')</h4>' + deps + '</div>' +
+        '<div class="m-box"><h4>פרטי קשר</h4><dl class="info"><div><dt>טלפון</dt><dd dir="ltr">' + esc(m.phone || '—') + '</dd></div><div><dt>כתובת</dt><dd>' + esc(m.address || '—') + '</dd></div>' + (m.notes ? '<div><dt>הערות</dt><dd>' + esc(m.notes) + '</dd></div>' : '') + '</dl></div>' +
+        '<div class="m-box"><h4>' + (HOST() ? 'הפקדות' : 'הפקדות השנה') + ' (' + m.deposits.length + ')</h4>' + deps + '</div>' +
         '<div class="m-box"><h4>היסטוריית זכאות</h4>' + hh + '</div>' +
       '</div></div></div>' +
-      '<div class="sheet-f"><button type="button" class="btn" data-act="dep-for" data-mid="' + m.id + '">רישום הפקדה' + g('chev2') + '</button>' +
-      '<button type="button" class="btn btn-o" data-act="edit">' + g('edit') + 'עריכת פרטים</button></div>';
+      (canEdit ? '<div class="sheet-f"><button type="button" class="btn" data-act="dep-for" data-mid="' + m.id + '">רישום הפקדה' + g('chev2') + '</button>' +
+      '<button type="button" class="btn btn-o" data-act="edit">' + g('edit') + 'עריכת פרטים</button></div>' : '');
     showOv('member');
     $$('[data-n]', id('sheet')).forEach(function (el) { animNum(el, +el.getAttribute('data-n'), 700, 0); });
   }
 
   /* ---------- deposit ---------- */
   function depFormHTML() {
-    var years = [D.settings.campaignYear, D.settings.todayHebrewYear, D.yearly[D.yearly.length - 2].year];
+    var years = yearOpts();
     return '<h2><span class="lt">קופת הקמפיין</span>רישום הפקדה</h2><form class="dform" id="' + P + 'dform" novalidate>' +
       '<div class="fld"><label for="' + P + 'f-date">תאריך</label><div class="uin"><input id="' + P + 'f-date" type="text" inputmode="numeric" value="' + D.settings.todayLabel + '" dir="ltr" style="text-align:right">' + g('calendar') + '</div></div>' +
-      '<div class="fld"><label for="' + P + 'f-year">שייך לשנת</label><div class="uin"><select id="' + P + 'f-year">' + years.map(function (y) { return '<option>' + y + '</option>'; }).join('') + '</select>' + g('down') + '</div></div>' +
+      '<div class="fld"><label for="' + P + 'f-year">שייך לשנת</label><div class="uin"><select id="' + P + 'f-year">' + years.map(function (y) { return '<option>' + esc(y) + '</option>'; }).join('') + '</select>' + g('down') + '</div></div>' +
       '<div class="fld w2" id="' + P + 'fld-m"><label for="' + P + 'f-member">בחור</label><div class="uin"><input id="' + P + 'f-member" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="' + P + 'ac" placeholder="מקלידים שם או ישיבה" autocomplete="off">' + g('search') + '</div><div class="ac" id="' + P + 'ac" role="listbox" hidden></div></div>' +
       '<div class="fld"><span class="lb" id="' + P + 'lb-method">אמצעי</span><div class="seg" role="radiogroup" aria-labelledby="' + P + 'lb-method">' +
         '<label><input type="radio" name="' + P + 'method" value="מזומן" checked>' + BRUSH + '<span>מזומן</span></label><label><input type="radio" name="' + P + 'method" value="אשראי">' + BRUSH + '<span>אשראי</span></label></div></div>' +
@@ -558,7 +577,7 @@
   function acRender() {
     var inp = id('f-member'), box = id('ac'), q = inp.value.trim();
     if (!q || (depMember && inp.value === depMember.full + ' · ' + depMember.yeshiva)) { box.hidden = true; inp.setAttribute('aria-expanded', 'false'); return; }
-    var res = M.filter(function (m) { return (m.full + ' ' + m.last + ' ' + m.first + ' ' + m.yeshiva).indexOf(q) > -1; }).slice(0, 5);
+    var res = M.filter(function (m) { return (m.full + ' ' + m.last + ' ' + m.first + ' ' + m.yeshiva + ' ' + m.last + ' ' + m.first).indexOf(q) > -1; }).slice(0, 6);
     acIdx = res.length ? 0 : -1;
     box.innerHTML = res.length ? res.map(function (m, i) {
       return '<button type="button" role="option" class="' + (i === 0 ? 'is-cur' : '') + '" data-pick="' + m.id + '"><span class="mg">' + mono(m) + '</span><b>' + esc(m.full) + '</b><i>' + esc(m.yeshiva) + ' · ' + esc(m.frame) + '</i></button>';
@@ -576,17 +595,24 @@
     if (!depMember) { err.textContent = 'צריך לבחור בחור מהרשימה'; id('f-member').focus(); return; }
     if (!(amt > 0)) { err.textContent = 'צריך להקליד סכום גדול מאפס'; id('f-amt').focus(); return; }
     var m = depMember, method = ($('input[name="' + P + 'method"]:checked') || {}).value || 'מזומן';
-    var date = id('f-date').value || D.settings.todayLabel, year = id('f-year').value;
+    var date = String(id('f-date').value || '').trim() || D.settings.todayLabel, year = id('f-year').value;
+    if (!isDate(date)) { err.textContent = 'התאריך צריך להיות בצורה יום/חודש/שנה, למשל ' + D.settings.todayLabel; id('f-date').focus(); return; }
     var before = { collected: S.sum.collected, missing: S.sum.missing, pct: S.sum.pct };
-    var closes = Math.min(amt, m.gap);
-    m.collected += amt; m.deposits.unshift({ date: date, amount: amt, method: method, year: year }); recompute(m);
-    S.sum.collected += amt; S.sum.missing = Math.max(0, S.sum.missing - closes);
-    S.sum.pct = Math.round(S.sum.collected / S.sum.required * 100); S.sum.left = 100 - S.sum.pct; S.sum.deposits += 1;
-    if (m.status.key === 'ok' && closes > 0 && m.gap === 0) S.sum.met += 1;
-    ACT.unshift({ type: 'in', title: m.full, method: method, date: date, time: 'עכשיו', amount: amt });
+    if (HOST()) {
+      var res = HOST().saveDeposit({ memberId: m.id, amount: amt, method: method, date: date, year: year, note: String(id('f-note').value || '').trim() });
+      if (!res || !res.ok) { err.textContent = (res && res.error) || 'ההפקדה לא נשמרה. אפשר לנסות שוב'; return; }
+      m = byId(m.id) || m;
+    } else {
+      var closes = Math.min(amt, m.gap);
+      m.collected += amt; m.deposits.unshift({ date: date, amount: amt, method: method, year: year }); recompute(m);
+      S.sum.collected += amt; S.sum.missing = Math.max(0, S.sum.missing - closes);
+      S.sum.pct = Math.round(S.sum.collected / S.sum.required * 100); S.sum.left = 100 - S.sum.pct; S.sum.deposits += 1;
+      if (m.status.key === 'ok' && closes > 0 && m.gap === 0) S.sum.met += 1;
+      ACT.unshift({ type: 'in', title: m.full, method: method, date: date, time: 'עכשיו', amount: amt });
+      var sv = id('saved'); sv.classList.add('is-busy'); sv.lastElementChild.textContent = 'שומר…';
+      later(function () { sv.classList.remove('is-busy'); sv.lastElementChild.textContent = 'נשמר'; }, 900);
+    }
     pendingTick = before; S.lastDep = m.id;
-    var sv = id('saved'); sv.classList.add('is-busy'); sv.lastElementChild.textContent = 'שומר…';
-    later(function () { sv.classList.remove('is-busy'); sv.lastElementChild.textContent = 'נשמר'; }, 900);
     id('dep').classList.add('is-ok');
     id('depkupa').innerHTML = '';
     id('depin').innerHTML = '<div class="ok">' + disc('kupa') + '<h2>ההפקדה נשמרה</h2><span class="n" dir="ltr">+₪' + num(amt) + '</span>' +
@@ -594,7 +620,7 @@
       '<div class="ok-b"><button type="button" class="btn btn-o" data-act="dep-again">הפקדה נוספת</button><button type="button" class="btn" data-close>ללוח הבקרה' + g('chev2') + '</button></div></div>';
     var r = id('dep').getBoundingClientRect();
     confetti(r.left + r.width / 2, r.top + r.height * .36);
-    toast('ההפקדה נשמרה · ' + ltr('+₪' + num(amt)));
+    if (!HOST()) toast('ההפקדה נשמרה · ' + ltr('+₪' + num(amt)));
     renderFeed(true); S.tk = -1; tickerNext();
     if (S.view === 'members') renderList(false);
     var b = $('.ok-b .btn[data-close]'); if (b) later(function () { try { b.focus({ preventScroll: true }); } catch (e) {} }, 80);
@@ -620,7 +646,7 @@
   /* ---------- overlays ---------- */
   function showOv(name) {
     OVS.forEach(function (n) { if (n !== name) id('ov-' + n).hidden = true; });
-    if (!lastFocus && document.activeElement && root.contains(document.activeElement)) lastFocus = document.activeElement;
+    if (!lastFocus && AE() && root.contains(AE())) lastFocus = AE();
     var ov = id('ov-' + name);
     ov.hidden = false; closePops(); tipHide();
     var f = $('[data-close]:not(.ov-bg), button, input', ov);
@@ -639,7 +665,8 @@
     var cur = S.view === 'soon' ? S.soon : S.view, u = D.settings.user;
     id('more').innerHTML = '<button type="button" class="x" data-close aria-label="סגירה">' + g('close') + '</button><h2>עוד</h2><div class="more-g">' +
       D.nav.map(function (n) { return '<button type="button" class="' + (n.key === cur ? 'is-on' : '') + '" data-go="' + n.key + '">' + esc(n.label) + '</button>'; }).join('') +
-      '<button type="button" data-act="refresh">' + g('refresh') + 'רענון נתונים</button><button type="button" data-act="yearmenu">' + g('calendar') + 'שנת ' + esc(S.year) + '</button></div>' +
+      '<button type="button" data-act="refresh">' + g('refresh') + 'רענון נתונים</button><button type="button" data-act="yearmenu">' + g('calendar') + 'שנת ' + esc(S.year) + '</button>' +
+      (HOST() ? '<button type="button" data-act="classic">' + g('list') + 'המסך הקודם</button>' : '') + '</div>' +
       '<div class="more-u"><span class="av">' + esc(u.initial) + '</span><span><b>' + esc(u.name) + '</b><i>' + esc(u.role) + ' · נשמר</i></span><button type="button" class="btn btn-s btn-k" data-act="logout">התנתקות</button></div>';
     showOv('more');
   }
@@ -651,6 +678,7 @@
     if (!real && !renderScreen(view)) return false;
     closeAll();
     S.view = real ? view : 'soon'; S.soon = real ? null : view;
+    if (HOST() && HOST().onGo) HOST().onGo(view);
     $$('.view').forEach(function (v) { v.hidden = v.getAttribute('data-view') !== S.view; });
     if (view === 'members') { renderFilters(); renderList(true); }
     markNav();
@@ -662,6 +690,7 @@
     if (!mounted) return false;
     if (what == null) { closeAll(); return true; }
     if (what === 'member') { openMember(byId(S.member || 'm4') || M[0]); return true; }
+    if (what === 'deposit' && HOST() && D.can && !D.can.edit) { toast('אין לך הרשאת עריכה', 'info'); return true; }
     if (what === 'deposit') { openDeposit(); return true; }
     if (what === 'more') { openMore(); return true; }
     return false;
@@ -674,6 +703,7 @@
   }
   function refresh() {
     var b = id('refresh'); b.classList.remove('is-spin'); void b.offsetWidth; b.classList.add('is-spin');
+    if (HOST()) { HOST().refresh(function (ok) { var hv = $('.view:not([hidden])'); if (ok && hv) play(hv, 1200); if (ok) toast('הנתונים עודכנו', 'refresh'); }); return; }
     var v = $('.view:not([hidden])'); if (v) play(v, 1200);
     toast('הנתונים עודכנו', 'refresh');
   }
@@ -705,9 +735,11 @@
   }
   function act(a, el) {
     if (a === 'refresh') { closeAll(); refresh(); }
-    else if (a === 'logout') { closeAll(); toast('בהדגמה אין התנתקות אמיתית', 'logout'); }
-    else if (a === 'export') toast('הקובץ מוכן להורדה (הדגמה)', 'check');
-    else if (a === 'print') toast('הרשימה נשלחה להדפסה (הדגמה)', 'check');
+    else if (a === 'logout') { closeAll(); if (HOST()) HOST().logout(); else toast('בהדגמה אין התנתקות אמיתית', 'logout'); }
+    else if (a === 'export') { if (HOST()) HOST().classic('members', 'export'); else toast('הקובץ מוכן להורדה (הדגמה)', 'check'); }
+    else if (a === 'print') { if (HOST()) HOST().classic('members', 'print'); else toast('הרשימה נשלחה להדפסה (הדגמה)', 'check'); }
+    else if (a === 'dep-edit') { HOST().editDeposit(el.getAttribute('data-did')); }
+    else if (a === 'classic') { closeAll(); HOST().classic(S.view === 'soon' ? S.soon : S.view, S.soon === 'settings' ? SC.settings.tab : null); }
     else if (a === 'newmember') openForm('member');
     else if (a === 'edit') openForm('member', byId(el.getAttribute('data-mid')) || byId(S.member));
     else if (a === 'clearfilters') { S.filter = 'all'; S.q = ''; S.yeshiva = ''; S.city = ''; S.type = ''; id('q').value = ''; renderFilters(); renderList(true); }
@@ -719,7 +751,7 @@
     if (k === 'deposit') openDeposit();
     else if (k === 'member') openForm('member');
     else if (k === 'expense') openForm('expense');
-    else if (k === 'credit') openForm('credit');
+    else if (k === 'credit') { if (HOST()) HOST().credit(); else openForm('credit'); }
     else if (k === 'report') go('transactions');
     else if (k === 'grants') go('grants');
   }
@@ -752,9 +784,9 @@
       var f = $$('button:not([disabled]),input,select,[tabindex="0"]', ov).filter(function (x) { return x.offsetParent !== null; });
       if (!f.length) return;
       var first = f[0], last = f[f.length - 1];
-      if (e.shiftKey && document.activeElement === first) { last.focus(); e.preventDefault(); }
-      else if (!e.shiftKey && document.activeElement === last) { first.focus(); e.preventDefault(); }
-      else if (!ov.contains(document.activeElement)) { first.focus(); e.preventDefault(); }
+      if (e.shiftKey && AE() === first) { last.focus(); e.preventDefault(); }
+      else if (!e.shiftKey && AE() === last) { first.focus(); e.preventDefault(); }
+      else if (!ov.contains(AE())) { first.focus(); e.preventDefault(); }
     }
   }
   function bind() {
@@ -774,7 +806,7 @@
     root.addEventListener('change', function (e) {
       var t = e.target, k = t.getAttribute && t.getAttribute('data-sel');
       if (k) { S[k] = t.value; renderFilters(); renderList(true); }
-      else if (t.id === P + 'married') { S.married = t.checked; if (t.checked) toast('בנתוני ההדגמה אין בחורים נשואים', 'info'); }
+      else if (t.id === P + 'married') { S.married = t.checked; if (HOST()) { renderFilters(); renderList(true); } else if (t.checked) toast('בנתוני ההדגמה אין בחורים נשואים', 'info'); }
     });
     root.addEventListener('keydown', function (e) {
       var t = e.target;
@@ -795,16 +827,44 @@
   }
 
   /* ---------- lifecycle ---------- */
+  function sumOf(s) { return { collected: s.collected, missing: s.missing, pct: s.progressPct, left: 100 - s.progressPct, required: s.required, met: s.metTarget, debt: s.pastDebt, deposits: s.deposits, depositors: s.depositors, metTarget: s.metTarget, withTarget: s.withTarget, pastDebt: s.pastDebt, debtors: s.debtors, nearEligible: s.nearEligible, growthPct: s.growthPct, collectedLastYear: s.collectedLastYear, baseTarget: s.baseTarget, cashShare: s.cashShare, creditShare: s.creditShare, avgDeposit: s.avgDeposit, activeMembers: s.activeMembers, purimThisYear: s.purimThisYear, purimAddresses: s.purimAddresses }; }
+  function loadData(first) {
+    D = window.TZ_DATA; SLOTS = {};
+    D.imageSlots.forEach(function (s) { SLOTS[s.key] = s; });
+    var s = D.summary;
+    M = D.members.map(function (m) { var c = {}, k; for (k in m) c[k] = m[k]; c.deposits = m.deposits.map(function (d) { return { id: d.id, date: d.date, amount: d.amount, method: d.method, year: d.year, note: d.note }; }); return c; });
+    ACT = D.activity.slice();
+    if (first) S = { view: 'dashboard', soon: null, year: D.settings.campaignYear, tab: 'alerts', filter: 'all', q: '', yeshiva: '', city: '', type: '', married: false, sort: { k: '', d: 1 }, member: null, sum: null };
+    S.sum = sumOf(s);
+    if (HOST()) {
+      if (HOST().year) S.year = HOST().year() || S.year;
+      var e1 = id('msample'); if (e1) e1.hidden = true;
+      var e2 = id('ftnote'); if (e2) e2.textContent = 'מערכת הניהול';
+      root.classList.toggle('no-edit', !(D.can && D.can.edit)); root.classList.add('is-live');
+    }
+    var e3 = id('mact'); if (e3) e3.textContent = num(s.activeMembers);
+    $$('[data-year]').forEach(function (el) { el.textContent = S.year; });
+  }
+  /* נתונים חדשים מהמערכת: טוענים מחדש ומציירים את מה שמוצג, בלי לאבד את המקום */
+  function update() {
+    if (!mounted) return false;
+    loadData(false);
+    renderNav(); renderHero(); renderFigs(); renderTabs(); renderRows(false); renderFeed(false); renderFws(); renderCharts(); renderPath(); renderLead(); renderHeat();
+    syncSum(0, false);
+    S.tk = -1; tickerNext();
+    if (S.view === 'members') { renderFilters(); renderList(false); }
+    else if (S.view === 'soon') {
+      if (!navOf(S.soon)) { go('dashboard'); }
+      else { var ae = AE(), scr = id('scr'); if (!(ae && scr && scr.contains(ae) && /^(INPUT|SELECT|TEXTAREA)$/.test(ae.tagName))) { scrDraw(); } }
+    }
+    markNav();
+    return true;
+  }
   function mount(r) {
     if (mounted) return;
     root = r; D = window.TZ_DATA;
     RM = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-    D.imageSlots.forEach(function (s) { SLOTS[s.key] = s; });
-    var s = D.summary;
-    M = D.members.map(function (m) { var c = {}, k; for (k in m) c[k] = m[k]; c.deposits = m.deposits.map(function (d) { return { date: d.date, amount: d.amount, method: d.method, year: d.year }; }); return c; });
-    ACT = D.activity.slice();
-    S = { view: 'dashboard', soon: null, year: D.settings.campaignYear, tab: 'alerts', filter: 'all', q: '', yeshiva: '', city: '', type: '', married: false, sort: { k: '', d: 1 }, member: null,
-      sum: { collected: s.collected, missing: s.missing, pct: s.progressPct, left: 100 - s.progressPct, required: s.required, met: s.metTarget, debt: s.pastDebt, deposits: s.deposits, depositors: s.depositors, metTarget: s.metTarget, withTarget: s.withTarget, pastDebt: s.pastDebt, debtors: s.debtors, nearEligible: s.nearEligible, growthPct: s.growthPct, collectedLastYear: s.collectedLastYear, baseTarget: s.baseTarget, cashShare: s.cashShare, creditShare: s.creditShare, avgDeposit: s.avgDeposit, activeMembers: s.activeMembers, purimThisYear: s.purimThisYear, purimAddresses: s.purimAddresses } };
+    loadData(true);
     mounted = true;
     renderNav(); renderHero(); renderFigs(); renderTabs(); renderRows(true); renderFeed(false); renderFws(); renderCharts(); renderPath(); renderLead(); renderHeat();
     id('qdkupa').innerHTML = slot('kupa');
@@ -813,7 +873,7 @@
   }
   function show() {
     if (!mounted) return;
-    document.body.style.background = API.pageBg;
+    if (!HOST()) document.body.style.background = API.pageBg;
     RM = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
     var v = $('.view:not([hidden])'); if (v) play(v, S.view === 'dashboard' ? 1500 : 700);
     clearInterval(tickerT); tickerT = setInterval(tickerNext, 4200);
@@ -828,7 +888,9 @@
     name: 'גל זהב',
     tagline: 'אתר בית שמח וגדול: גלים צהובים, מדליונים עגולים, חותמת מסתובבת ותמונות ענק',
     pageBg: '#FFFFFF',
-    mount: mount, show: show, hide: hide, go: go, open: open,
+    mount: mount, show: show, hide: hide, go: go, open: open, update: update,
+    toast: function (t, gl) { if (mounted) toast(esc(t), gl); }, openMember: function (mid) { var m = byId(mid); if (m) openMember(m); return !!m; },
+    view: function () { return mounted ? (S.view === 'soon' ? S.soon : S.view) : null; }, closeAll: function () { if (mounted) closeAll(); },
     setTheme: function () { return false; }
   };
   window.TZ_DIRS = window.TZ_DIRS || {};

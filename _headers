@@ -4,11 +4,11 @@
 #   script-src 'self'            - רק סקריפטים מקובצי האתר. אין unsafe-inline ואין CDN.
 #   style-src 'unsafe-inline'    - נדרש בגלל תכונות style="" שעדיין קיימות ב-HTML (יוסרו בשלב 2).
 #   connect-src / img-src        - האתר עצמו ופרויקט ה-Supabase (נתונים, התחברות, קבלות).
-#   frame-src                    - רק דף הסליקה של נדרים פלוס.
+#   frame-src                    - דף הסליקה של נדרים פלוס, ומפת גוגל במסך כתובות הפורים.
 #   frame-ancestors 'none'       - אי אפשר להטמיע את המערכת בתוך אתר אחר.
 /*
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=(), usb=(), bluetooth=(), browsing-topics=()
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://yyuiovoqwfekgtgfhiiu.supabase.co; font-src 'self'; connect-src 'self' https://yyuiovoqwfekgtgfhiiu.supabase.co; frame-src https://www.matara.pro; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; worker-src 'self'; manifest-src 'self'
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://yyuiovoqwfekgtgfhiiu.supabase.co; font-src 'self'; connect-src 'self' https://yyuiovoqwfekgtgfhiiu.supabase.co; frame-src https://www.matara.pro https://www.google.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; worker-src 'self'; manifest-src 'self'

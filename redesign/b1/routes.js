@@ -178,7 +178,7 @@
     // כתובות בלי מיקום: המפה של גוגל מוצגת לפי סדר הרשימה, בלי שעות ובלי חיפוש מסלול קצר
     if (!geo) {
       return '<div class="pm"><div class="pm-list"><div class="pm-rows">' + gr.rows.map(function (r, i) {
-        return '<button type="button" class="pm-row" data-scr="visit:' + i + '"><span class="pm-n">' + (i + 1) + '</span><span class="pm-t"><b>' + esc(r.family) + ' <small>' + esc(r.first) + '</small></b><i>' + esc(r.street) + ' ' + r.house + ' · דירה ' + r.apt + '</i></span>' +
+        return '<button type="button" class="pm-row" data-scr="visit:' + i + '"><span class="pm-n">' + (i + 1) + '</span><span class="pm-t"><b>' + esc(r.family) + ' <small>' + esc(r.first) + '</small></b><i>' + addrH(r) + '</i></span>' +
           '<span class="pm-e">' + (r.win ? '<span class="tag t-warn">' + esc(winText(r.win)) + '</span>' : '') + stayH(r, stayOf(r, cfg)) + '</span><b class="pm-h">—</b></button>';
       }).join('') + '</div></div><aside class="panel pm-map"><div class="panel-h"><h3>' + title + 'המסלול לפי הרשימה</h3></div>' +
         '<p class="pm-warn is-info">לכתובות של הקבוצה הזו עדיין אין מיקום, ולכן אין חישוב זמנים ואין חיפוש של מסלול קצר יותר. המפה מציגה את הסדר שברשימה.</p>' + gmapH(gr.rows, gr.city, 'מפת המסלול של ' + gr.group) + '</aside></div>';
@@ -192,7 +192,7 @@
         : '<button type="button" class="bulb" data-scr="pbetter:1"><span class="bulb-i">' + g('bulb') + '</span><span><b>נמצא מסלול ' + (gain >= 1 ? 'קצר' : 'טוב') + ' יותר</b>' + (gain >= 1 ? 'חוסך ' + minT(gain) : '') + (fixes > 0 ? (gain >= 1 ? ', ו' : '') + 'מגיעים בזמן גם ל' + (fixes === 1 ? 'כתובת עם השעות' : fixes + ' כתובות עם שעות') : '') + '. לחיצה מציגה אותו.</span>' + g('chev') + '</button>';
     var rows = sim.steps.map(function (s, i) {
       var r = s.row;
-      return '<button type="button" class="pm-row' + (s.late || s.over ? ' is-bad' : '') + '" data-scr="visit:' + gr.rows.indexOf(r) + '" aria-label="' + esc(r.family + ' ' + r.first + ', ' + r.street + ' ' + r.house) + '. פרטי הביקור"><span class="pm-n">' + (i + 1) + '</span><span class="pm-t"><b>' + esc(r.family) + ' <small>' + esc(r.first) + '</small></b><i>' + esc(r.street) + ' ' + r.house + ' · דירה ' + r.apt + '</i></span>' +
+      return '<button type="button" class="pm-row' + (s.late || s.over ? ' is-bad' : '') + '" data-scr="visit:' + gr.rows.indexOf(r) + '" aria-label="' + esc(r.family + ' ' + r.first + ', ' + r.street + ' ' + r.house) + '. פרטי הביקור"><span class="pm-n">' + (i + 1) + '</span><span class="pm-t"><b>' + esc(r.family) + ' <small>' + esc(r.first) + '</small></b><i>' + addrH(r) + '</i></span>' +
         '<span class="pm-e">' + (r.win ? '<span class="tag ' + (s.late ? 't-bad' : 't-warn') + '">' + esc(winText(r.win)) + '</span>' : '') + (s.wait >= 1 ? '<i>המתנה ' + minT(s.wait) + '</i>' : '') + stayH(r, s.stay) + '</span><b class="pm-h" dir="ltr">' + fmtT(s.arrive) + '</b></button>';
     }).join('');
     var warn = sim.late || sim.over ? '<p class="pm-warn">' + (sim.late ? (sim.late === 1 ? 'לכתובת אחת עם שעות מגיעים מאוחר מדי. ' : 'ל-' + sim.late + ' כתובות עם שעות מגיעים מאוחר מדי. ') : '') + (sim.over ? addrN(sim.over) + (sim.over === 1 ? ' נשארת' : ' נשארות') + ' אחרי ' + esc(RT.end) + '.' : '') + '</p>' : '';

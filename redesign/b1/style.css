@@ -292,6 +292,7 @@
   .liq-f path{fill:#CFA435}
   .up{display:inline-flex;align-items:center;gap:3px;font-weight:800}
   .up::before{content:"";border:5px solid transparent;border-bottom:7px solid currentColor;border-top:0}
+  .up.dn::before{border-bottom:0;border-top:7px solid currentColor}
 
   /* ============ today (alerts + feed) ============ */
   .today{padding:clamp(40px,5vw,76px) 0 clamp(70px,7vw,110px)}

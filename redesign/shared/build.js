@@ -44,7 +44,29 @@ const HEAD = '<!doctype html>\n<html lang="he" dir="rtl">\n<head>\n<meta charset
 
 module.exports = { sources, fragment };
 
-if (require.main === module) {
+/* --site: קובצי העיצוב החדש למערכת האמיתית (תיקיית nd בשורש המאגר).
+   nd/ui.css נטען בתוך shadow root, ולכן הסגנונות של המערכת הקיימת ושל העיצוב החדש לא נוגעים זה בזה.
+   nd/ui.js = גוף הדף כמחרוזת + הקוד של העיצוב. הנתונים מגיעים מ-nd/data.js ו-nd/data-screens.js, לא מנתוני ההדגמה. */
+function site(k) {
+  const s = sources(k);
+  const REPO = path.resolve(ROOT, '..');
+  const ND = path.join(REPO, 'nd');
+  const IMG = path.join(REPO, 'assets', 'img', 'nd');
+  fs.mkdirSync(ND, { recursive: true }); fs.mkdirSync(IMG, { recursive: true });
+  const banner = '/* נבנה אוטומטית מ-redesign/' + k + ' על ידי redesign/shared/build.js --site. לא לערוך כאן: עורכים במקור ובונים מחדש. */\n';
+  const prelude = ':host{all:initial;display:block;--tz-logo:url("../assets/img/nd/logo.png")}\n[hidden]{display:none!important}\nimg{max-width:100%}\n';
+  fs.writeFileSync(path.join(ND, 'ui.css'), banner + prelude + s.css);
+  fs.writeFileSync(path.join(ND, 'ui.js'), banner + 'window.TZ_BODY=' + JSON.stringify(s.body) + ';\n' + s.js);
+  const src = path.join(SHARED, 'images');
+  let n = 0;
+  fs.readdirSync(src).filter((f) => /\.(webp|png|jpe?g)$/i.test(f)).forEach((f) => { fs.copyFileSync(path.join(src, f), path.join(IMG, f)); n++; });
+  fs.copyFileSync(path.join(SHARED, 'logo.png'), path.join(IMG, 'logo.png'));
+  console.log('site: nd/ui.css', Math.round(fs.statSync(path.join(ND, 'ui.css')).size / 1024) + ' KB · nd/ui.js', Math.round(fs.statSync(path.join(ND, 'ui.js')).size / 1024) + ' KB ·', n, 'images');
+}
+
+if (require.main === module && process.argv.includes('--site')) {
+  site('b1');
+} else if (require.main === module) {
   const k = process.argv[2] || 'b1';
   const html = HEAD + fragment(k, false) + '\n</body>\n</html>\n';
   const out = path.join(ROOT, 'prototype.html');

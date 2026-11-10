@@ -14,10 +14,11 @@
   <link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicon-32.png">
   <link rel="apple-touch-icon" sizes="180x180" href="assets/img/apple-touch-icon.png">
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="nd/host.css">
   <script src="assets/vendor/chart.umd.min.js"></script>
   <script src="boot.js"></script>
 </head>
-<body>
+<body class="nd-on">
 
   <div id="login-screen" class="login-overlay">
     <div class="login-card">
@@ -1034,7 +1035,16 @@
 
   <datalist id="members-datalist"></datalist>
 
+  <!-- העיצוב החדש: מצויר כאן, על הנתונים של המערכת. המסך שמעל נשאר בדף ומשמש כ"מסך הקודם" למה שעוד לא חובר -->
+  <div id="nd-root"></div>
+  <div id="nd-wait" aria-hidden="true"><img src="assets/img/logo.png" width="96" height="98" alt=""></div>
+  <button type="button" id="nd-back">לעיצוב החדש</button>
+
   <script src="supabase-integration.js"></script>
   <script src="script.js"></script>
+  <script src="nd/data.js"></script>
+  <script src="nd/data-screens.js"></script>
+  <script src="nd/ui.js"></script>
+  <script src="nd/boot.js"></script>
 </body>
 </html>
