@@ -1,0 +1,194 @@
+{
+ "overall": "Today b1 is very close to the reference: a viewer who knows that site would read almost every screen as its design system with the charity's seal and data dropped in. The recognition comes from stacked signature devices, several of which rebuild whole reference modules (service tabs with icon rows, the calculator circle, the login circle), and not from the palette. I found nothing literally taken (no name, sentence, photo, icon, font or file, and the yellow is no longer the reference's value), so the fix is new devices and a new first-screen composition, with the colours and richness kept. This is a design-similarity opinion, not legal advice. Side note outside this comparison: the client's own hero picture shows brand-like lettering on the hat boxes (\"HATZOLAN\"), which he may want to confirm is not a real brand.",
+ "closeness": 4.5,
+ "elements": [
+  {
+   "element": "First-screen composition (dashboard hero)",
+   "closeness": 5,
+   "where": "body.html l.37-64 (.hero, .hero-wave-in, .hero-mw, .meds, .stamp, .hero-bot); style.css l.192-250, phone l.811-832; repeated on every 'בקרוב' screen by renderSoon, script.js l.633-640",
+   "whyRecognisable": "Four of the reference's home-page signatures share one viewport: a full-bleed photo washed yellow and cut by a flowing two-tone S-wave, a grid of white ringed circle buttons floating on the photo (3x2 against their 4x2), a tilted round stamp with dotted rim and text on a path at the wave edge, and a wavy white bottom edge, all under the same swoosh header. Moving the headline to the side and showing a number instead of a slogan does not change the read.",
+   "replaceWith": "A 'golden arch' first screen with straight seams. The headline block (eyebrow, giant ₪ number, 'נאספו השנה', progress, CTA, ticker) sits directly on an ivory/white page at the start side. At the end side the client's hero picture is shown un-tinted in one tall arch window (round top only, like the arches and chuppah in his own picture), nested in a slightly larger flat-gold arch with a double gold keyline: two concentric arches are the seal's double ring opened up. The real seal sits upright at the crown as keystone, with the 57% as a plain gold arc around it. Quick actions leave the photo and become one straight 'shelf' row beneath. No wave, no tint, no stamp, no circle grid, straight bottom edge."
+  },
+  {
+   "element": "Header silhouette: white bar with a liquid yellow corner and a white swoosh under the logo",
+   "closeness": 5,
+   "where": "body.html l.9-11 (.hd-swoosh, .hd-corner); style.css l.143-148, phone l.797-798",
+   "whyRecognisable": "This is the reference's most persistent signature, present on every page and scroll position: a white bar whose top-left melts into a yellow liquid corner holding the account link, plus a soft-shadowed white swoosh dropping under the logo on the right. Ours has the same two shapes in the same two places with the same content, also sticky, also on phone.",
+   "replaceWith": "A straight header taken from the seal: an ink-black bar (the seal's black field) closed by a double gold rule (about 2.5px plus a 1px hairline, the seal's twin rings straightened). The seal hangs half below the bar in a small semicircular gold-rimmed socket; nav labels in white, tools as quiet pills on black. Phone: the same bar, shorter."
+  },
+  {
+   "element": "Wave architecture: white and yellow-gradient bands joined by asymmetric flowing waves, with a paler echo wave and translucent circles inside the yellow",
+   "closeness": 5,
+   "where": "body.html .edge SVGs (l.63, 108, 134, 161, 194), .rib/.rib-b (l.82-83), .blob (l.109-110, 162, 181-182), .ov-bg svg (l.231, 237); style.css l.133-140, 297-298",
+   "whyRecognisable": "The reference page is built from yellow gradient fields with S-wave edges, a lighter echo wave behind the main one and faint lighter shapes inside the yellow. We repeat all three on six sections, both overlays and the members header, so the likeness lasts the whole scroll.",
+   "replaceWith": "Straight-edged architecture. Colour fields are flat rectangles or end in one wide, symmetric, shallow vault (an elliptical top): symmetric arches instead of asymmetric liquid. Dividers are a double gold rule with a small lozenge or a 28px seal in the middle. Texture inside gold fields is the seal itself as a giant cropped tonal watermark (6-8% black) instead of translucent circles. Add one dark espresso/black band (the charts) so the rhythm becomes ivory / gold / black."
+  },
+  {
+   "element": "White circle with a thin ring floating just outside it, used as the universal primitive (buttons, figures, pictures, chart, forms, search, FAB), plus a small circle overlapping a big one",
+   "closeness": 5,
+   "where": "style.css .med l.227-238, .disc::before l.129, .bub::before l.269-284, .orb::before l.403, .qd-orb::before l.483, .dep::before l.681, .search::before l.512, .feed::before l.329, .fab::before l.978, .mh .mg::before l.617, .eq .coin l.642; overlaps: .fw-pct l.362, .qd-kupa l.486, .dep-kupa l.683",
+   "whyRecognisable": "The reference's base shape is a white disc with a fine ring just outside it, holding an icon and a two-line bold label, and it likes a smaller disc overlapping a bigger one. We use that shape more than ten times. Our hover (ring jumps outward and thickens, disc lifts) matches what the reference's hover screenshot appears to show.",
+   "replaceWith": "Two own primitives. (a) The arch tile: a round-topped 'door' (border-radius about 999px 999px 18px 18px) for pictures, quick actions and dialogs, from the arches in the client's pictures. (b) The plaque: a rounded rectangle (20-28px) for figures, charts and forms. The rim is the seal's twin gold lines drawn inside the shape (inset about 5px), never a black ring outside. Keep true circles only for the seal, initials avatars and heat-map dots. Hover: the gold keyline draws around the shape, with a small lift."
+  },
+  {
+   "element": "Hand-painted brush-stroke highlight behind the active item",
+   "closeness": 5,
+   "where": "script.js l.43 (BRUSH path with stray flecks), used at l.145, 149, 163, 262, 417, 539; style.css .brush l.157-161, 302-307, 519-523, 701-703, 972-974; keyframe tzb1-brush l.17",
+   "whyRecognisable": "The reference marks its active service tab with a rough yellow paint stroke. Ours imitates the same ragged stroke with flecks and uses it in five places (top nav, alert tabs, status filters, cash/credit switch, phone tab bar), so it is the most repeated signature on screen.",
+   "replaceWith": "The seal's own contrast, gold lettering on black: the active item is a crisp solid black pill with gold text (inactive is plain text; hover is a thin double gold underline). The pill slides from item to item instead of being 'painted'. Phone tab bar: a black pill behind the icon or a small gold arch above it."
+  },
+  {
+   "element": "Heading accents: yellow disc tucked behind the first word, and a hairline from the screen edge ending in a dot",
+   "closeness": 5,
+   "where": "body.html .sh with span.dot (l.70, 86, 101, 113, 140, 149, 153, 165) and .ld (l.47, 113, 140, 165, 185); style.css l.81-90; yellow-dot bullets l.603, 624",
+   "whyRecognisable": "Both are named reference signatures: the yellow disc at the corner of 'אנחנו עומדים לשירותך', and the line-and-dot beside 'פעולות מהירות' and 'כיף שבאת'. We use them at the same positions on every section heading and on the page H1s.",
+   "replaceWith": "A heading mark from the charity's world: a small black rounded-square plaque with a gold Hebrew section letter (א, ב, ג, the way seforim number their sections) before the heading, plus a short double gold rule under it. For centred headings: rule, lozenge, rule above the title. No discs behind text and no edge-to-heading lines."
+  },
+  {
+   "element": "'מה דורש טיפול?' module: heading, vertical list of light-weight topics each followed by », and rows of white disc + bold label + thin chevron on a yellow wave",
+   "closeness": 5,
+   "where": "body.html l.81-96; style.css l.296-327, phone l.847-855; script.js l.254-290",
+   "whyRecognisable": "This is the reference's second home section almost one to one: the same place in the page, heading with yellow dot on the right, a vertical list of large light words with » (active one emphasised), and icon rows on a yellow wave with a white disc, bold two-line label and thin chevron. On phones it collapses exactly as theirs does: heading, horizontal tabs with the brush on the active one, icon rows with chevrons. The heading 'אנחנו על זה. / מה דורש טיפול?' also echoes 'אנחנו עומדים לשירותך / באיזה נושא נוכל לסייע?'.",
+   "replaceWith": "A 'today's desk' board on ivory, not on yellow. One rounded white panel titled 'דורש טיפול היום' with a count plaque; the category switch is a horizontal segmented pill (black active). Each alert is a full-width row card with a tone-coloured start edge, the count in a black rounded-square counter with gold numerals, title and detail, and a small pill 'לטיפול' with a single arrow. The activity feed sits beside it as an equal-height panel."
+  },
+  {
+   "element": "Quick-deposit widget: white circle with a question, underlined amount with ₪, yellow button, small circle overlapping its corner, question heading with line-and-dot beside it, on a yellow wave band",
+   "closeness": 5,
+   "where": "body.html l.160-175; style.css l.478-495",
+   "whyRecognisable": "It rebuilds the reference's 'how much do you pay?' calculator element for element: yellow wave band, question heading with line-and-dot on the right, white circle holding a 'כמה…?' question, one underlined number field with ₪ and a sample amount as placeholder, a rectangular yellow « button, and a smaller circle with coins overlapping the top corner. It is also our closing band, where the reference also closes with a circular form.",
+   "replaceWith": "A 'קופה' counter strip: a wide black plaque (about 28px radius, inner double gold keyline) across the content width. The kupa picture stands in a small arch niche at the start; the title is a statement ('רישום מהיר לקופה'); the amount field is boxed (ivory fill, visible border); quick-amount chips come from the data (₪300, ₪450, ₪1,100); the button is a gold pill. Move it up beside the six figures instead of the page end."
+  },
+  {
+   "element": "Deposit dialog: giant white circle with an overlapping small circle, underline-only fields, yellow rectangular button, yellow backdrop with a white wave",
+   "closeness": 5,
+   "where": "body.html l.236-243; style.css .ov-bg l.607-609, .dep l.680-687, .uin l.488-494, .seg l.698-704; script.js l.532-544",
+   "whyRecognisable": "Same construction as the reference's personal-area login: a huge white disc carrying the form, a smaller disc overlapping its upper corner, fields that are only an underline with grey placeholder, a rectangular yellow « button, yellow wave surroundings. Underline-only fields are also the reference's form style everywhere.",
+   "replaceWith": "An arch-topped sheet ('שער'): a tall panel with a round arch top (the phone version nearly is one already, so make desktop match), the kupa picture in a niche at the crown, the twin gold keyline inside the edge. Boxed fields with labels above; the method switch is a two-option pill (black active); a full-width black pill 'שמירת ההפקדה'. Backdrop: dimmed warm espresso with blur (the dark wood of the client's pictures), no yellow and no wave. Success moment: the real seal presses down onto the sheet with the amount."
+  },
+  {
+   "element": "Buttons: flat rectangular yellow-gradient bar, centred bold black label, double chevron « at the far end",
+   "closeness": 5,
+   "where": "style.css .btn l.56-67 (border-radius 3px; --grad l.28); chev2 glyph script.js l.24 on every CTA; double chevrons on tabs, style.css l.303",
+   "whyRecognisable": "The reference button is unusual and therefore memorable: a square-cornered yellow gradient rectangle with bold black text and « at the left edge (measured: 0px radius, 222deg gradient #FFCF41 to #FFC20E, weight 600). Ours is the same object with 3px corners and a shadow, and « follows our tab labels as it follows theirs.",
+   "replaceWith": "Pills. Primary: a solid black pill with gold label and a small gold round end-cap holding a single arrow. Secondary: a flat gold pill with black label and a 3px darker-gold bottom lip (a coin edge). Tertiary: a text link with a single arrow. No gradient, no «."
+  },
+  {
+   "element": "Framework cards: four centred columns of bold title, circle with picture, short centred text, yellow rectangular button",
+   "closeness": 4,
+   "where": "body.html l.99-104; style.css l.347-367; script.js l.303-324",
+   "whyRecognisable": "Mirrors the reference's product row: title, grey disc with icon, two centred lines, yellow « button, four across. Our progress ring and % badge add data, but the silhouette of the row is theirs.",
+   "replaceWith": "Arch-niche cards. The object picture stands on a thin shelf line in an ivory arch niche (mix-blend-mode: multiply so its white background vanishes). Name and figures are aligned to the start beside or below it, with a thick horizontal progress bar (gold on a black track) and the % at its end. The whole card is clickable with a quiet 'לרשימה' link instead of a yellow button. Consider 2x2 horizontal cards to break the four-up centred look."
+  },
+  {
+   "element": "Six figures as a staggered honeycomb of circles",
+   "closeness": 4,
+   "where": "body.html l.76; style.css .hive/.bub l.265-291; script.js l.232-251",
+   "whyRecognisable": "Two rows of discs with the second row shifted by half a disc is how the reference lays out its quick-action circles. The mixed black, yellow and white fills make it only partly ours.",
+   "replaceWith": "A ledger of plaques: one large black lead plaque ('נגבה השנה', gold numerals, trend) and five ivory plaques in a straight grid with gold hairline separators. The liquid fill becomes a rising gold level inside a plaque or arch. The coins picture gets its own arch niche at the end of the row."
+  },
+  {
+   "element": "Circular campaign badge/stamp: tilted disc with dotted rim and text running round a circle",
+   "closeness": 4,
+   "where": "script.js stampSVG l.197-213, renderSoon l.639; style.css l.239-250 (.st-dots, rotate(-10deg), 44s spin)",
+   "whyRecognisable": "A named reference signature: their tilted round badge with dotted edge and text on a path in the hero's upper corner. Ours is black with a yellow core and carries the %, but it has the same construction, tilt and position, and it reappears on every 'בקרוב' screen.",
+   "replaceWith": "The charity already owns a round seal, so use the real one (var(--tz-logo)), upright, with progress as a plain gold arc around it and '57% מהיעד' on a small black plaque beneath. No dotted rim, no text on a path, no tilt, no continuous spin."
+  },
+  {
+   "element": "Heading typography: thin first line over a heavy second line, in a geometric sans",
+   "closeness": 4,
+   "where": "style.css .lt l.53, .sh h2 l.83-84; every h2/h3 with span.lt in body.html; script.js l.534",
+   "whyRecognisable": "The reference sets nearly every heading as a thin line followed by a heavy line ('פעולות / מהירות', 'אנחנו עומדים לשירותך / באיזה נושא…'). We do the same (300 over 800) on all section, panel and dialog headings, which gives the same typographic voice.",
+   "replaceWith": "One-weight headings: a single heavy line (Heebo 800-900) under a small eyebrow label. Set the eyebrows and the brand line in a Hebrew serif from the allowed list (Frank Ruhl Libre 500/700) to echo the seal's traditional lettering, a voice the reference does not have. Keep the huge sizes."
+  },
+  {
+   "element": "Page rhythm: order and colouring of the sections",
+   "closeness": 4,
+   "where": "body.html order of .band sections, l.37-175",
+   "whyRecognisable": "The scroll sequence parallels the reference home page: hero with circle grid, then tabs and rows on yellow, then a row of four centred cards with yellow buttons, then a yellow band with a white-circle widget, ending in a yellow band with a circular form.",
+   "replaceWith": "Re-order around the office's day and change the field colours: hero, six-figure ledger with the quick 'קופה' strip, alerts and activity board, income charts on the one dark band, frameworks, gifts, leaders and calendar, black footer."
+  },
+  {
+   "element": "Phone layout",
+   "closeness": 4,
+   "where": "style.css l.792-984; shots m-dashboard*.png, m-deposit.png",
+   "whyRecognisable": "The first phone screen is less like the reference's (big picture, giant number), but it still opens with the swoosh header, a wave under the picture and the stamp. Right below come the ringed circles, then the heading + brush tabs + icon rows block that matches the reference's phone layout. The bottom tab bar highlights with the brush stroke, the FAB has the outside ring, and the page ends with the circle widget.",
+   "replaceWith": "Black header bar. Hero picture in a full-width arch window with the seal as keystone. Quick actions as a 2x3 grid of rounded plaques or a horizontal shelf. Bottom-bar active state is a black pill or small gold arch. The FAB becomes a black pill '+ הפקדה' without a ring. Deposit is the arch-top bottom sheet."
+  },
+  {
+   "element": "Picture treatment: yellow-washed hero photo, objects in ringed white discs, laurel trophy",
+   "closeness": 3,
+   "where": "style.css .hero-tint l.198, .disc l.128-131; script.js disc() l.60, renderLead l.378",
+   "whyRecognisable": "The hero photo is washed yellow like the reference's hero. Object pictures sit in white ringed discs where the reference puts its icons. The leaderboard's laurel-wreath trophy (the client's own picture) happens to echo the reference hero's laurel '1' trophy and laurel badge.",
+   "replaceWith": "Show the client's scenes un-tinted, because their dark wood and warm gold are the most ownable thing we have, inside arch windows with gold keylines and a bottom scrim only where text sits. Objects stand in arch niches on a shelf line with a soft contact shadow, blended (multiply) into ivory; this also removes the square white corners that poke out of the discs today. Optional for the client: a cup without a laurel wreath for the leaderboard slot."
+  },
+  {
+   "element": "Colour scheme: yellow-to-orange gradient fields, pure white, near-black for text only, cool neutral greys",
+   "closeness": 3,
+   "where": "style.css tokens l.24-28; gradients in body.html l.3-4; b1/backup-yellow/style.css for the old value",
+   "whyRecognisable": "No chromatic value equals a measured reference colour: the reference yellow is #FFC40C (hue 45, saturation 100%) and ours is #EEAE19 (hue 42, saturation 86%), with our main gold tokens sitting 8-19 dE from the nearest reference yellow. The earlier build in backup-yellow used exactly #FFC40C, so that file must not be restored. What still reads as theirs is the scheme: a diagonal yellow-to-orange gradient on every field and button, white, black used only for text, and neutral greys.",
+   "replaceWith": "Keep the client-approved gold tokens but use them flat, with no yellow-to-orange gradient on fields or buttons. Change the proportions and the neutrals. Let black carry roughly 15-20% of the surface as it does in the seal (header, lead figure plaque, primary buttons, one band). Swap the cool greys for warm ivory neutrals (for example surface #FAF5EA, tint #F1E8D6, line #E2D6BF). Add the espresso wood tone of the client's pictures (about #2A1A0E) for footer and backdrops. Use the seal's own metallic golds, sampled from shared/logo.png (highlight #F3D696, mid #D5AE6C, shade #AD8348), only for thin keylines and rims."
+  },
+  {
+   "element": "Motion tied to the borrowed devices",
+   "closeness": 3,
+   "where": "style.css keyframes l.6-8 (drift, slide-in), l.17 (brush wipe), l.20 (stamp-in), l.246 (stamp spin), .med:hover l.233-234",
+   "whyRecognisable": "Our signature moves animate exactly the borrowed shapes: waves drifting and sliding in, the brush stroke wiping in, the stamp slamming down and rotating, the ring expanding on hover. Only the hover ring could be compared with the reference (its hover screenshot); the rest is recognisable by association, since I had only stills.",
+   "replaceWith": "Motion that belongs to arches, seal and gold. Picture arches open like doors (clip-path reveal from the centre line). Gold keylines draw themselves around arches and plaques, like engraving. One light glint sweeps across gold surfaces on load. The active black pill slides. The seal presses down on success. Keep count-ups, bar growth, springy press, toast and confetti."
+  },
+  {
+   "element": "Wording and tone",
+   "closeness": 3,
+   "where": "body.html l.60 (aria-label 'פעולות מהירות'), l.86, l.165-172; script.js l.855-856 (version name 'גל זהב' and tagline)",
+   "whyRecognisable": "No sentence is taken, but the voice follows the reference's pattern: an 'אנחנו…' line over a question, second-person teaser questions as section titles ('הגיע בחור עם מעטפה?'), a 'כמה…?' prompt above an amount field, 'המשך… «'. The version's own name and tagline describe the reference's devices (waves, medallions, stamp).",
+   "replaceWith": "An office voice with statements instead of teasers, in the charity's own terms: 'דורש טיפול היום', 'קופת הקמפיין · רישום מהיר', 'מצב המסגרות', and 'קיצורי דרך' for the quick actions. Rename the version (for example 'שער הזהב') and rewrite its tagline around arches, seal and plaques."
+  },
+  {
+   "element": "Icons and arrows",
+   "closeness": 3,
+   "where": "script.js GL l.19-41; .med i yellow dot, style.css l.232",
+   "whyRecognisable": "Our glyphs are plain one-colour line controls, not the reference's two-tone illustrated icons, so the icons themselves are safe. The small yellow dot riding on each medallion mimics their yellow icon accent, and the double chevron «, their ubiquitous arrow, ends every CTA and tab.",
+   "replaceWith": "Keep the plain glyphs (gold on black inside primary plaques). Replace « with a single arrow in a round end-cap, and drop the yellow dot on tiles."
+  },
+  {
+   "element": "Members screen head",
+   "closeness": 3,
+   "where": "body.html l.180-209; style.css l.504-524",
+   "whyRecognisable": "The list itself (pill rows, initials, status tags, progress bars) is our own app UI. Its top is reference-flavoured: yellow gradient band with wave bottom, translucent circles, giant title with line-and-dot, ringed search pill, brush-highlighted filters.",
+   "replaceWith": "Inherit the new devices: a flat gold field with a straight edge or single shallow vault and seal watermark, title with the section plaque, search field with inner gold keyline, filters as a black-pill segmented control. The rows stay as they are."
+  },
+  {
+   "element": "Yearly chart inside a big ringed circle; gifts track as a thick wavy yellow line",
+   "closeness": 2,
+   "where": "style.css .orb l.402-403, .gp l.424-441; script.js renderPath l.355-373",
+   "whyRecognisable": "The chart in a ringed white circle on a yellow wave band reads as one more reference circle widget, and the gifts track is one more wave. The chart drawing styles themselves (pill bars, lollipop markers, dot calendar) are ours.",
+   "replaceWith": "Put both charts on rounded or arch-top panels on the dark band, with gold bars on espresso. The gifts track becomes a straight or gently stepped gold rail with two arch 'gates' at ₪700 and ₪2,000. Unrelated to similarity: the monthly bars are missing in the current desktop-tall and phone shots."
+  },
+  {
+   "element": "Typeface",
+   "closeness": 2,
+   "where": "fonts.txt (Heebo)",
+   "whyRecognisable": "Heebo is an open Google font, not the reference's commercial face (Almoni). It is similar only in being a clean geometric Hebrew sans.",
+   "replaceWith": "Keep Heebo for headlines and UI, and add Frank Ruhl Libre as the accent serif described under heading typography."
+  }
+ ],
+ "copiedAssets": [
+  "Exact colour match: --grey:#EFEFEF (style.css l.25) equals the reference's measured rgb(239,239,239). It is a generic neutral and probably coincidental, but it is the one value identical to the measured set; swap it for a warm ivory neutral.",
+  "Identical string: the aria-label \"פעולות מהירות\" (body.html l.60) is also a reference section title. It is a generic UI phrase and not visible on screen; rename it, for example to \"קיצורי דרך\".",
+  "Redrawn look-alike shapes, not copied files: the header's yellow corner and white swoosh (body.html l.9-11), the hero S-wave mask (body.html l.41-42, script.js l.634-635), the brush stroke with flecks (script.js l.43) and the dotted text stamp (script.js l.197-209). The paths are hand-authored with round coordinates on our own viewBoxes and I found no reference path data; the reference's SVG sources are not in the pack, so I could not compare them point for point. They are drawn after specific reference shapes and should go regardless."
+ ],
+ "keep": [
+  "Sunny gold + black + white with the current warm gold tokens (--y #EEAE19 family); the colour combination itself is generic.",
+  "Huge confident Hebrew headlines and giant numerals; the '₪148,650 נאספו השנה' headline is our own idea, not a slogan hero.",
+  "A website-style top navigation with a 'עוד' menu, year selector, save indicator and user chip, on a new header shape.",
+  "A home-page-like dashboard of full-width bands with generous space; alternating colour fields are generic once the edges are ours.",
+  "Big pictures. The client's own scenes and black-and-gold objects (dark wood, gold arch, chuppah) are the strongest differentiator, so give them more room.",
+  "Friendly round shapes: pills, rounded cards, arches, soft warm shadows. Roundness is generic; the ringed disc is what must go.",
+  "Big obvious buttons, single arrows and chevrons, cards, progress bars, status tags with a dot, initials avatars.",
+  "The members list as pill rows that become cards on phones, the search pill, the filter selects and the toggle.",
+  "Our own data modules: last-deposit ticker, cash/credit split, liquid progress level, deposit heat-map calendar, leaderboard, gift milestones, monthly and yearly charts with lollipop comparison markers, the member view with the 'base + penalty = required' explanation.",
+  "Generic motion: count-up numbers, bars growing, springy hover and press, tooltips, toast, confetti on save, figures ticking up after a deposit.",
+  "Heebo, an open Google font, not the reference's commercial face.",
+  "Phone conventions: bottom tab bar, cards instead of table, floating deposit action, bottom sheets.",
+  "The black footer with the seal, and the seal used large; nothing in the reference resembles it."
+ ]
+}

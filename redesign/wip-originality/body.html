@@ -1,0 +1,232 @@
+<header class="hd" id="tzb1-hd">
+  <div class="hd-bar">
+    <button type="button" class="brand" data-go="dashboard" aria-label="צדקת רבי שמעון, מעבר ללוח הבקרה">
+      <span class="seal" role="img" aria-label="סמל צדקת רבי שמעון"></span>
+      <span class="brand-t"><b>צדקת רבי שמעון</b><i>עזרת חתנים</i></span>
+    </button>
+    <nav class="nav" id="tzb1-nav" aria-label="ניווט ראשי"></nav>
+    <div class="hd-tools">
+      <span class="saved" id="tzb1-saved" role="status"><i></i><span>נשמר</span></span>
+      <button type="button" class="ibtn" id="tzb1-refresh" aria-label="רענון נתונים" data-tip="רענון נתונים"><svg class="g" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.6-5.9M20 4v5h-5"/></svg></button>
+      <div class="pop-wrap">
+        <button type="button" class="yr" id="tzb1-yearbtn" aria-haspopup="true" aria-expanded="false" aria-label="בחירת שנת קמפיין"><span data-year>תשפ״ו</span><svg class="g" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+        <div class="pop" id="tzb1-yearpop" hidden></div>
+      </div>
+      <div class="pop-wrap">
+        <button type="button" class="chip" id="tzb1-userbtn" aria-haspopup="true" aria-expanded="false" aria-label="תפריט משתמש"><i class="av" id="tzb1-av">מ</i><span id="tzb1-uname">מנהל המערכת</span><svg class="g" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+        <div class="pop" id="tzb1-userpop" hidden></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main id="tzb1-main" tabindex="-1">
+
+  <!-- ================= לוח בקרה ================= -->
+  <section class="view" data-view="dashboard" aria-label="לוח בקרה">
+
+    <!-- שער הפתיחה -->
+    <div class="band band-y hero">
+      <div class="wrap hero-in">
+        <div class="hero-txt">
+          <div class="hero-top">
+            <p class="eyebrow a" style="--d:.1s">קמפיין <b data-year>תשפ״ו</b> · <span id="tzb1-today"></span></p>
+            <h1 id="tzb1-h1">
+              <span class="h-num" dir="ltr"><small aria-hidden="true">₪</small><span class="odo" id="tzb1-odo" aria-hidden="true"></span><span class="vh">₪<span data-b="collected">148,650</span></span></span>
+              <span class="h-txt a" style="--d:.3s">נאספו השנה</span>
+            </h1>
+            <p class="h-sub a" style="--d:.42s"><b><span data-b="pct">57</span>%</b> מהיעד · חסר <span dir="ltr">₪<span data-b="missing">121,300</span></span></p>
+            <div class="h-cta a" style="--d:.54s">
+              <button type="button" class="btn" data-open="deposit">רישום הפקדה<span class="dm" aria-hidden="true"><svg class="g" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></span></button>
+              <button type="button" class="lnk" data-go="members"><span>לרשימת הבחורים</span><svg class="g" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></button>
+            </div>
+            <div class="ticker a" style="--d:.66s" id="tzb1-ticker" aria-live="off"></div>
+          </div>
+          <div class="doors" id="tzb1-doors" role="group" aria-label="קיצורי דרך"></div>
+        </div>
+        <div class="gate-col">
+          <div class="gate" id="tzb1-gate"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ששת המספרים + קופה -->
+    <div class="band figs">
+      <div class="wrap">
+        <div class="sh a" style="--d:.35s"><p class="ey">קמפיין <span data-year>תשפ״ו</span> בשישה מספרים</p><h2>מצב הקמפיין</h2></div>
+        <div class="wall" id="tzb1-wall"></div>
+        <form class="kupa a" style="--d:.7s" id="tzb1-qd" novalidate>
+          <span class="win win-w kupa-win" id="tzb1-qdkupa"></span>
+          <div class="kupa-t">
+            <p class="ey">קופת הקמפיין</p>
+            <h3>רישום מהיר לקופה</h3>
+            <p>מקלידים סכום, בוחרים בחור, והלוח מתעדכן מיד.</p>
+          </div>
+          <div class="kupa-f">
+            <label class="box"><span class="pre">₪</span><input type="text" inputmode="numeric" id="tzb1-qdamt" placeholder="סכום" aria-label="סכום ההפקדה בשקלים" autocomplete="off" dir="ltr"></label>
+            <div class="chips" id="tzb1-qdchips" role="group" aria-label="סכומים נפוצים"></div>
+          </div>
+          <button type="submit" class="btn btn-y">המשך לרישום<span class="dm" aria-hidden="true"><svg class="g" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></span></button>
+        </form>
+      </div>
+    </div>
+
+    <!-- דורש טיפול + פעילות -->
+    <div class="band today" id="tzb1-today-band">
+      <div class="wrap">
+        <div class="today-h">
+          <div class="sh"><p class="ey">שולחן העבודה</p><h2>דורש טיפול היום</h2></div>
+          <span class="plq plq-l" id="tzb1-alertn" role="img" aria-label="נושאים פתוחים"></span>
+        </div>
+        <div class="today-grid">
+          <div class="pn board">
+            <div class="tabs" id="tzb1-tabs" role="tablist" aria-label="נושאים"></div>
+            <div class="rows" id="tzb1-rows" role="tabpanel"></div>
+          </div>
+          <aside class="pn feed" aria-label="פעילות אחרונה">
+            <div class="pn-h"><h3>פעילות אחרונה</h3><span class="tag t-good">מתעדכן</span></div>
+            <div id="tzb1-feed"></div>
+            <div class="feed-f"><button type="button" class="lnk" data-go="transactions"><span>לדו״ח התנועות המלא</span><svg class="g" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></button></div>
+          </aside>
+        </div>
+      </div>
+    </div>
+
+    <!-- הכנסות -->
+    <div class="band dark vault charts" id="tzb1-charts">
+      <div class="wrap">
+        <div class="ch-top">
+          <div class="sh"><p class="ey">בחורים ופורים</p><h2>הכנסות לפי חודש ושנה</h2></div>
+          <div class="ch-sum" id="tzb1-chsum"></div>
+        </div>
+        <div class="ch-grid">
+          <div class="pn pn-d">
+            <div class="pn-h">
+              <h3>גבייה מבחורים לפי חודש עברי · <span data-year>תשפ״ו</span></h3>
+              <div class="leg"><span><i class="k1"></i>השנה (אלפי ₪)</span><span><i class="k3"></i>אשתקד</span></div>
+            </div>
+            <div class="mch" id="tzb1-mch"></div>
+            <div class="mch-x" id="tzb1-mchx" aria-hidden="true"></div>
+            <div class="panel-f" id="tzb1-mchf"></div>
+          </div>
+          <div class="pn pn-d">
+            <div class="pn-h">
+              <h3>הכנסות לפי שנה</h3>
+              <div class="leg"><span><i class="k1"></i>בחורים</span><span><i class="k2"></i>פורים</span><span><i class="k4"></i>הוצאות</span></div>
+            </div>
+            <div class="ych" id="tzb1-ych"></div>
+            <div class="ych-x" id="tzb1-ychx" aria-hidden="true"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- מסגרות -->
+    <div class="band fws" id="tzb1-fws">
+      <div class="wrap">
+        <div class="sh"><p class="ey">ארבע מסגרות · <span id="tzb1-fwn"></span> בחורים</p><h2>מצב המסגרות</h2></div>
+        <div class="fw-grid" id="tzb1-fwgrid"></div>
+      </div>
+    </div>
+
+    <div class="wrap"><div class="rule" aria-hidden="true"><i></i></div></div>
+
+    <!-- מדרגות המתנות -->
+    <div class="band road" id="tzb1-road">
+      <div class="wrap">
+        <div class="sh"><p class="ey">טיול ומתנה למצטיינים</p><h2>מדרגות המתנות</h2></div>
+        <div class="gp" id="tzb1-gp"></div>
+      </div>
+    </div>
+
+    <!-- מובילים + לוח הפקדות -->
+    <div class="band band-y vault road2">
+      <div class="wrap r2-grid">
+        <div class="r2-c">
+          <div class="sh"><p class="ey">חמשת הראשונים</p><h2>מובילי הגבייה</h2></div>
+          <div class="pn lead" id="tzb1-lead"></div>
+        </div>
+        <div class="r2-c">
+          <div class="sh"><p class="ey">26 השבועות האחרונים</p><h2>לוח ההפקדות</h2></div>
+          <div class="pn heat" id="tzb1-heat"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= בחורים ================= -->
+  <section class="view" data-view="members" aria-label="בחורים" hidden>
+    <div class="band band-y mv-head">
+      <div class="arcade" aria-hidden="true"><i></i><i></i><i></i></div>
+      <div class="wrap mv-top">
+        <div class="sh sh-xl a">
+          <h1>בחורים</h1>
+          <p><b>438</b> בחורים פעילים · מוצגים <b id="tzb1-mcount">28</b> לדוגמה</p>
+        </div>
+        <div class="mv-acts a" style="--d:.1s">
+          <button type="button" class="rbtn" data-act="export" aria-label="ייצוא לקובץ" data-tip="ייצוא לקובץ"><svg class="g" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg></button>
+          <button type="button" class="rbtn" data-act="print" aria-label="הדפסה" data-tip="הדפסה"><svg class="g" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 9V4h10v5M7 17H5a1 1 0 0 1-1-1v-5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v5a1 1 0 0 1-1 1h-2M7 14h10v6H7z"/></svg></button>
+          <button type="button" class="btn" data-act="newmember">בחור חדש<span class="dm" aria-hidden="true"><svg class="g" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span></button>
+        </div>
+      </div>
+    </div>
+    <div class="wrap mv-body">
+      <div class="search a" style="--d:.14s">
+        <svg class="g" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg>
+        <input type="search" id="tzb1-q" placeholder="חיפוש לפי שם, טלפון או ישיבה" aria-label="חיפוש בחור לפי שם, טלפון או ישיבה" autocomplete="off">
+        <kbd id="tzb1-qn"></kbd>
+      </div>
+      <div class="filt a" style="--d:.18s" id="tzb1-filt" role="tablist" aria-label="סינון לפי סטטוס"></div>
+      <div class="filt2 a" style="--d:.22s" id="tzb1-filt2"></div>
+      <div class="ml">
+        <div class="ml-h a" style="--d:.24s" id="tzb1-mlh"></div>
+        <div class="ml-l" id="tzb1-mll"></div>
+        <p class="ml-foot" id="tzb1-mlfoot"></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= בקרוב ================= -->
+  <section class="view" data-view="soon" aria-label="בקרוב" hidden>
+    <div id="tzb1-soon"></div>
+  </section>
+</main>
+
+<footer class="ft">
+  <div class="wrap">
+    <span class="seal" role="img" aria-label="סמל צדקת רבי שמעון"></span>
+    <div><b>צדקת רבי שמעון · עזרת חתנים</b><i>מערכת הניהול · כל השמות והסכומים הם נתוני הדגמה</i></div>
+    <span class="sp">קמפיין <span data-year>תשפ״ו</span> · עודכן <span id="tzb1-ftdate"></span></span>
+  </div>
+</footer>
+
+<nav class="tabbar" id="tzb1-tabbar" aria-label="ניווט תחתון"></nav>
+<button type="button" class="fab" data-open="deposit" aria-label="רישום הפקדה"><svg class="g" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+
+<!-- כרטיס בחור -->
+<div class="ov" id="tzb1-ov-member" role="dialog" aria-modal="true" aria-label="כרטיס בחור" hidden>
+  <div class="ov-bg" data-close></div>
+  <div class="sheet" id="tzb1-sheet"></div>
+</div>
+
+<!-- רישום הפקדה -->
+<div class="ov" id="tzb1-ov-deposit" role="dialog" aria-modal="true" aria-label="רישום הפקדה" hidden>
+  <div class="ov-bg" data-close></div>
+  <div class="dep" id="tzb1-dep">
+    <span class="win dep-win" id="tzb1-depkupa"></span>
+    <div class="dep-card">
+      <button type="button" class="x" data-close aria-label="סגירה"><svg class="g" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      <div class="dep-in" id="tzb1-depin"></div>
+    </div>
+  </div>
+</div>
+
+<!-- עוד (נייד) -->
+<div class="ov" id="tzb1-ov-more" role="dialog" aria-modal="true" aria-label="עוד" hidden>
+  <div class="ov-bg" data-close></div>
+  <div class="more" id="tzb1-more"></div>
+</div>
+
+<div class="toasts" id="tzb1-toasts" aria-live="polite"></div>
+<div class="tip" id="tzb1-tip" role="tooltip"></div>
+<canvas class="confetti" id="tzb1-confetti" aria-hidden="true" hidden></canvas>
