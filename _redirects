@@ -5,3 +5,5 @@
 /tools/*        /404.html   404!
 /serve.json     /404.html   404!
 /__demo.js      /404.html   404!
+/start-site.bat /404.html   404!
+/.gitattributes /404.html  404!
