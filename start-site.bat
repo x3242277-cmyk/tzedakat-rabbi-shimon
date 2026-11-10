@@ -3,7 +3,7 @@ rem ================================================================
 rem  Run the site on this computer - double-click this file.
 rem
 rem  First time: downloads the project from GitHub into a folder
-rem  named tzedakat-rabbi-shimon next to this file.
+rem  named tzedakat-rabbi-shimon next to this file (branch set in $Branch below).
 rem  Every time: gets the latest version from GitHub, starts a local
 rem  server and opens the site in the browser.
 rem  To stop the site, close this window.
@@ -17,6 +17,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command "$s=[IO.File]::ReadAllTex
 ##POWERSHELL##
 $RepoUrl  = 'https://github.com/x3242277-cmyk/tzedakat-rabbi-shimon.git'
 $RepoName = 'tzedakat-rabbi-shimon'
+# The branch a first download starts on. Later runs keep whatever branch is checked out.
+$Branch   = 'claude/new-design'
 $Port     = 8080
 
 function Fail($msg) {
@@ -42,7 +44,7 @@ if ((Test-Path -LiteralPath (Join-Path $here 'index.html')) -and (Test-Path -Lit
 if (-not $root) {
   $root = Join-Path $here $RepoName
   Write-Host "Downloading the project from GitHub into $root ..."
-  & git clone $RepoUrl $root
+  & git clone --branch $Branch $RepoUrl $root
   if ($LASTEXITCODE -ne 0) { Fail 'Download from GitHub failed. Check the internet connection and try again.' }
 } else {
   Write-Host "Getting the latest version from GitHub into $root ..."
@@ -82,6 +84,9 @@ $url = "http://localhost:$Port/"
 Write-Host ''
 Write-Host "The site is running at $url" -ForegroundColor Green
 Write-Host 'It works with the real database: changes made here are saved for everyone.' -ForegroundColor Yellow
+if (Test-Path -LiteralPath (Join-Path $root 'redesign\prototype.html')) {
+  Write-Host "New design prototype: ${url}redesign/prototype.html" -ForegroundColor Green
+}
 Write-Host 'To stop the site, close this window.'
 Start-Process $url
 
@@ -100,7 +105,11 @@ while ($listener.IsListening) {
     $type = $mime[[IO.Path]::GetExtension($file).ToLower()]
     if (-not $type) { $type = 'application/octet-stream' }
     $res.ContentType = $type
-    foreach ($k in $headers.Keys) { $res.Headers[$k] = $headers[$k] }
+    # The live site's headers (strict CSP) apply to the site only. The design prototypes under
+    # redesign/ use inline scripts and Google Fonts and are not part of the live site.
+    if (-not $rel.StartsWith('redesign/', [StringComparison]::OrdinalIgnoreCase)) {
+      foreach ($k in $headers.Keys) { $res.Headers[$k] = $headers[$k] }
+    }
     $res.Headers['Cache-Control'] = 'no-store'
     $res.ContentLength64 = $bytes.Length
     $res.OutputStream.Write($bytes, 0, $bytes.Length)
