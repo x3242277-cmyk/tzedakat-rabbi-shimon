@@ -1199,7 +1199,7 @@ window.TZ_BODY="<svg width=\"0\" height=\"0\" style=\"position:absolute\" aria-h
       D.transactionsX.expenses.unshift({ date: val('e-date') || D.settings.todayLabel, title: val('e-note') || val('e-cat'), category: val('e-cat'), amount: amt });
       closeAll(); toast('ההוצאה נרשמה: ' + ltr('₪' + num(amt)), 'check'); scrDraw();
     } else if (kind === 'groom' && HOST()) {
-      if (val('g-date') && !isDate(val('g-date'))) return formErr('התאריך צריך להיות בצורה יום/חודש/שנה');
+      if (val('g-date') && !isDate(val('g-date')) && !(FORM.arg && val('g-date') === String(FORM.arg.r.date || ''))) return formErr('התאריך צריך להיות בצורה יום/חודש/שנה');
       var gd = { name: val('g-name'), idn: val('g-idn'), phone: val('g-phone'), date: val('g-date') };
       hr = FORM.arg ? hcall('updateGroom', FORM.arg.r.rid ? FORM.arg.r.rid : { index: FORM.arg.idx }, gd) : hcall('addGroom', gd);
       if (hr.classic) return true;

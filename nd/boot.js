@@ -105,7 +105,7 @@
     var shadow = host.shadowRoot || host.attachShadow({ mode: 'open' });
     var link = document.createElement('link');
     link.rel = 'stylesheet'; link.href = 'nd/ui.css';
-    var ready = function () { body().classList.add('nd-ready'); };
+    var ready = function () { if (!dead) body().classList.add('nd-ready'); };
     link.addEventListener('load', ready); link.addEventListener('error', ready);
     setTimeout(ready, 2500);   // גם אם אירוע הטעינה לא הגיע, לא משאירים מסך ריק
     var root = document.createElement('div');
@@ -167,7 +167,8 @@
     if (!f) return;
     orig.showToast = f;
     window.showToast = function (msg, type) {
-      if (capture) capture.push({ msg: String(msg), type: type || 'success' });
+      // בזמן שמירה שהעיצוב החדש הפעיל: הודעת שגיאה חוזרת למי שביקש את השמירה, והוא מציג אותה במקום הנכון (לא פעמיים)
+      if (capture) { capture.push({ msg: String(msg), type: type || 'success' }); if (type === 'danger' || type === 'warning') return; }
       if (mounted && !classic && body().classList.contains('nd-on')) { ui.toast(String(msg).replace(/^[^֐-׿A-Za-z0-9]+\s*/, ''), type === 'danger' || type === 'warning' ? 'info' : 'check'); return; }
       return f.apply(this, arguments);
     };
