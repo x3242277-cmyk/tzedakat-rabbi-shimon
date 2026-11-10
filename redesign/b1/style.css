@@ -636,8 +636,8 @@
   .trk .ms .disc::before{inset:-5px}
   .trk .ms.got .disc{box-shadow:0 0 0 4px var(--y),var(--sh-1)}
   .trk .ms::before{content:"";position:absolute;left:-1px;top:-20px;width:2px;height:40px;background:var(--ink)}
-  .trk .ms span{position:absolute;top:24px;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:12.5px;line-height:1.15;text-align:center}
-  .trk .ms span b{display:block;font-weight:800;font-size:13.5px}
+  .trk .ms > span:not(.disc){position:absolute;top:24px;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:12.5px;line-height:1.15;text-align:center}
+  .trk .ms > span:not(.disc) b{display:block;font-weight:800;font-size:13.5px}
   .trk .rq{position:absolute;inset-inline-start:calc(var(--x)*1%);top:-7px;bottom:-7px;width:0;border-inline-start:3px dotted var(--ink)}
   .eq{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   .eq .coin{width:108px;height:108px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;line-height:1.1;background:var(--grey);animation:tzb1-pop .6s var(--spring) backwards;animation-delay:calc(.2s + var(--i)*70ms)}
