@@ -155,13 +155,28 @@
     address: r.address, notes: r.notes, createdAt: r.created_at,
   });
 
-  const donationToDb = (d) => clean({
-    id: String(d.id), member_id: d.memberId != null ? String(d.memberId) : null, member_name_snapshot: d.memberNameSnapshot || "",
-    year: d.year || "", amount: Number(d.amount) || 0, date: d.date || "", notes: d.notes || "", created_at: d.createdAt || null,
-  });
+  // אמצעי תשלום של הפקדה: "cash" או "credit".
+  // העמודה payment_method נוספת למסד במיגרציה 003. עד שהיא רצה, המערכת מסיקה את האמצעי מההערות
+  // (התחילית "(אשראי)" או הפקדה שנרשמה דרך נדרים פלוס) ולא שולחת את השדה למסד, כדי שהשמירה לא תיכשל.
+  let hasPaymentMethodColumn = false;
+  function donationMethod(d) {
+    const m = String((d && d.paymentMethod) || "").trim();
+    if (m === "credit" || m === "cash") return m;
+    const notes = String((d && d.notes) || "").trim();
+    return (notes.startsWith("(אשראי)") || notes.startsWith("אשראי") || notes.includes("נדרים פלוס")) ? "credit" : "cash";
+  }
+  const donationToDb = (d) => {
+    const row = clean({
+      id: String(d.id), member_id: d.memberId != null ? String(d.memberId) : null, member_name_snapshot: d.memberNameSnapshot || "",
+      year: d.year || "", amount: Number(d.amount) || 0, date: d.date || "", notes: d.notes || "", created_at: d.createdAt || null,
+    });
+    if (hasPaymentMethodColumn) row.payment_method = donationMethod(d);
+    return row;
+  };
   const donationFromDb = (r) => clean({
     id: r.id, memberId: r.member_id, memberNameSnapshot: r.member_name_snapshot, year: r.year,
     amount: Number(r.amount) || 0, date: r.date, notes: r.notes, createdAt: r.created_at,
+    paymentMethod: r.payment_method || undefined,
   });
 
   const expenseToDb = (e) => clean({
@@ -190,6 +205,7 @@
       selectAll("purim_addresses"), selectAll("profiles"),
       selectAll("settings"), selectAll("grants_archive"),
     ]);
+    hasPaymentMethodColumn = (donations || []).some(r => Object.prototype.hasOwnProperty.call(r, "payment_method"));
     return {
       members: (members || []).map(memberFromDb),
       donations: (donations || []).map(donationFromDb),
@@ -263,6 +279,7 @@
     deleteMember, deleteDonation, deleteExpense,
     updateProfile, insertAudit, selectAudit,
     uploadReceipt, receiptUrl, deleteReceipt,
+    donationMethod, hasPaymentMethodColumn: () => hasPaymentMethodColumn,
     map: { memberToDb, memberFromDb, donationToDb, donationFromDb, expenseToDb, expenseFromDb, purimToDb, purimFromDb, profileFromDb },
   };
 })();

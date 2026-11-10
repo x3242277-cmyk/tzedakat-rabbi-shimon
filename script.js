@@ -159,6 +159,7 @@ const UI_ACTION_NAMES = new Set([
   "takanonShowMember", "toggleExpenseYears", "toggleGrantsAddForm", "toggleGrantsPackageEditMode", "toggleMembersDensity",
   "togglePurimGroupEdit", "togglePurimSpacing", "togglePurimYears", "updateGrantsPkgGroupField", "updateGrantsPkgItemField",
   "updateTypeFilter", "viewStoreBillReceipt",
+  "ndFilterMembersByYeshiva", "unifyYeshivaSpelling", "setMembersStatusFilter", "closeMemberProfile", "printMemberCard",
   "openMemberRowMenu", "openMemberFromMenu", "openDonationFromMenu", "openMemberEditFromMenu", "clearMembersFilters",
   "openMemberModal", "switchScreenAction", "openSettingsTab", "syncNow",
   "openMoreSheet", "closeMoreSheet", "goFromMoreSheet", "logoutFromMoreSheet", "mobileRefresh",
@@ -734,7 +735,8 @@ function applyPermissions() {
   const editButtons = [
     "quick-add-donation", "quick-add-expense", "quick-add-member", 
     "btn-inner-add-member", "btn-inner-add-expense", "btn-profile-deposit", 
-    "btn-profile-edit", "btn-save-settings", "btn-report-add-donation", "btn-report-add-expense"
+    "btn-profile-edit", "btn-save-settings", "btn-report-add-donation", "btn-report-add-expense",
+    "hero-add-donation", "nd-quick-form"
   ];
   editButtons.forEach(id => {
     const el = document.getElementById(id);
@@ -779,10 +781,14 @@ async function initApp() {
   renderUsersTable();
   
   const initialHash = window.location.hash.replace("#", "");
-  if (initialHash && screenMeta[initialHash]) switchScreen(initialHash, false);
+  const initialMember = initialHash.startsWith("member/") ? decodeURIComponent(initialHash.slice(7)) : "";
+  if (initialMember) switchScreen("members-screen", false);
+  else if (initialHash && screenMeta[initialHash]) switchScreen(initialHash, false);
   else switchScreen("dashboard-screen", true);
 
   renderAll();
+  // כתובת ישירה לכרטיס בחור
+  if (initialMember) loadMemberProfile(initialMember, false);
   // אין צורך כאן בקריאה מחודשת לשרת, היא מנוהלת במסך הכניסה
 }
 
@@ -914,12 +920,13 @@ function bindEvents() {
   if (dashboardLogout) dashboardLogout.addEventListener("click", () => performLogout(false));
 
   window.addEventListener("popstate", (e) => {
-    if (e.state && e.state.screen) switchScreen(e.state.screen, false);
-    else {
-      const hash = window.location.hash.replace("#", "");
-      if (hash && screenMeta[hash]) switchScreen(hash, false);
-      else switchScreen("dashboard-screen", false);
-    }
+    const hash = window.location.hash.replace("#", "");
+    const memberFromUrl = (e.state && e.state.member) || (hash.startsWith("member/") ? decodeURIComponent(hash.slice(7)) : "");
+    if (e.state && e.state.screen) { if (e.state.screen !== state.activeScreen) switchScreen(e.state.screen, false); else closeMemberProfile(false); }
+    else if (memberFromUrl) { if (state.activeScreen !== "members-screen") switchScreen("members-screen", false); }
+    else if (hash && screenMeta[hash]) switchScreen(hash, false);
+    else switchScreen("dashboard-screen", false);
+    if (memberFromUrl) loadMemberProfile(memberFromUrl, false);
   });
 
   // --- מיון טבלת בחורים ---
@@ -1028,6 +1035,7 @@ function bindEvents() {
               year: member.currentYear,
               amount: amount, 
               notes: notes, 
+              paymentMethod: "credit",
               createdAt: new Date().toISOString()
           };
 
@@ -1098,7 +1106,7 @@ function bindHeaderActions() {
       if (memberYeshivaFilter) memberYeshivaFilter.value = "";
       if (memberCityFilter) memberCityFilter.value = "";
       if (showMarriedCheckbox) showMarriedCheckbox.checked = false;
-      state.filterYeshiva = ""; state.filterCity = ""; state.filterYeshivaTypes = [];
+      state.filterYeshiva = ""; state.filterCity = ""; state.filterYeshivaTypes = []; state.filterStatus = "";
       const s = document.getElementById("filter-type-small"); if (s) s.checked = false;
       const b = document.getElementById("filter-type-big"); if (b) b.checked = false;
       renderMembersTable();
@@ -1162,12 +1170,9 @@ function bindMemberSearch() {
   const btnInnerAddMember = document.getElementById("btn-inner-add-member");
   if (btnInnerAddMember) btnInnerAddMember.addEventListener("click", () => openMemberModal());
   
-  if (btnBackSearch) {
-    btnBackSearch.addEventListener("click", () => {
-      document.getElementById("member-profile-section").classList.add("hidden");
-      document.getElementById("members-list-section").classList.remove("hidden");
-    });
-  }
+  if (btnBackSearch) btnBackSearch.addEventListener("click", () => closeMemberProfile());
+  const memberOverlay = document.getElementById("member-overlay");
+  if (memberOverlay) memberOverlay.addEventListener("click", (e) => { if (e.target === memberOverlay) closeMemberProfile(); });
 
   const btnProfileDeposit = document.getElementById("btn-profile-deposit"); 
   const btnProfileEdit = document.getElementById("btn-profile-edit"); 
@@ -1177,16 +1182,33 @@ function bindMemberSearch() {
   if (btnProfileGrant) btnProfileGrant.addEventListener("click", () => { if (state.currentProfileId) openGrantStatusModal(state.currentProfileId); });
 }
 
-function loadMemberProfile(memberId) {
+// כרטיס הבחור הוא חלון צף: נפתח מעל כל מסך, יש לו כתובת משלו (#member/מזהה) ואפשר להדפיס אותו.
+function isMemberProfileOpen() {
+  const sec = document.getElementById("member-profile-section");
+  return !!sec && !sec.classList.contains("hidden");
+}
+function closeMemberProfile(updateUrl = true) {
+  const wasOpen = isMemberProfileOpen();
+  const sec = document.getElementById("member-profile-section");
+  const overlay = document.getElementById("member-overlay");
+  if (sec) sec.classList.add("hidden");
+  if (overlay) overlay.classList.remove("open");
+  if (wasOpen && updateUrl) { try { history.replaceState({ screen: state.activeScreen }, "", `#${state.activeScreen}`); } catch (e) {} }
+}
+function printMemberCard() { if (isMemberProfileOpen()) window.print(); }
+
+function loadMemberProfile(memberId, updateUrl = true) {
   const summaries = getMemberSummaries();
   const member = summaries.find(m => String(m.id).trim() === String(memberId).trim());
   if (!member) return;
 
+  const alreadyOpen = isMemberProfileOpen() && String(state.currentProfileId) === String(memberId);
   state.currentProfileId = memberId;
-  const listSec = document.getElementById("members-list-section");
   const profileSec = document.getElementById("member-profile-section");
-  if(listSec) listSec.classList.add("hidden");
+  const overlay = document.getElementById("member-overlay");
   if(profileSec) profileSec.classList.remove("hidden");
+  if (overlay) overlay.classList.add("open");
+  if (updateUrl && !alreadyOpen) { try { history.pushState({ screen: state.activeScreen, member: String(memberId) }, "", `#member/${encodeURIComponent(memberId)}`); } catch (e) {} }
 
   setText("profile-full-name", member.fullName);
   
@@ -1210,7 +1232,8 @@ function loadMemberProfile(memberId) {
 
   setText("profile-total-amount", formatCurrency(member.collectedThisYear));
   setText("profile-bar-target", formatCurrency(member.currentYearTarget));
-  setText("profile-bar-debt", formatCurrency(member.openDebtNow != null ? member.openDebtNow : member.totalDebtFromPast));
+  // החוב כפי שהיה בתחילת השנה, כדי שהמשוואה "יעד בסיס + חוב = נדרש" תסתכם תמיד
+  setText("profile-bar-debt", formatCurrency(member.totalDebtFromPast));
   setText("profile-bar-required", formatCurrency(member.totalRequiredThisYear));
   
   const missingEl = document.getElementById("profile-bar-missing");
@@ -1484,7 +1507,7 @@ async function handleSaveMember(isAutoSave = false) {
   document.getElementById("add-member-modal")?.classList.remove("open");
   clearFormDraft();
   const profileOpen = !document.getElementById("member-profile-section")?.classList.contains("hidden");
-  if (state.activeScreen === "members-screen" && existing && profileOpen && state.currentProfileId === id) loadMemberProfile(id);
+  if (existing && profileOpen && state.currentProfileId === id) loadMemberProfile(id);
 
   showSavingIndicator();
   const saved = await persist("saveMember", newMemberData);
@@ -1564,7 +1587,9 @@ async function handleSaveDonation() {
     id: existing ? existing.id : generateId("D"),
     date: getValue("donation-date").trim() || getTodayIsoDate(), memberId, memberNameSnapshot: member.fullName,
     year: getValue("donation-year") || (existing ? existing.year : member.currentYear),
-    amount, notes: (paymentMethod === "credit" ? `(אשראי) ${notes}` : notes).trim(),
+    // התחילית "(אשראי)" נשמרת בהערות כמו תמיד; paymentMethod הוא השדה המסודר (נשלח למסד אחרי מיגרציה 003)
+    amount, notes: (paymentMethod === "credit" && !/^אשראי|נדרים פלוס/.test(notes) ? `(אשראי) ${notes}` : notes).trim(),
+    paymentMethod: paymentMethod === "credit" ? "credit" : "cash",
     createdAt: existing ? (existing.createdAt || new Date().toISOString()) : new Date().toISOString(),
   };
 
@@ -1574,9 +1599,11 @@ async function handleSaveDonation() {
   invalidateCache(); 
   saveState(); renderAll(); document.getElementById("add-donation-modal").classList.remove("open"); 
   clearFormDraft();
-  if (state.activeScreen === "members-screen" && state.currentProfileId) loadMemberProfile(state.currentProfileId);
+  if (state.currentProfileId && isMemberProfileOpen()) loadMemberProfile(state.currentProfileId);
   const saved = await persist("saveDonation", donation);
-  reportSave(saved, existing ? "ההפקדה עודכנה" : "ההפקדה נרשמה בהצלחה!");
+  // הפקדה חדשה: רגע הצלחה (dashboard-extras.js). עריכה: הודעה רגילה.
+  if (!existing && typeof showDepositSuccess === "function") showDepositSuccess({ donation, saved });
+  else reportSave(saved, existing ? "ההפקדה עודכנה" : "ההפקדה נרשמה בהצלחה!");
   logAudit(existing ? "update" : "create", "donation", donation.id, existing
     ? { before: { amount: existing.amount, date: existing.date, member: existing.memberId, year: existing.year }, after: { amount, date: donation.date, member: memberId, year: donation.year } }
     : { amount, member: member.fullName, year: donation.year });
@@ -1593,7 +1620,7 @@ async function handleDeleteDonation() {
   const refresh = () => {
     invalidateCache(); saveState(); renderAll();
     const profileOpen = !document.getElementById("member-profile-section")?.classList.contains("hidden");
-    if (state.activeScreen === "members-screen" && state.currentProfileId && profileOpen) loadMemberProfile(state.currentProfileId);
+    if (state.currentProfileId && profileOpen) loadMemberProfile(state.currentProfileId);
   };
   scheduleUndoableDelete({
     message: `ההפקדה על סך ${formatCurrency(existing.amount)} נמחקה`,
@@ -1617,7 +1644,7 @@ function openDonationModal(memberId = null, donationId = null) {
   setValue("donation-date", existing ? (toDateInputValue(existing.date) || "") : getTodayIsoDate()); 
   setValue("donation-amount", existing ? existing.amount : ""); 
   let notes = existing ? String(existing.notes || "") : "";
-  const isCredit = /^\(אשראי\)\s*/.test(notes);
+  const isCredit = existing ? (window.SB && SB.donationMethod ? SB.donationMethod(existing) === "credit" : /^\(אשראי\)\s*/.test(notes)) : false;
   notes = notes.replace(/^\(אשראי\)\s*/, "");
   setValue("donation-notes", notes); 
   const radio = document.querySelector(`input[name="donation_payment_method"][value="${isCredit ? "credit" : "cash"}"]`); 
@@ -2165,7 +2192,9 @@ function renderDataHealth() {
     { type: "type", title: "בחורים ללא סוג מסגרת (פוגע בזכאות וביעדים)", count: noType.length, icon: "category", sev: "bad" },
     { type: "yeshiva", title: "בחורים ללא ישיבה", count: noYeshiva.length, icon: "school", sev: "warn" },
     { type: "phone", title: "בחורים ללא מספר טלפון", count: noPhone.length, icon: "phone", sev: "warn" },
-    { type: "dupes", title: "שמות כפולים אפשריים", count: dupes, icon: "content_copy", sev: "warn" }
+    { type: "dupes", title: "שמות כפולים אפשריים", count: dupes, icon: "content_copy", sev: "warn" },
+    // אותה ישיבה בכמה כתיבים (dashboard-extras.js): פוגע בסינון לפי ישיבה ובדירוג הישיבות
+    { type: "spellings", title: "ישיבות שנכתבות בכמה צורות", count: typeof getYeshivaSpellingGroups === "function" ? getYeshivaSpellingGroups().length : 0, icon: "spellcheck", sev: "warn" }
   ];
 
   el.innerHTML = rows.map(r => {
@@ -2200,12 +2229,15 @@ window.openDataHealthDetail = function(type) {
     type: "תיקון: בחורים ללא סוג מסגרת",
     yeshiva: "תיקון: בחורים ללא ישיבה",
     phone: "תיקון: בחורים ללא מספר טלפון",
-    dupes: "שמות כפולים אפשריים"
+    dupes: "שמות כפולים אפשריים",
+    spellings: "איחוד כתיבים של ישיבות"
   };
   if (titleEl) titleEl.textContent = titles[type] || "תיקון נתונים";
 
   if (type === "dupes") {
     body.innerHTML = renderDupesList();
+  } else if (type === "spellings" && typeof renderYeshivaSpellingsList === "function") {
+    body.innerHTML = renderYeshivaSpellingsList();
   } else {
     const affected = getHealthAffected(type);
     if (affected.length === 0) {
@@ -2289,8 +2321,7 @@ window.applyHealthFix = function(memberId, field, value) {
 
 window.openMemberFromHealth = function(memberId) {
   document.getElementById("data-health-modal").classList.remove("open");
-  switchScreen("members-screen", true);
-  setTimeout(() => loadMemberProfile(memberId), 60);
+  loadMemberProfile(memberId);
 };
 
 // ===== גיבוי וסנכרון =====
@@ -2481,6 +2512,7 @@ function switchScreen(screenId, pushToHistory = true) {
   if (!screenId) return;
   if (state.membersEditMode && screenId !== "members-screen") { try { exitMembersEditMode(); } catch(e) {} }
   state.activeScreen = screenId;
+  document.body.dataset.screen = screenId;
   document.querySelectorAll(".content-screen").forEach((section) => { section.classList.remove("active-content-screen"); });
   const targetScreen = document.getElementById(screenId); if (targetScreen) targetScreen.classList.add("active-content-screen");
   
@@ -2497,12 +2529,10 @@ function switchScreen(screenId, pushToHistory = true) {
   if (screenId === "rules-screen") renderRulesScreen();
   if (screenId === "grants-screen") renderGrantsLists();
 
+  // מעבר מסך סוגר את כרטיס הבחור הצף
+  closeMemberProfile(false);
   if (screenId === "members-screen") {
-    const listSec = document.getElementById("members-list-section");
-    const profileSec = document.getElementById("member-profile-section");
-    if(listSec) listSec.classList.remove("hidden");
-    if(profileSec) profileSec.classList.add("hidden");
-    setTimeout(() => { const s = document.getElementById("search-members-list"); if (s) s.focus(); }, 80);
+    setTimeout(() => { const s = document.getElementById("search-members-list"); if (s && !isMemberProfileOpen()) s.focus(); }, 80);
   }
 
   document.querySelectorAll(".nav-item, .bnav-item[data-screen], .more-item[data-screen]").forEach((btn) => { btn.classList.toggle("active", btn.dataset.screen === screenId); });
@@ -2547,15 +2577,39 @@ window.renderDashboard = function() {
   setText("dashboard-kpi-missing", formatCurrency(missingTotal));
   setText("dashboard-kpi-progress", `${progress}%`);
   setText("dashboard-kpi-eligible", eligibleCount.toLocaleString("he-IL"));
-  setText("dashboard-kpi-debt", debtRows.length.toLocaleString("he-IL"));
+  // חובות משנים קודמות: הסכום הוא המספר הראשי, ומספר הבחורים מתחתיו
+  const debtAmount = debtRows.reduce((sum, row) => sum + (Number(row.totalDebtFromPast) || 0), 0);
+  setText("dashboard-kpi-debt", formatCurrency(debtAmount));
 
   const progressBar = document.getElementById("dashboard-yearly-progress-bar");
   if (progressBar) progressBar.style.width = `${progress}%`;
+
+  // שורת ההקשר שמתחת לכל מספר
+  const withTarget = summaries.filter(row => (Number(row.currentYearTarget) || 0) > 0).length;
+  const nf = (n) => Number(n || 0).toLocaleString("he-IL");
+  setText("nd-fig-collected-note", totalPurim > 0 ? `מתוכם פורים ${formatCurrency(totalPurim)}` : `${nf(currentYearDonations.length)} הפקדות`);
+  setText("nd-fig-target-note", `${nf(withTarget)} בחורים עם יעד`);
+  setText("nd-fig-missing-note", totalRequired > 0 ? `${Math.round((missingTotal / totalRequired) * 100)}% מהיעד` : "אין יעד פתוח");
+  setText("nd-fig-eligible-note", `מתוך ${nf(summaries.length)} בחורים`);
+  setText("nd-fig-debt-note", debtRows.length ? `${nf(debtRows.length)} בחורים` : "אין חובות פתוחים");
+
+  // הפתיח
+  setText("nd-hero-collected", formatCurrency(totalCollected));
+  setText("nd-hero-line", totalRequired > 0
+    ? `${progress}% מהיעד · חסר ${formatCurrency(missingTotal)}`
+    : "אין עדיין בחורים עם יעד בשנה הזו");
+  setText("nd-gate-pct", `${progress}%`);
+  const heroBar = document.getElementById("nd-hero-bar");
+  if (heroBar) heroBar.style.width = `${progress}%`;
 
   renderDashboardAttention({ summaries, totalDonations, currentYear });
   renderDashboardMonthBars();
   renderDashboardActivity(currentYear, summaries);
   renderDashboardSegments(summaries);
+  // המודולים של העיצוב החדש (dashboard-extras.js): השער, מובילים, מתנות, לוח הפקדות, ישיבות
+  if (typeof renderDashboardExtras === "function") {
+    renderDashboardExtras({ currentYear, summaries, progress, totalCollected, totalPurim, totalRequired, missingTotal, donations: currentYearDonations });
+  }
 }
 
 // התקדמות = כמה מהחובה כוסה בפועל (עודף של בחור אחד לא נספר לטובת אחר)
@@ -2664,13 +2718,13 @@ function renderDashboardAttention({ summaries, totalDonations, currentYear }) {
   }
 
   el.innerHTML = items.slice(0, 5).map(item => `
-    <button class="dashboard-attention-item" type="button" ${uiAct("openDashboardDrill", item.drill, item.category || "")}>
-      <span class="material-icons-regular dashboard-item-icon ${item.tone}">${item.icon}</span>
-      <span>
-        <span class="dashboard-item-title">${escapeHtml(item.title)}</span>
-        <span class="dashboard-item-sub">${escapeHtml(item.sub)}</span>
+    <button class="nd-alert nd-alert--${item.tone}" type="button" ${uiAct("openDashboardDrill", item.drill, item.category || "")}>
+      <span class="nd-alert-value">${escapeHtml(String(item.value))}</span>
+      <span class="nd-alert-text">
+        <span class="nd-alert-title">${escapeHtml(item.title)}</span>
+        <span class="nd-alert-sub">${escapeHtml(item.sub)}</span>
       </span>
-      <span class="dashboard-item-value">${escapeHtml(String(item.value))}</span>
+      <span class="material-icons-regular nd-alert-go" aria-hidden="true">chevron_left</span>
     </button>
   `).join("");
 }
@@ -2971,7 +3025,7 @@ function renderDashboardActivity(currentYear, summaries) {
       type: "income",
       icon: "payments",
       title: memberNames.get(String(d.memberId || "").trim()) || "הפקדה כללית",
-      sub: formatDateDisplay(d.date) || "ללא תאריך",
+      sub: `${formatDateDisplay(d.date) || "ללא תאריך"}${typeof donationMethodLabel === "function" ? " · " + donationMethodLabel(d) : ""}`,
       amount: Number(d.amount) || 0,
       date: d.date || ""
     }));
@@ -2996,13 +3050,13 @@ function renderDashboardActivity(currentYear, summaries) {
   }
 
   el.innerHTML = rows.map(row => `
-    <div class="dashboard-activity-item ${row.type}">
-      <span class="material-icons-regular dashboard-item-icon ${row.type === "income" ? "success" : "danger"}">${row.icon}</span>
-      <span>
-        <span class="dashboard-item-title">${escapeHtml(row.title)}</span>
-        <span class="dashboard-item-sub">${escapeHtml(row.sub)}</span>
+    <div class="nd-act nd-act--${row.type}">
+      <span class="nd-act-mark" aria-hidden="true">${row.type === "income" ? "+" : "−"}</span>
+      <span class="nd-act-text">
+        <span class="nd-act-title">${escapeHtml(row.title)}</span>
+        <span class="nd-act-sub">${escapeHtml(row.sub)}</span>
       </span>
-      <span class="dashboard-item-value">${row.type === "expense" ? "-" : ""}${escapeHtml(formatCurrency(row.amount))}</span>
+      <span class="nd-act-value" dir="ltr">${row.type === "expense" ? "−" : "+"}${escapeHtml(formatCurrency(row.amount))}</span>
     </div>
   `).join("");
 }
@@ -3036,16 +3090,20 @@ function renderDashboardSegments(summaries) {
     return;
   }
 
+  // תמונה לכל מסגרת (התמונות שסיפק הארגון, ב-assets/img/nd)
+  const segmentArt = { "ישיבה גדולה": "gedola", "ישיבה קטנה": "ktana", "קיבוץ": "kibbutz", "חיידר": "cheder" };
   el.innerHTML = rows.map(([name, data]) => {
     const pct = data.obligated > 0 ? Math.min(100, Math.round((data.reached / data.obligated) * 100)) : 0;
+    const art = segmentArt[name];
     return `
-      <button class="dashboard-segment-item" type="button" ${uiAct("openDashboardDrill", "segment", name)}>
-        <span>
-          <span class="dashboard-item-title">${escapeHtml(name)}</span>
-          <span class="dashboard-item-sub">${data.reached.toLocaleString("he-IL")} מתוך ${data.obligated.toLocaleString("he-IL")} הגיעו לחובה</span>
+      <button class="nd-seg" type="button" ${uiAct("openDashboardDrill", "segment", name)}>
+        <span class="nd-seg-art">${art ? `<img src="assets/img/nd/${art}.webp" width="1000" height="1000" alt="" loading="lazy">` : `<span class="material-icons-regular" aria-hidden="true">groups</span>`}</span>
+        <span class="nd-seg-body">
+          <span class="nd-seg-name">${escapeHtml(name)}</span>
+          <span class="nd-seg-sub">${data.reached.toLocaleString("he-IL")} מתוך ${data.obligated.toLocaleString("he-IL")} הגיעו לחובה</span>
+          <span class="nd-seg-meter"><span style="width:${pct}%"></span></span>
         </span>
-        <span class="dashboard-item-value">${pct}%</span>
-        <div class="dashboard-segment-meter"><div style="width:${pct}%"></div></div>
+        <span class="nd-plaque nd-plaque--s">${pct}%</span>
       </button>
     `;
   }).join("");
@@ -3166,8 +3224,7 @@ window.closeDashboardDrill = function() {
 
 window.openDashboardMember = function(memberId) {
   closeDashboardDrill();
-  switchScreen("members-screen", true);
-  setTimeout(() => loadMemberProfile(memberId), 80);
+  loadMemberProfile(memberId);
 };
 
 window.openDashboardDrill = function(type, category = "") {
@@ -3460,6 +3517,12 @@ function renderMembersTable() {
     return matchGlobal && matchYeshiva && cityMatch && typeMatch;
   });
 
+  // שבבי סטטוס: הספירה היא לפי שאר הסינונים, והשבב שנבחר מסנן את הרשימה
+  const isNearGoal = m => !m.isEligible && m.missingAmount > 0 && m.missingAmount <= 500;
+  renderMembersStatusChips(rows, isNearGoal);
+  if (state.filterStatus === "near") rows = rows.filter(isNearGoal);
+  else if (state.filterStatus) rows = rows.filter(m => getMemberStatus(m).label === state.filterStatus);
+
   if (membersSortCol) {
       rows.sort((a, b) => {
           let valA = a[membersSortCol];
@@ -3532,6 +3595,20 @@ function renderMembersTable() {
     tbody.querySelectorAll("td[data-field]").forEach(td => td.setAttribute("contenteditable", "true"));
   }
 }
+
+const MEMBER_STATUS_CHIPS = ["עמד ביעד", "בתהליך", "חוב פתוח", "טרם החל", "חיידר"];
+function renderMembersStatusChips(rows, isNearGoal) {
+  const el = document.getElementById("members-status-chips");
+  if (!el) return;
+  const counts = {};
+  rows.forEach(m => { const l = getMemberStatus(m).label; counts[l] = (counts[l] || 0) + 1; });
+  const chips = [{ key: "", label: "הכל", count: rows.length }]
+    .concat(MEMBER_STATUS_CHIPS.map(l => ({ key: l, label: l, count: counts[l] || 0 })))
+    .concat([{ key: "near", label: "קרובים ליעד", count: rows.filter(isNearGoal).length, hint: "חסר להם עד ₪500" }]);
+  const active = state.filterStatus || "";
+  el.innerHTML = chips.map(c => `<button type="button" class="nd-chip${c.key === active ? " active" : ""}" aria-pressed="${c.key === active}"${c.hint ? ` title="${escapeHtml(c.hint)}"` : ""} ${uiAct("setMembersStatusFilter", c.key)}>${escapeHtml(c.label)}<b>${c.count.toLocaleString("he-IL")}</b></button>`).join("");
+}
+function setMembersStatusFilter(key) { state.filterStatus = key || ""; renderMembersTable(); }
 
 // ===== תפריט שורה בטבלת הבחורים (במקום כפתור מחיקה גלוי) =====
 function closeRowMenu() {
@@ -5346,20 +5423,18 @@ function buildPrintHeader() {
   let title = meta.title || "";
   const parts = [];
   const selText = id => { const el = document.getElementById(id); return el && el.selectedIndex >= 0 ? el.options[el.selectedIndex].text : ""; };
-  if (screen === "members-screen") {
-    const profileOpen = !document.getElementById("member-profile-section")?.classList.contains("hidden");
-    if (profileOpen) {
-      title = `כרטיס בחור: ${document.getElementById("profile-full-name")?.textContent || ""}`;
-      parts.push(`שנת ${getCampaignYear()}`);
-    } else {
+  if (isMemberProfileOpen()) {
+    title = `כרטיס בחור: ${document.getElementById("profile-full-name")?.textContent || ""}`;
+    parts.push(`שנת ${getCampaignYear()}`);
+  } else if (screen === "members-screen") {
       const term = getValue("search-members-list").trim();
       if (term) parts.push(`חיפוש: ${term}`);
       if (state.filterYeshiva) parts.push(`ישיבה: ${state.filterYeshiva}`);
       if (state.filterCity) parts.push(`עיר: ${state.filterCity}`);
       if ((state.filterYeshivaTypes || []).length) parts.push(state.filterYeshivaTypes.join(" + "));
+      if (state.filterStatus) parts.push(`סטטוס: ${state.filterStatus === "near" ? "קרובים ליעד" : state.filterStatus}`);
       if (document.getElementById("filter-show-married")?.checked) parts.push("כולל נשואים");
       parts.push(`${document.querySelectorAll("#members-table-body tr[data-member-id]").length} בחורים`);
-    }
   } else if (screen === "daily-report-screen") {
     const f = getValue("report-time-filter");
     parts.push(`תקופה: ${f === "custom" ? formatDateDisplay(getValue("report-custom-date")) : selText("report-time-filter")}`);

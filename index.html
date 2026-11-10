@@ -14,6 +14,7 @@
   <link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicon-32.png">
   <link rel="apple-touch-icon" sizes="180x180" href="assets/img/apple-touch-icon.png">
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="theme.css">
   <script src="assets/vendor/chart.umd.min.js"></script>
   <script src="boot.js"></script>
 </head>
@@ -57,30 +58,47 @@
       </button>
     </header>
 
-    <aside class="sidebar">
-      <div class="sidebar-header">
-        <img src="assets/img/logo.png" width="512" height="523" alt="לוגו צדקת רבי שמעון" id="sidebar-logo">
-        <div>
-          <h2>צדקת רבי שמעון</h2>
-          <div class="brand-subtitle">ניהול גבייה, זכאות ומענקים</div>
+    <header class="site-header" id="site-header">
+      <div class="site-header-in">
+        <div class="site-brand">
+          <img src="assets/img/logo.png" width="512" height="523" alt="לוגו צדקת רבי שמעון" id="sidebar-logo">
+          <div class="site-brand-text">
+            <strong>צדקת רבי שמעון</strong>
+            <span>עזרת חתנים</span>
+          </div>
+        </div>
+
+        <nav class="site-nav" aria-label="תפריט ראשי">
+          <div class="site-nav-group" role="group" aria-label="ראשי">
+            <button class="nav-item" data-screen="dashboard-screen">לוח בקרה</button>
+            <button class="nav-item" data-screen="members-screen">בחורים</button>
+          </div>
+          <div class="site-nav-group" role="group" aria-label="כספים">
+            <button class="nav-item" data-screen="daily-report-screen">דו"ח תנועות</button>
+            <button class="nav-item" data-screen="expenses-summary-screen">סיכום הוצאות</button>
+          </div>
+          <div class="site-nav-group" role="group" aria-label="ניהול">
+            <button class="nav-item" data-screen="purim-registration-screen">כתובות פורים</button>
+            <button class="nav-item" data-screen="grants-screen">מענקים</button>
+          </div>
+          <div class="site-nav-group" role="group" aria-label="כללי">
+            <button class="nav-item" data-screen="rules-screen">תקנון</button>
+            <button class="nav-item" data-screen="settings-screen" id="nav-settings">הגדרות</button>
+          </div>
+        </nav>
+
+        <div class="site-tools">
+          <div class="save-state" id="save-state" role="status" aria-live="polite"><i aria-hidden="true"></i><span id="save-state-text">נשמר</span></div>
+          <button id="btn-refresh-data" class="site-tool-btn" type="button" title="רענן נתונים מהשרת" aria-label="רענן נתונים מהשרת">
+            <span class="material-icons-regular" id="refresh-icon" aria-hidden="true">refresh</span>
+          </button>
           <div id="user-role-indicator" class="user-chip"></div>
+          <button id="btn-logout-top" class="site-tool-btn" type="button" title="התנתקות ונעילה" aria-label="התנתקות ונעילה">
+            <span class="material-icons-regular" aria-hidden="true">logout</span>
+          </button>
         </div>
       </div>
-
-      <nav class="sidebar-nav" aria-label="תפריט ראשי">
-        <button class="nav-item" data-screen="dashboard-screen">לוח בקרה</button>
-        <button class="nav-item" data-screen="members-screen">בחורים</button>
-        <button class="nav-item" data-screen="daily-report-screen">דו"ח תנועות</button>
-        <button class="nav-item" data-screen="expenses-summary-screen">סיכום הוצאות</button>
-        <button class="nav-item" data-screen="purim-registration-screen">כתובות פורים</button>
-        <button class="nav-item" data-screen="grants-screen">מענקים</button>
-        <button class="nav-item" data-screen="rules-screen">תקנון</button>
-      </nav>
-
-      <div class="sidebar-footer">
-        <button class="nav-item" data-screen="settings-screen" id="nav-settings">הגדרות</button>
-      </div>
-    </aside>
+    </header>
 
     <main class="main-content">
       <div class="print-only print-header" id="print-header">
@@ -88,159 +106,214 @@
         <div class="print-header-meta" id="print-header-meta"></div>
       </div>
 
-      <header class="content-header" id="main-content-header">
-        <div>
+      <header class="content-header screen-banner" id="main-content-header">
+        <div class="screen-banner-art" aria-hidden="true"></div>
+        <div class="screen-banner-in">
           <h1 class="page-title" id="page-title">לוח בקרה</h1>
           <div class="page-subtitle" id="page-subtitle">שליטה על גבייה, עמידה ביעדים וזכאות למענק</div>
-        </div>
-        <div id="header-top-actions" class="header-actions">
-          <button id="btn-refresh-data" class="header-icon-btn" title="רענן נתונים מהשרת" aria-label="רענן נתונים מהשרת">
-            <span class="material-icons-regular" id="refresh-icon" aria-hidden="true">refresh</span>
-          </button>
-          <button id="btn-logout-top" class="header-icon-btn" title="התנתקות ונעילה" aria-label="התנתקות ונעילה">
-            <span class="material-icons-regular" aria-hidden="true">logout</span>
-          </button>
         </div>
       </header>
 
       <section id="dashboard-screen" class="content-screen active-content-screen">
 
-        <div class="dashboard-command-center">
-          <div class="dashboard-hero-panel">
-            <div class="dashboard-hero-copy">
-              <h1>לוח בקרה</h1>
-              <p>תמונת מצב שנתית, טיפול מיידי ופעולות ניהול במקום אחד.</p>
-            </div>
-            <div class="dashboard-hero-controls">
-              <div class="dashboard-year-card">
-                <label for="dashboard-year-filter">שנת פעילות</label>
-                <select id="dashboard-year-filter" data-change="renderDashboard" class="dashboard-year-select">
-                  <option value='תשפ"ז'>תשפ"ז</option>
-                  <option value='תשפ"ו' selected>תשפ"ו</option>
-                  <option value='תשפ"ה'>תשפ"ה</option>
-                  <option value='תשפ"ד'>תשפ"ד</option>
-                  <option value='תשפ"ג'>תשפ"ג</option>
-                  <option value='תשפ"ב'>תשפ"ב</option>
-                  <option value='תשפ"א'>תשפ"א</option>
-                  <option value='תש"פ'>תש"פ</option>
+        <!-- פתיח: שדה זהב, הסכום שנאסף, והשער שהמסגרת שלו היא מד ההתקדמות -->
+        <div class="nd-hero">
+          <div class="nd-wrap nd-hero-in">
+            <div class="nd-hero-main">
+              <div class="nd-hero-kicker">
+                <label for="dashboard-year-filter">קמפיין</label>
+                <select id="dashboard-year-filter" data-change="renderDashboard" class="dashboard-year-select nd-year-select">
+                    <option value='תשפ"ז'>תשפ"ז</option>
+                    <option value='תשפ"ו' selected>תשפ"ו</option>
+                    <option value='תשפ"ה'>תשפ"ה</option>
+                    <option value='תשפ"ד'>תשפ"ד</option>
+                    <option value='תשפ"ג'>תשפ"ג</option>
+                    <option value='תשפ"ב'>תשפ"ב</option>
+                    <option value='תשפ"א'>תשפ"א</option>
+                    <option value='תש"פ'>תש"פ</option>
                 </select>
+                <span class="nd-hero-today" id="nd-hero-today"></span>
               </div>
-              <div class="dashboard-session-tools">
-                <button id="dashboard-refresh-data" class="dashboard-session-btn" type="button" title="רענן נתונים" aria-label="רענן נתונים">
-                  <span class="material-icons-regular" id="dashboard-refresh-icon" aria-hidden="true">refresh</span>
-                </button>
-                <button id="dashboard-logout" class="dashboard-session-btn dashboard-session-btn--danger" type="button" title="יציאה ונעילה" aria-label="יציאה ונעילה">
-                  <span class="material-icons-regular" aria-hidden="true">logout</span>
-                </button>
+              <div class="nd-hero-figure">
+                <span class="nd-hero-num" id="nd-hero-collected">₪0</span>
+                <span class="nd-hero-cap">נאספו השנה</span>
+              </div>
+              <div class="nd-hero-line" id="nd-hero-line"></div>
+              <div class="nd-hero-track" aria-hidden="true"><span id="nd-hero-bar"></span></div>
+              <div class="nd-hero-cta">
+                <button class="nd-btn nd-btn--ink" id="hero-add-donation" data-action="openDonationModal" type="button"><span class="material-icons-regular" aria-hidden="true">add</span>רישום הפקדה</button>
+                <button class="nd-link" data-action="switchScreenAction" data-args='["members-screen"]' type="button"><span>לרשימת הבחורים</span><span class="material-icons-regular" aria-hidden="true">chevron_left</span></button>
+                <div class="nd-ticker" id="nd-ticker" hidden>
+                  <b>הפקדות אחרונות</b>
+                  <span id="nd-ticker-text"></span>
+                </div>
               </div>
             </div>
+
+            <div class="nd-gate" id="nd-gate">
+              <div class="nd-gate-sun" aria-hidden="true"><i></i><i></i><i></i></div>
+              <div class="nd-gate-frame" id="nd-gate-frame">
+                <img src="assets/img/nd/hero.webp" width="1600" height="1025" alt="" class="nd-gate-photo">
+                <svg class="nd-gate-gauge" id="nd-gate-gauge" aria-hidden="true"></svg>
+              </div>
+              <div class="nd-gate-sill" aria-hidden="true"></div>
+              <div class="nd-plaque nd-gate-plaque"><strong id="nd-gate-pct">0%</strong><span>מהיעד</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="nd-wrap">
+          <!-- ששת המספרים -->
+          <div class="nd-figs">
+            <button class="nd-fig nd-fig--gold" data-action="openDashboardDrill" data-args='["collected"]' type="button">
+              <span class="nd-fig-label">נגבה השנה</span>
+              <span class="nd-fig-value" id="dashboard-kpi-collected">₪0</span>
+              <span class="nd-fig-note" id="nd-fig-collected-note"></span>
+            </button>
+            <button class="nd-fig" data-action="openDashboardDrill" data-args='["target"]' type="button">
+              <span class="nd-fig-label">יעד כולל</span>
+              <span class="nd-fig-value" id="dashboard-kpi-target">₪0</span>
+              <span class="nd-fig-note" id="nd-fig-target-note"></span>
+            </button>
+            <button class="nd-fig nd-fig--ink" data-action="openDashboardDrill" data-args='["missing"]' type="button">
+              <span class="nd-fig-label">חסר להשלמה</span>
+              <span class="nd-fig-value" id="dashboard-kpi-missing">₪0</span>
+              <span class="nd-fig-note" id="nd-fig-missing-note"></span>
+            </button>
+            <button class="nd-fig" data-action="openDashboardDrill" data-args='["eligible"]' type="button">
+              <span class="nd-fig-label">עמדו ביעד השנתי</span>
+              <span class="nd-fig-value" id="dashboard-kpi-eligible">₪0</span>
+              <span class="nd-fig-note" id="nd-fig-eligible-note"></span>
+            </button>
+            <button class="nd-fig" data-action="openDashboardDrill" data-args='["debt"]' type="button">
+              <span class="nd-fig-label">חובות משנים קודמות</span>
+              <span class="nd-fig-value" id="dashboard-kpi-debt">₪0</span>
+              <span class="nd-fig-note" id="nd-fig-debt-note"></span>
+            </button>
+            <button class="nd-fig" data-action="openDashboardDrill" data-args='["progress"]' type="button">
+              <span class="nd-fig-label">התקדמות כללית</span>
+              <span class="nd-fig-value" id="dashboard-kpi-progress">₪0</span>
+              <span class="nd-fig-track"><span id="dashboard-yearly-progress-bar"></span></span>
+            </button>
           </div>
 
-          <div class="dashboard-kpi-grid">
-            <button class="dashboard-kpi-card" data-action="openDashboardDrill" data-args='["collected"]' type="button">
-              <span class="material-icons-regular" aria-hidden="true">account_balance_wallet</span>
-              <div>
-                <div class="dashboard-kpi-label">נגבה השנה</div>
-                <div class="dashboard-kpi-value key-figure" id="dashboard-kpi-collected">₪0</div>
+          <!-- דורש טיפול + קיצורי דרך: נראים בלי גלילה -->
+          <div class="nd-first-row">
+            <section class="nd-panel nd-panel--wood">
+              <div class="nd-panel-head">
+                <h2>דורש טיפול</h2>
+                <p>הנקודות החשובות ביותר לפתיחה עכשיו</p>
               </div>
-            </button>
-            <button class="dashboard-kpi-card" data-action="openDashboardDrill" data-args='["target"]' type="button">
-              <span class="material-icons-regular" aria-hidden="true">flag</span>
-              <div>
-                <div class="dashboard-kpi-label">יעד כולל</div>
-                <div class="dashboard-kpi-value" id="dashboard-kpi-target">₪0</div>
-              </div>
-            </button>
-            <button class="dashboard-kpi-card dashboard-kpi-card--urgent" data-action="openDashboardDrill" data-args='["missing"]' type="button">
-              <span class="material-icons-regular" aria-hidden="true">priority_high</span>
-              <div>
-                <div class="dashboard-kpi-label">חסר להשלמה</div>
-                <div class="dashboard-kpi-value" id="dashboard-kpi-missing">₪0</div>
-              </div>
-            </button>
-            <button class="dashboard-kpi-card" data-action="openDashboardDrill" data-args='["eligible"]' type="button">
-              <span class="material-icons-regular" aria-hidden="true">workspace_premium</span>
-              <div>
-                <div class="dashboard-kpi-label">עמדו ביעד השנתי</div>
-                <div class="dashboard-kpi-value" id="dashboard-kpi-eligible">0</div>
-              </div>
-            </button>
-            <button class="dashboard-kpi-card dashboard-kpi-card--warning" data-action="openDashboardDrill" data-args='["debt"]' type="button">
-              <span class="material-icons-regular" aria-hidden="true">report</span>
-              <div>
-                <div class="dashboard-kpi-label">חובות עד שנה קודמת</div>
-                <div class="dashboard-kpi-value" id="dashboard-kpi-debt">0</div>
-              </div>
-            </button>
-            <button class="dashboard-kpi-card dashboard-progress-card" data-action="openDashboardDrill" data-args='["progress"]' type="button">
-              <span class="material-icons-regular" aria-hidden="true">trending_up</span>
-              <div>
-                <div class="dashboard-kpi-label">התקדמות כללית</div>
-                <div class="dashboard-kpi-value" id="dashboard-kpi-progress">0%</div>
-                <div class="dashboard-progress-track"><div id="dashboard-yearly-progress-bar"></div></div>
-              </div>
-            </button>
-          </div>
-
-          <div class="dashboard-main-grid">
-            <section class="dashboard-panel dashboard-panel--attention">
-              <div class="dashboard-panel-head">
-                <div>
-                  <h2>דורש טיפול</h2>
-                  <p>הנקודות החשובות ביותר לפתיחה עכשיו</p>
-                </div>
-              </div>
-              <div id="dashboard-attention-list" class="dashboard-attention-list"></div>
+              <div id="dashboard-attention-list" class="nd-attention"></div>
             </section>
 
-            <section class="dashboard-panel dashboard-panel--chart">
-              <div class="dashboard-panel-head">
-                <div>
-                  <h2>הכנסות לפי שנה</h2>
-                  <p>שלוש השנים האחרונות: בחורים ופורים</p>
-                </div>
+            <section class="nd-panel nd-panel--doors">
+              <div class="nd-panel-head">
+                <h2>קיצורי דרך</h2>
+                <p>התחלות עבודה נפוצות</p>
               </div>
-              <div id="dashboard-month-bars" class="dashboard-month-bars fin-root"></div>
-            </section>
-
-            <section class="dashboard-panel dashboard-panel--actions">
-              <div class="dashboard-panel-head">
-                <div>
-                  <h2>פעולות מהירות</h2>
-                  <p>התחלות עבודה נפוצות</p>
-                </div>
+              <div class="nd-doors">
+                <button class="nd-door nd-door--primary" id="quick-add-donation" type="button"><span class="material-icons-regular" aria-hidden="true">add</span><strong>רישום<br>הפקדה</strong></button>
+                <button class="nd-door" id="quick-add-member" type="button"><span class="material-icons-regular" aria-hidden="true">person_add</span><strong>הוספת<br>בחור</strong></button>
+                <button class="nd-door" id="quick-add-expense" type="button"><span class="material-icons-regular" aria-hidden="true">receipt_long</span><strong>רישום<br>הוצאה</strong></button>
+                <button class="nd-door" data-action="openNedarimModal" type="button"><span class="material-icons-regular" aria-hidden="true">credit_card</span><strong>סליקת<br>אשראי</strong></button>
+                <button class="nd-door drill-down-card" data-drill="daily-report-screen" type="button"><span class="material-icons-regular" aria-hidden="true">insert_chart_outlined</span><strong>דו"ח<br>תנועות</strong></button>
+                <button class="nd-door drill-down-card" data-drill="grants-screen" type="button"><span class="material-icons-regular" aria-hidden="true">redeem</span><strong>מענקים</strong></button>
               </div>
-              <div class="dashboard-action-grid">
-                <button class="dashboard-action-btn" id="quick-add-donation" type="button"><span class="qa-icon-badge"><span class="material-icons-regular" aria-hidden="true">payments</span></span><strong>רישום הפקדה</strong></button>
-                <button class="dashboard-action-btn" id="quick-add-member" type="button"><span class="qa-icon-badge"><span class="material-icons-regular" aria-hidden="true">person_add</span></span><strong>הוספת בחור</strong></button>
-                <button class="dashboard-action-btn" id="quick-add-expense" type="button"><span class="qa-icon-badge"><span class="material-icons-regular" aria-hidden="true">receipt_long</span></span><strong>רישום הוצאה</strong></button>
-                <button class="dashboard-action-btn" data-action="openNedarimModal" type="button"><span class="qa-icon-badge"><span class="material-icons-regular" aria-hidden="true">credit_card</span></span><strong>סליקת אשראי</strong></button>
-                <button class="dashboard-action-btn drill-down-card" data-drill="daily-report-screen" type="button"><span class="qa-icon-badge"><span class="material-icons-regular" aria-hidden="true">insert_chart_outlined</span></span><strong>דו"ח תנועות</strong></button>
-                <button class="dashboard-action-btn drill-down-card" data-drill="grants-screen" type="button"><span class="qa-icon-badge"><span class="material-icons-regular" aria-hidden="true">redeem</span></span><strong>מענקים</strong></button>
-              </div>
-            </section>
-
-            <section class="dashboard-panel dashboard-panel--activity">
-              <div class="dashboard-panel-head">
-                <div>
-                  <h2>פעילות אחרונה</h2>
-                  <p>הפקדות והוצאות אחרונות</p>
-                </div>
-              </div>
-              <div id="dashboard-recent-activity" class="dashboard-activity-list"></div>
-            </section>
-
-            <section class="dashboard-panel dashboard-panel--segments">
-              <div class="dashboard-panel-head">
-                <div>
-                  <h2>מסגרות</h2>
-                  <p>התקדמות לפי סוג מסגרת</p>
-                </div>
-              </div>
-              <div id="dashboard-segments" class="dashboard-segment-list"></div>
             </section>
           </div>
         </div>
+
+        <!-- מסגרות -->
+        <div class="nd-wrap nd-section">
+          <div class="nd-section-head">
+            <h2><span class="lt">איפה כל אחד עומד</span><br>התקדמות לפי מסגרת</h2>
+          </div>
+          <div id="dashboard-segments" class="nd-segments"></div>
+        </div>
+
+        <!-- הכנסות + פעילות אחרונה -->
+        <div class="nd-band nd-band--gold">
+          <div class="nd-wrap nd-income">
+            <section class="nd-card nd-income-chart">
+              <div class="nd-card-head">
+                <h2>הכנסות לפי שנה</h2>
+                <p>שלוש השנים האחרונות: בחורים ופורים</p>
+              </div>
+              <div id="dashboard-month-bars" class="dashboard-month-bars fin-root"></div>
+            </section>
+            <section class="nd-card nd-income-activity">
+              <div class="nd-card-head">
+                <h2>פעילות אחרונה</h2>
+                <p>הפקדות והוצאות אחרונות</p>
+              </div>
+              <div id="dashboard-recent-activity" class="nd-activity"></div>
+              <div class="nd-split" id="nd-split" hidden></div>
+            </section>
+          </div>
+        </div>
+
+        <!-- מסלול המתנות -->
+        <div class="nd-wrap nd-section" id="nd-gifts-section" hidden>
+          <div class="nd-section-head">
+            <h2><span class="lt">בדרך אל</span><br>המתנות של השנה</h2>
+          </div>
+          <div id="nd-gifts" class="nd-gifts"></div>
+        </div>
+
+        <div class="nd-rule" aria-hidden="true"><i></i><i></i><i></i></div>
+
+        <!-- מובילי הגבייה + לוח ההפקדות -->
+        <div class="nd-wrap nd-section nd-duo">
+          <section class="nd-leaders-box" id="nd-leaders-section" hidden>
+            <div class="nd-section-head">
+              <h2><span class="lt">כל הכבוד להם</span><br>מובילי הגבייה</h2>
+            </div>
+            <div class="nd-leaders-body">
+              <div class="nd-window nd-window--obj"><img src="assets/img/nd/gavia.webp" width="1000" height="1000" alt="" loading="lazy"></div>
+              <ol id="nd-leaders" class="nd-leaders"></ol>
+            </div>
+          </section>
+          <section class="nd-heat-box" id="nd-heat-section">
+            <div class="nd-section-head">
+              <h2><span class="lt">26 השבועות האחרונים</span><br>לוח ההפקדות</h2>
+            </div>
+            <div id="nd-heat" class="nd-heat"></div>
+          </section>
+        </div>
+
+        <!-- דירוג ישיבות -->
+        <div class="nd-wrap nd-section" id="nd-yeshivas-section" hidden>
+          <div class="nd-section-head">
+            <h2><span class="lt">לפי מקום הלימוד</span><br>דירוג הישיבות</h2>
+          </div>
+          <div id="nd-yeshivas" class="nd-yeshivas"></div>
+        </div>
+
+        <!-- סגירה: הפקדה מהירה -->
+        <div class="nd-band nd-band--close">
+          <div class="nd-colonnade" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="nd-wrap nd-close">
+            <div class="nd-close-copy">
+              <h2><span class="lt">הגיע בחור עם מעטפה?</span><br>רושמים הפקדה בחצי דקה</h2>
+              <p>מקלידים סכום, בוחרים בחור, והמספרים בלוח הבקרה מתעדכנים מיד.</p>
+            </div>
+            <form class="nd-quick" id="nd-quick-form" novalidate>
+              <div class="nd-window nd-window--obj nd-quick-art"><img src="assets/img/nd/kupa.webp" width="1000" height="1000" alt="" loading="lazy"></div>
+              <label for="nd-quick-amount">סכום ההפקדה</label>
+              <div class="nd-quick-field"><input type="number" id="nd-quick-amount" inputmode="decimal" min="0" step="any" placeholder="300"><span aria-hidden="true">₪</span></div>
+              <button class="nd-btn nd-btn--ink" type="submit">המשך לרישום<span class="material-icons-regular" aria-hidden="true">chevron_left</span></button>
+            </form>
+          </div>
+        </div>
+
+        <footer class="nd-foot">
+          <div class="nd-wrap nd-foot-in">
+            <img src="assets/img/logo.png" width="512" height="523" alt="" loading="lazy">
+            <div><strong>צדקת רבי שמעון · עזרת חתנים</strong><span>מערכת הניהול. כל הנתונים והסכומים הם פנימיים וחסויים.</span></div>
+            <div class="nd-foot-sync">סנכרון אחרון: <span id="nd-foot-sync">—</span></div>
+          </div>
+        </footer>
 
       </section>
 
@@ -284,6 +357,8 @@
             </div>
           </div>
 
+          <div class="nd-chips" id="members-status-chips" role="group" aria-label="סינון לפי סטטוס"></div>
+
           <div class="table-container table-sticky">
             <table class="data-table compact-view">
               <thead id="members-table-head">
@@ -309,68 +384,6 @@
           </div>
         </div>
 
-        <div class="card-panel hidden" id="member-profile-section">
-          <div class="profile-head">
-            <div class="profile-summary">
-              <h2 id="profile-full-name" class="profile-name">שם הבחור</h2>
-              <div id="profile-yeshiva-details" class="profile-meta">ישיבה | שיעור</div>
-              <div id="profile-contact-details" class="profile-meta">טלפון | כתובת</div>
-              <div id="profile-eligibility-icons" class="profile-badges"></div>
-              <div id="profile-total-amount" class="profile-total key-figure">₪0</div>
-              <div class="profile-total-label">סך הכל נאסף השנה</div>
-            </div>
-
-            <div class="profile-actions">
-              <button class="btn btn-primary" id="btn-profile-deposit"><span class="material-icons-regular" aria-hidden="true">payments</span> רישום הפקדה</button>
-              <button class="btn btn-secondary" id="btn-profile-edit"><span class="material-icons-regular" aria-hidden="true">edit</span> עדכון פרטים</button>
-              <button class="btn btn-secondary" id="btn-profile-grant"><span class="material-icons-regular" aria-hidden="true">history</span> היסטוריית זכאות</button>
-            </div>
-          </div>
-
-          <div class="profile-stats">
-            <div class="profile-stats-row">
-              <div>
-                <div class="profile-stat-label">יעד בסיס (השנה)</div>
-                <div id="profile-bar-target" class="profile-stat-value">₪0</div>
-              </div>
-              <div>
-                <div class="profile-stat-label">חובות עבר (קנס)</div>
-                <div id="profile-bar-debt" class="profile-stat-value">₪0</div>
-              </div>
-              <div>
-                <div class="profile-stat-label">סה״כ נדרש</div>
-                <div id="profile-bar-required" class="profile-stat-value">₪0</div>
-              </div>
-              <div>
-                <div class="profile-stat-label">פער להשלמה</div>
-                <div id="profile-bar-missing" class="profile-stat-value">₪0</div>
-              </div>
-            </div>
-
-            <div class="profile-progress-head">
-              <span>התקדמות יעד</span>
-              <span id="profile-progress-text">0%</span>
-            </div>
-            <div class="progress" id="profile-progress"><span id="profile-progress-bar"></span></div>
-          </div>
-
-          <div class="profile-donations">
-            <div class="profile-donations-head">
-              <h3 class="page-title small">הפקדות של הבחור</h3>
-              <span id="profile-donations-count" class="profile-donations-count"></span>
-            </div>
-            <div class="table-container">
-              <table class="data-table compact-view">
-                <thead><tr><th>תאריך</th><th>שנה</th><th>סכום</th><th>הערות</th></tr></thead>
-                <tbody id="profile-donations-tbody"></tbody>
-              </table>
-            </div>
-          </div>
-
-          <div class="profile-footer">
-            <button class="btn btn-secondary" id="btn-back-to-search"><span class="material-icons-regular" aria-hidden="true">arrow_forward</span> חזרה לרשימה</button>
-          </div>
-        </div>
       </section>
 
       <section id="daily-report-screen" class="content-screen">
@@ -754,6 +767,75 @@
 
     </main>
 
+    <div id="member-overlay" class="modal-overlay member-overlay">
+        <div class="modal-content member-sheet hidden" id="member-profile-section" role="dialog" aria-modal="true" aria-labelledby="profile-full-name">
+          <div class="member-sheet-tools no-print">
+            <button class="icon-ghost-btn" type="button" data-action="printMemberCard" title="הדפסת הכרטיס" aria-label="הדפסת הכרטיס"><span class="material-icons-regular" aria-hidden="true">print</span></button>
+            <button class="icon-ghost-btn" type="button" data-action="closeMemberProfile" title="סגירה" aria-label="סגירת הכרטיס"><span class="material-icons-regular" aria-hidden="true">close</span></button>
+          </div>
+          <div class="profile-head">
+            <div class="profile-summary">
+              <h2 id="profile-full-name" class="profile-name">שם הבחור</h2>
+              <div id="profile-yeshiva-details" class="profile-meta">ישיבה | שיעור</div>
+              <div id="profile-contact-details" class="profile-meta">טלפון | כתובת</div>
+              <div id="profile-eligibility-icons" class="profile-badges"></div>
+              <div id="profile-total-amount" class="profile-total key-figure">₪0</div>
+              <div class="profile-total-label">סך הכל נאסף השנה</div>
+            </div>
+
+            <div class="profile-actions">
+              <button class="btn btn-primary" id="btn-profile-deposit"><span class="material-icons-regular" aria-hidden="true">payments</span> רישום הפקדה</button>
+              <button class="btn btn-secondary" id="btn-profile-edit"><span class="material-icons-regular" aria-hidden="true">edit</span> עדכון פרטים</button>
+              <button class="btn btn-secondary" id="btn-profile-grant"><span class="material-icons-regular" aria-hidden="true">history</span> היסטוריית זכאות</button>
+            </div>
+          </div>
+
+          <div class="profile-stats">
+            <div class="profile-stats-row">
+              <div>
+                <div class="profile-stat-label">יעד בסיס (השנה)</div>
+                <div id="profile-bar-target" class="profile-stat-value">₪0</div>
+              </div>
+              <div>
+                <div class="profile-stat-label">חובות עבר (קנס)</div>
+                <div id="profile-bar-debt" class="profile-stat-value">₪0</div>
+              </div>
+              <div>
+                <div class="profile-stat-label">סה״כ נדרש</div>
+                <div id="profile-bar-required" class="profile-stat-value">₪0</div>
+              </div>
+              <div>
+                <div class="profile-stat-label">פער להשלמה</div>
+                <div id="profile-bar-missing" class="profile-stat-value">₪0</div>
+              </div>
+            </div>
+
+            <div class="profile-progress-head">
+              <span>התקדמות יעד</span>
+              <span id="profile-progress-text">0%</span>
+            </div>
+            <div class="progress" id="profile-progress"><span id="profile-progress-bar"></span></div>
+          </div>
+
+          <div class="profile-donations">
+            <div class="profile-donations-head">
+              <h3 class="page-title small">הפקדות של הבחור</h3>
+              <span id="profile-donations-count" class="profile-donations-count"></span>
+            </div>
+            <div class="table-container">
+              <table class="data-table compact-view">
+                <thead><tr><th>תאריך</th><th>שנה</th><th>סכום</th><th>הערות</th></tr></thead>
+                <tbody id="profile-donations-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="profile-footer">
+            <button class="btn btn-secondary" id="btn-back-to-search"><span class="material-icons-regular" aria-hidden="true">close</span> סגירה</button>
+          </div>
+        </div>
+    </div>
+
     <nav class="bottom-nav" aria-label="ניווט ראשי">
       <button class="bnav-item" type="button" data-screen="dashboard-screen" data-action="switchScreenAction" data-args='["dashboard-screen"]'><span class="material-icons-regular" aria-hidden="true">space_dashboard</span><span>לוח בקרה</span></button>
       <button class="bnav-item" type="button" data-screen="members-screen" data-action="switchScreenAction" data-args='["members-screen"]'><span class="material-icons-regular" aria-hidden="true">groups</span><span>בחורים</span></button>
@@ -1036,5 +1118,6 @@
 
   <script src="supabase-integration.js"></script>
   <script src="script.js"></script>
+  <script src="dashboard-extras.js"></script>
 </body>
 </html>
