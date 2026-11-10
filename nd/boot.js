@@ -12,6 +12,14 @@
 (function () {
   'use strict';
 
+  // רשת ביטחון: בדפדפן ישן שלא מכיר את מה שהעיצוב החדש צריך, המערכת נשארת במסך הקודם כמו שהיה
+  function supported() {
+    try { return !!(window.Element && Element.prototype.attachShadow && window.CSS && CSS.supports && CSS.supports('selector(&)') && window.TZ_DIRS && window.TZ_DIRS.b1 && window.NDData && window.NDScreens); }
+    catch (e) { return false; }
+  }
+  if (!supported()) return;
+  document.body.classList.add('nd-on');
+
   var MAP = {
     dashboard: 'dashboard-screen', members: 'members-screen', transactions: 'daily-report-screen', expenses: 'expenses-summary-screen',
     purim: 'purim-registration-screen', grants: 'grants-screen', rules: 'rules-screen', settings: 'settings-screen'
@@ -22,7 +30,7 @@
 
   var ui = null, mounted = false, classic = false, pending = false, inGo = false;
   var year = null, grantsYear = null, capture = null;
-  var orig = {};
+  var orig = {}, decorators = [], dead = false;
 
   function el(id) { return document.getElementById(id); }
   function fn(name) { return typeof window[name] === 'function' ? window[name] : null; }
@@ -84,7 +92,10 @@
     if (x) for (k in x) if (Object.prototype.hasOwnProperty.call(x, k)) d[k] = x[k];
     d.years = dashboardYears();
     d.yearOptions = yearOptions();
-    return normalize(d);
+    normalize(d);
+    // תוספות נתונים של מודולי החיבור (nd/host-*.js)
+    decorators.forEach(function (f) { try { f(d); } catch (e) { try { console.error('nd decorate', e); } catch (e2) {} } });
+    return d;
   }
 
   /* ---------- הצגה ---------- */
@@ -108,13 +119,25 @@
     if (want && want !== 'dashboard') { inGo = true; try { ui.go(want); } finally { inGo = false; } }
     return true;
   }
+  // אם העיצוב החדש לא הצליח לעלות, חוזרים למסך הקודם: עדיף מערכת עובדת במראה הישן ממסך ריק
+  function fallback(why) {
+    if (dead) return;
+    dead = true; classic = true;
+    try { console.error('העיצוב החדש לא עלה, מוצג המסך הקודם:', why); } catch (e) {}
+    body().classList.remove('nd-on', 'nd-ready', 'nd-classic');
+    try { if (orig.renderAll) orig.renderAll(); } catch (e2) {}
+  }
   function sync() {
-    if (!loggedIn() || classic) return false;
+    if (dead || !loggedIn() || classic) return false;
     var d = build();
-    if (!d) return false;
+    if (!d) { if (!mounted) fallback('הנתונים לא נבנו'); return false; }
     window.TZ_DATA = d;
-    if (!mounted) return mount();
-    ui.update();
+    if (!mounted) {
+      try { if (!mount()) { fallback('הרכיב לא נטען'); return false; } }
+      catch (e) { fallback(e); return false; }
+      return true;
+    }
+    try { ui.update(); } catch (e2) { fallback(e2); return false; }
     return true;
   }
   function schedule() {
@@ -172,6 +195,12 @@
 
   /* ---------- מה שהעיצוב החדש מבקש מהמערכת ---------- */
   window.TZ_HOST = {
+    // לשימוש מודולי החיבור (nd/host-*.js): כלים משותפים
+    _: {
+      sync: function () { return sync(); }, run: run, setVal: setVal, setSelect: setSelect, closeOld: closeOld, canEdit: canEdit, el: el, fn: fn, iso: iso,
+      state: appState, campaign: campaign, orig: orig, ui: function () { return ui; }, isClassic: function () { return classic; },
+      decorate: function (f) { decorators.push(f); }, grantsYear: function () { return grantsYear; }, setGrantsYear: function (y) { grantsYear = y || null; }
+    },
     year: function () { return year || campaign(); },
     setYear: function (y) {
       year = y && y !== campaign() ? y : null;
@@ -247,7 +276,7 @@
 
     // מה שעוד לא חובר: עוברים למסך הקודם של אותו נושא
     classic: function (view, hint) {
-      if (!mounted) return;
+      if (!mounted || dead) return;
       classic = true;
       ui.closeAll();
       body().classList.remove('nd-on'); body().classList.add('nd-classic');
@@ -261,7 +290,7 @@
       if (orig.showToast) orig.showToast('הפעולה הזאת עדיין נעשית במסך הקודם. לחזרה: הכפתור "לעיצוב החדש" בתחתית', 'success');
     },
     back: function () {
-      if (!classic) return;
+      if (!classic || dead) return;
       classic = false;
       body().classList.remove('nd-classic'); body().classList.add('nd-on');
       try { window.scrollTo(0, 0); } catch (e) {}

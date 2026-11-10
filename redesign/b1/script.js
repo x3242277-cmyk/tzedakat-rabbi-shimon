@@ -468,6 +468,13 @@
     });
     return list;
   }
+  function membersSubtitle() {
+    var f = D.statusFilters.filter(function (x) { return x.key === S.filter; })[0], parts = [];
+    if (f && S.filter !== 'all') parts.push(f.label);
+    if (S.yeshiva) parts.push(S.yeshiva); if (S.city) parts.push(S.city); if (S.type) parts.push(S.type);
+    if (S.q.trim()) parts.push('חיפוש: ' + S.q.trim());
+    return parts.join(' · ');
+  }
   function rowHTML(m, i) {
     var st = m.status, mc = st.tone === 'good' ? ' s-good' : st.tone === 'idle' ? ' s-idle' : st.tone === 'bad' ? ' s-bad' : '';
     var gap = !m.hasTarget ? '<b>—</b>' : m.gap === 0 ? '<b class="z">הושלם</b>' : '<b>חסר ' + nis(m.gap) + '</b>';
@@ -736,8 +743,8 @@
   function act(a, el) {
     if (a === 'refresh') { closeAll(); refresh(); }
     else if (a === 'logout') { closeAll(); if (HOST()) HOST().logout(); else toast('בהדגמה אין התנתקות אמיתית', 'logout'); }
-    else if (a === 'export') { if (HOST()) HOST().classic('members', 'export'); else toast('הקובץ מוכן להורדה (הדגמה)', 'check'); }
-    else if (a === 'print') { if (HOST()) HOST().classic('members', 'print'); else toast('הרשימה נשלחה להדפסה (הדגמה)', 'check'); }
+    else if (a === 'export') { if (HOST()) hdo('exportMembers', filtered().map(function (m) { return m.id; })); else toast('הקובץ מוכן להורדה (הדגמה)', 'check'); }
+    else if (a === 'print') { if (HOST()) hdo('printMembers', filtered().map(function (m) { return m.id; }), membersSubtitle()); else toast('הרשימה נשלחה להדפסה (הדגמה)', 'check'); }
     else if (a === 'dep-edit') { HOST().editDeposit(el.getAttribute('data-did')); }
     else if (a === 'classic') { closeAll(); HOST().classic(S.view === 'soon' ? S.soon : S.view, S.soon === 'settings' ? SC.settings.tab : null); }
     else if (a === 'newmember') openForm('member');
