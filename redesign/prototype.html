@@ -625,7 +625,7 @@
   .x:hover{transform:rotate(90deg) scale(1.08)}
   .x:active{transform:scale(.88)}
   .sheet{position:relative;width:min(1060px,100%);max-height:calc(100dvh - 40px);background:#fff;border-radius:52px 52px 52px 150px;box-shadow:0 30px 80px rgba(92,66,22,.4);overflow:hidden;display:flex;flex-direction:column;animation:tzb1-sheet .55s var(--spring)}
-  .sheet-s{overflow-y:auto;overscroll-behavior:contain;padding:34px clamp(20px,3.4vw,46px) 26px}
+  .sheet-s{overflow:hidden auto;scrollbar-width:none;overscroll-behavior:contain;padding:34px clamp(20px,3.4vw,46px) 26px}
   .mh{display:flex;align-items:center;gap:22px;padding-inline-end:60px}
   .mh .mg{width:92px;height:92px;font-size:27px;flex:none}
   .mh .mg::before{content:"";position:absolute;inset:-7px;border-radius:50%;border:1.5px solid var(--ink)}
@@ -701,6 +701,7 @@
   .dep-in h2 .lt{display:block;font-size:.6em;letter-spacing:0;font-weight:300;margin-bottom:2px}
   .dform{margin-top:14px;display:grid;grid-template-columns:1fr 1fr;gap:12px 26px}
   .fld{display:flex;flex-direction:column;min-width:0;position:relative}
+  .btn.fld{flex-direction:row;align-items:center;gap:12px;white-space:nowrap}
   .fld.w2{grid-column:1/-1}
   .fld > label,.fld > .lb{font-size:13.5px;font-weight:700}
   .fld .uin{padding:0 2px}
@@ -733,7 +734,7 @@
   .ok-b .btn{margin:0;min-width:0;min-height:52px;font-size:16px}
 
   /* more sheet (phone) */
-  .more{position:absolute;inset-inline:0;bottom:0;background:#fff;border-radius:44px 44px 0 0;padding:26px 20px calc(26px + env(safe-area-inset-bottom,0px));box-shadow:0 -20px 60px rgba(92,66,22,.35);animation:tzb1-sheet .45s var(--spring);max-height:88dvh;overflow:auto}
+  .more{scrollbar-width:none;position:absolute;inset-inline:0;bottom:0;background:#fff;border-radius:44px 44px 0 0;padding:26px 20px calc(26px + env(safe-area-inset-bottom,0px));box-shadow:0 -20px 60px rgba(92,66,22,.35);animation:tzb1-sheet .45s var(--spring);max-height:88dvh;overflow:auto}
   .more h2{font-size:26px;font-weight:900;margin-bottom:10px}
   .more-g{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .more-g button{display:flex;align-items:center;gap:12px;min-height:60px;padding:0 16px;border-radius:99px;background:var(--grey-2);font-weight:700;font-size:16px}
@@ -971,7 +972,7 @@
     .trk .ms .disc{width:62px;left:-31px}
     .sheet-f{padding:12px 18px calc(14px + env(safe-area-inset-bottom,0px))}
     .sheet-f .btn{flex:1;padding:0 12px}
-    .dep{--s:100%;width:100%;height:auto;max-height:94dvh;border-radius:50vw 50vw 0 0 / 150px 150px 0 0;place-items:start center;padding:74px 22px calc(24px + env(safe-area-inset-bottom,0px));overflow-y:auto}
+    .dep{--s:100%;width:100%;height:auto;max-height:94dvh;border-radius:50vw 50vw 0 0 / 150px 150px 0 0;place-items:start center;padding:74px 22px calc(24px + env(safe-area-inset-bottom,0px));overflow:hidden auto;scrollbar-width:none}
     .dep::before{display:none}
     .dep .x{top:86px;inset-inline-start:14px}
     .dep-kupa{position:relative;top:auto;inset-inline-start:auto;width:118px;margin:-50px auto 6px}
@@ -998,7 +999,7 @@
 }
 @media (min-width:821px) and (max-height:700px){
   .tz-b1{
-    .dep{width:min(640px,100%);height:auto;max-height:calc(100dvh - 24px);border-radius:60px;padding:30px 0;overflow-y:auto}
+    .dep{width:min(640px,100%);height:auto;max-height:calc(100dvh - 24px);border-radius:60px;padding:30px 0;overflow:hidden auto;scrollbar-width:none}
     .dep::before{border-radius:68px}
     .dep-in{width:80%}
     .dep-kupa{display:none}
