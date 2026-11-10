@@ -2,7 +2,7 @@
 /* בונה את redesign/prototype.html (קובץ אחד שנפתח בכרום) מקובצי המקור של הגרסה.
    שימוש:  node redesign/shared/build.js
    מקורות: b1/style.css + b1/screens.css · b1/body.html · shared/data.js + shared/data-screens.js ·
-           b1/script.js, כש-b1/screens.js נכנס במקום הסימון שבתוכו (אותו סגור, אותן פונקציות עזר) · התמונות מ-shared/images. */
+           b1/script.js, כש-b1/screens.js ו-b1/routes.js נכנסים במקום הסימון שבתוכו (אותו סגור, אותן פונקציות עזר) · התמונות מ-shared/images. */
 const fs = require('fs');
 const path = require('path');
 const { imagesScript } = require('./images.js');
@@ -15,7 +15,7 @@ const MARK = '/*@@SCREENS@@*/';
 function sources(k) {
   const dir = path.join(ROOT, k);
   const script = read(path.join(dir, 'script.js'));
-  const screens = read(path.join(dir, 'screens.js'));
+  const screens = read(path.join(dir, 'screens.js')) + '\n' + read(path.join(dir, 'routes.js'));
   return {
     css: read(path.join(dir, 'style.css')) + '\n' + read(path.join(dir, 'screens.css')),
     body: read(path.join(dir, 'body.html')),

@@ -1316,6 +1316,112 @@
   }
 }
 
+/* ============ מסלולי פורים: מפה, מסלול קצר יותר, בניית מסלולים ============ */
+.tz-b1{
+  .pm{margin-top:26px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.12fr);gap:clamp(22px,2.6vw,40px);align-items:start}
+  .pm-map{position:sticky;top:calc(var(--hd) + 26px);border-radius:44px 44px 44px 130px;padding-bottom:30px}
+  .pm-map .panel-h h3{font-size:24px}
+  .pm-stats{margin-top:14px;display:flex;gap:10px;flex-wrap:wrap}
+  .pm-stats span{flex:1;min-width:112px;display:flex;flex-direction:column;line-height:1.15;padding:10px 16px;border-radius:22px;background:var(--grey-2)}
+  .pm-stats i{font-size:12.5px;color:var(--mute)}
+  .pm-stats b{font-size:21px;font-weight:900;letter-spacing:-.02em}
+  .pm-stats u{text-decoration:none;font-size:12.5px;color:var(--ink-2)}
+  .pm-stats .is-end{background:var(--ink);color:#fff}
+  .pm-stats .is-end i,.pm-stats .is-end u{color:rgba(255,255,255,.72)}
+  .pm-stats .is-end b{color:var(--y)}
+  .pmap{display:block;width:100%;height:auto;margin-top:14px;border-radius:28px;background:var(--y-mist);overflow:visible}
+  .pm-st{stroke:#fff;stroke-width:15;stroke-linecap:round}
+  .pm-sn{font-size:12px;font-weight:800;fill:var(--ink-2);paint-order:stroke;stroke:var(--y-mist);stroke-width:4px}
+  .pm-route{fill:none;stroke-width:3.5;stroke-linejoin:round;stroke-linecap:round;stroke-dasharray:2400;animation:tzb1-draw 1.5s var(--out) backwards;animation-delay:calc(var(--i)*120ms)}
+  .pm-route.is-ghost{stroke-width:2;stroke-dasharray:3 7;opacity:.55;animation:none}
+  .pm-pin{cursor:default;outline:none}
+  .pm-pin circle{stroke-width:2}
+  .pm-pin text{font-size:11.5px;font-weight:900}
+  .pm-pin .pm-win{fill:none;stroke:var(--ink);stroke-width:1.5;stroke-dasharray:3 3}
+  .pm-pin.is-bad .pm-win,.pm-pin.is-bad circle:not(.pm-win){stroke:var(--bad)}
+  .pm-pin:hover circle:not(.pm-win),.pm-pin:focus-visible circle:not(.pm-win){stroke-width:4}
+  .pm-leg{margin-top:14px;font-size:13px}
+  .pm-leg i{width:16px;height:16px;border-radius:50%;border:2px solid var(--ink);background:var(--y)}
+  .pm-leg .pl-win{background:none;border:1.5px dashed var(--ink)}
+  .pm-leg .pl-ghost{width:22px;height:0;border:0;border-top:2px dashed var(--mute);border-radius:0}
+
+  /* הנורה: נמצא מסלול קצר יותר */
+  .bulb{position:relative;display:flex;align-items:center;gap:16px;flex-wrap:wrap;width:100%;padding:14px 22px 14px 18px;padding-inline:18px 22px;border-radius:99px;background:var(--grad);box-shadow:var(--sh-2);text-align:start;animation:tzb1-pop .6s var(--spring) .35s backwards;transition:transform .35s var(--spring)}
+  button.bulb:hover{transform:translateX(-6px) scale(1.01)}
+  .bulb::before{content:"";position:absolute;inset:-7px;border-radius:99px;border:1.5px solid var(--ink);pointer-events:none}
+  .bulb-i{width:52px;height:52px;border-radius:50%;background:var(--ink);color:var(--y);display:grid;place-items:center;flex:none;animation:tzb1-pulse 1.6s ease-out 3}
+  .bulb-i .g{width:26px;height:26px}
+  .bulb > span:not(.bulb-i){flex:1;min-width:150px;display:flex;flex-direction:column;line-height:1.2;font-size:14.5px}
+  .bulb b{font-size:18px;font-weight:900}
+  .bulb > .g{width:20px;height:20px}
+  .bulb.is-on{background:#fff;border-radius:34px;gap:10px 14px}
+  .bulb.is-on > span:not(.bulb-i){flex-basis:calc(100% - 70px)}
+  .bulb.is-on .btn:first-of-type{margin-inline-start:68px}
+  .bulb.is-on::before{border-radius:40px}
+  .pm-ok{display:flex;align-items:center;gap:14px;padding:12px 20px;border-radius:99px;background:var(--good-bg);color:var(--good-ink);font-size:14.5px}
+  .pm-ok .g{width:26px;height:26px;flex:none}
+  .pm-ok span{display:flex;flex-direction:column;line-height:1.2}
+  .pm-ok b{font-weight:800;font-size:16px}
+  .pm-warn{margin-top:14px;padding:10px 18px;border-radius:20px;background:var(--bad-bg);color:var(--bad-ink);font-size:14.5px;font-weight:700}
+  .pm-rows{margin-top:20px;display:flex;flex-direction:column;gap:6px}
+  .pm-row{display:grid;grid-template-columns:38px minmax(0,1fr) auto 58px;gap:12px;align-items:center;min-height:54px;padding:6px 18px 6px 8px;padding-inline:8px 18px;border-radius:99px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.06),0 6px 16px rgba(0,0,0,.06)}
+  .pm-n{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:var(--y);box-shadow:inset 0 0 0 2px var(--ink);font-weight:900;font-size:14.5px}
+  .pm-t{min-width:0;display:flex;flex-direction:column;line-height:1.2}
+  .pm-t b{font-weight:800;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pm-t b small{font-weight:400;font-size:.85em}
+  .pm-t i{font-size:13px;color:var(--mute)}
+  .pm-e{display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+  .pm-e i{font-size:12px;color:var(--mute)}
+  .pm-h{font-size:16.5px;font-weight:900;text-align:left}
+  .pm-row.is-bad{box-shadow:inset 0 0 0 1.5px var(--bad)}
+  .pm-row.is-bad .pm-h{color:var(--bad-ink)}
+
+  /* בניית מסלולים */
+  .pl-h{margin-inline-start:20px}
+  .pl-grid{margin-top:26px;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px 20px}
+  .pl-grid .uin input{font-size:22px;font-weight:900}
+  .pl-mode{margin-top:18px}
+  .pl-exp{margin-top:12px}
+  .pl-acts{margin-top:20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .pl-apply{margin-top:22px}
+  .pl-apply .scr-note{margin:0;flex:1;min-width:200px}
+  .pl-cards{margin-top:28px;display:flex;flex-direction:column;gap:8px}
+  .pl-card{display:grid;grid-template-columns:50px minmax(0,1fr) auto;gap:14px;align-items:center;padding:10px 22px 10px 10px;padding-inline:10px 22px;border-radius:99px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.06),0 8px 22px rgba(0,0,0,.07)}
+  .pl-dot{width:50px;height:50px;border-radius:50%;display:grid;place-items:center;border:2px solid;font-weight:900;font-size:19px}
+  .pl-tx{min-width:0;display:flex;flex-direction:column;line-height:1.22}
+  .pl-tx b{font-size:17px;font-weight:800}
+  .pl-tx i{font-size:13px;color:var(--mute)}
+  .pl-end{display:flex;flex-direction:column;align-items:flex-end;line-height:1.1;gap:2px}
+  .pl-end b{font-size:20px;font-weight:900}
+  .pl-end i{font-size:12px;color:var(--mute)}
+
+  @media (max-width:1180px){
+    .pm{grid-template-columns:minmax(0,1fr)}
+    .pm-map{position:relative;top:auto;order:-1}
+  }
+}
+@keyframes tzb1-draw{from{stroke-dashoffset:2400}to{stroke-dashoffset:0}}
+@media (max-width:820px){
+  .tz-b1{
+    .pm{margin-top:18px}
+    .pm-map{border-radius:32px 32px 32px 80px;padding-bottom:22px}
+    .pm-stats span{min-width:96px;padding:8px 12px}
+    .pm-stats b{font-size:18px}
+    .pm-sn{font-size:14px}
+    .bulb{border-radius:30px}
+    .bulb::before{border-radius:36px}
+    .pm-row{grid-template-columns:34px minmax(0,1fr) 52px;border-radius:26px}
+    .pm-n{width:34px;height:34px}
+    .pm-e{grid-column:2/-1;flex-direction:row;align-items:center;justify-content:flex-start;gap:8px}
+    .pm-h{grid-row:1;grid-column:3}
+    .pl-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .pl-card{border-radius:28px}
+  }
+}
+@media (prefers-reduced-motion:reduce){
+  .tz-b1 .pm-route{animation:none}
+}
+
 </style>
 <div class="tz-b1" id="tz-b1" dir="rtl" lang="he">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
@@ -1932,20 +2038,32 @@ window.TZ_DATA = (function () {
   /* ---------- כתובות פורים ---------- */
   var GROUPS = [['בני ברק', 'קבוצה א׳', 21400, 96], ['בני ברק', 'קבוצה ב׳', 18900, 88], ['בני ברק', 'קבוצה ג׳', 14300, 74], ['ירושלים', 'קבוצה א׳', 13800, 92], ['ירושלים', 'קבוצה ב׳', 9700, 81], ['מודיעין עילית', 'קבוצה א׳', 8200, 76], ['ביתר עילית', 'קבוצה א׳', 6300, 63]];
   var YTOT = { 'תשפ״ג': 71200, 'תשפ״ד': 78500, 'תשפ״ה': 84300, 'תשפ״ו': 92600 };
+  // רשת הרחובות לדוגמה: ארבעה רחובות לרוחב (שם, y) וארבעה לאורך (שם, x). מספר הבית קובע את המקום לאורך הרחוב.
+  var HS = [['רבי עקיבא', 0, 'h'], ['חזון איש', 230, 'h'], ['הרב שך', 460, 'h'], ['ירושלים', 690, 'h']];
+  var VS = [['השומר', 0, 'v'], ['אהרונוביץ', 270, 'v'], ['עזרא', 540, 'v'], ['נחמיה', 810, 'v']];
+  function pos(st, house) {
+    var side = house % 2 ? -8 : 8;
+    return st[2] === 'h' ? { x: house * 9.4, y: st[1] + side } : { x: st[1] + side, y: house * 8 };
+  }
   var purimGroups = GROUPS.map(function (gdef, gi) {
     var sums = {};
     Y.forEach(function (y) { sums[y] = y === 'תשפ״ו' ? gdef[2] : Math.round(gdef[2] * YTOT[y] / YTOT['תשפ״ו'] / 100) * 100; });
-    var rows = [];
-    for (var i = 0; i < 9; i++) {
-      var base = 120 + ((gi * 37 + i * 53) % 9) * 40, amounts = {};
+    // כל קבוצה: 12 כתובות על שלושה רחובות (שניים לרוחב ואחד לאורך), בסדר שבו נרשמו ולא בסדר ההליכה.
+    // לכל כתובת יש מיקום (x, y במטרים) על רשת רחובות לדוגמה, כדי שאפשר יהיה לצייר מפה ולחשב זמני הליכה.
+    var rows = [], seed = 17 + gi * 31;
+    function rnd(n) { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed % n; }
+    var mine = [HS[gi % 4], HS[(gi + 1) % 4], VS[(gi * 2 + 1) % 4]];
+    for (var i = 0; i < 12; i++) {
+      var st = mine[i % 3], house = 2 + rnd(84), base = 120 + ((gi * 37 + i * 53) % 9) * 40, amounts = {};
       Y.forEach(function (y, yi) { amounts[y] = (gi + i + yi) % 7 === 0 ? 0 : base + yi * 20 + ((i + yi) % 3) * 10; });
-      // שלושה רחובות בכל קבוצה: ברחוב הראשון והשלישי הכתובות פזורות לאורך הרחוב, בשני הן צמודות
-      var HOUSES = [[4, 8, 40], [12, 14, 16], [3, 27, 52]];
-      rows.push({ n: i + 1, family: LAST[(gi * 3 + i * 7) % 16], first: FIRST[(gi * 5 + i * 3) % 16], street: STREETS[(gi * 2 + Math.floor(i / 3)) % 10], house: HOUSES[Math.floor(i / 3)][i % 3] + gi, apt: 1 + ((gi + i * 5) % 18), amounts: amounts, note: i === 2 ? 'לדפוק חזק, קומה ג׳' : i === 6 ? 'רק אחרי הסעודה' : '' });
+      var p = pos(st, house);
+      rows.push({ n: i + 1, family: LAST[(gi * 3 + i * 7) % 16], first: FIRST[(gi * 5 + i * 3) % 16], street: st[0], house: house, apt: 1 + ((gi + i * 5) % 18), x: p.x, y: p.y, amounts: amounts,
+        win: i === 4 ? { from: '12:30' } : i === 9 ? { to: '11:00' } : null,
+        note: i === 4 ? 'בבית רק אחרי 12:30' : i === 9 ? 'יוצאים ב-11:00' : i === 2 ? 'לדפוק חזק, קומה ג׳' : '' });
     }
     return { city: gdef[0], group: gdef[1], addresses: gdef[3], sums: sums, rows: rows };
   });
-  D.purimX = { years: Y, groups: purimGroups, cities: ['בני ברק', 'ירושלים', 'מודיעין עילית', 'ביתר עילית'] };
+  D.purimX = { years: Y, groups: purimGroups, cities: ['בני ברק', 'ירושלים', 'מודיעין עילית', 'ביתר עילית'], streets: HS.concat(VS), span: { w: 810, h: 690 } };
 
   /* ---------- דו״ח תנועות ---------- */
   var INC = [['10/11/2026', 'מנחם פרלמן', 'מזומן', 250], ['10/11/2026', 'ישראל ברגר', 'אשראי', 1000], ['09/11/2026', 'דוד פרידמן', 'מזומן', 300], ['08/11/2026', 'משה כהן', 'אשראי', 550], ['08/11/2026', 'שמעון וייס', 'מזומן', 200],
@@ -2644,7 +2762,7 @@ window.TZ_DATA = (function () {
      כל הנתונים הם נתוני הדגמה מ-shared/data-screens.js. שינויים נשמרים בזיכרון בלבד. */
   var SC = {
     grants: { view: 'give', half: 'א', editPkg: false },
-    purim: { city: '', group: 0, all: false, edit: false },
+    purim: { city: '', group: 0, all: false, edit: false, map: false, better: false, plan: null },
     transactions: { period: 'week', method: '' },
     expenses: { year: '', open: {} },
     rules: { q: '', mid: '' },
@@ -2768,12 +2886,17 @@ window.TZ_DATA = (function () {
         }).join('') + tc('הערות', r.note ? esc(r.note) : '<i>—</i>', 'note') + '</div>';
     }).join('');
     var colSum = years.map(function (y) { return gr.rows.reduce(function (a, r) { return a + (r.amounts[y] || 0); }, 0); });
+    var head = factsH([[num(addrs), 'כתובות', 'ב-' + X.groups.length + ' קבוצות'], ['₪' + num(total), 'נאסף בפורים', 'בשנת ' + cur], [X.cities.length, 'ערים', X.cities.join(', ')]]) +
+      '<div class="scr-bar">' + tabsH(X.cities.map(function (c) { return [c, c, purimGroupsOf(c).reduce(function (a, x) { return a + x.addresses; }, 0)]; }), st.city, 'city', 'עיר') + '</div>';
+    if (st.plan) return head + planView(st.city);
+    if (st.map) return head + '<div class="scr-bar scr-bar2"><div class="chips">' + groups.map(function (x, i) { return '<button type="button" class="chipb' + (x === gr ? ' is-on' : '') + '" data-scr="group:' + i + '">' + esc(x.group) + '<small>' + x.addresses + '</small></button>'; }).join('') + '</div>' +
+      '<span class="scr-sp"></span><button type="button" class="btn btn-s btn-o" data-scr="pplan">בניית מסלולים אוטומטית</button><button type="button" class="btn btn-s btn-k" data-scr="pmap">' + g('list') + 'חזרה לרשימה</button></div>' + mapView(gr);
     return factsH([[num(addrs), 'כתובות', 'ב-' + X.groups.length + ' קבוצות'], ['₪' + num(total), 'נאסף בפורים', 'בשנת ' + cur], [X.cities.length, 'ערים', X.cities.join(', ')]]) +
       '<div class="scr-bar">' + tabsH(X.cities.map(function (c) { return [c, c, purimGroupsOf(c).reduce(function (a, x) { return a + x.addresses; }, 0)]; }), st.city, 'city', 'עיר') + '</div>' +
       '<div class="scr-bar scr-bar2"><div class="chips">' + groups.map(function (x, i) { return '<button type="button" class="chipb' + (x === gr ? ' is-on' : '') + '" data-scr="group:' + i + '">' + esc(x.group) + '<small>' + x.addresses + '</small></button>'; }).join('') + '</div>' +
       '<span class="scr-sp"></span>' + togH('כל השנים', st.all, 'allyears') +
       (st.edit ? '<button type="button" class="btn btn-s btn-k" data-scr="purim-save">שמירה</button><button type="button" class="btn btn-s btn-o" data-scr="purim-cancel">ביטול</button>'
-        : '<button type="button" class="btn btn-s btn-o" data-scr="route">' + g('pin') + 'מסלול במפות</button><button type="button" class="btn btn-s btn-o" data-scr="purim-edit">' + g('edit') + 'עריכה</button>' + rbtnH('demo:הקובץ מוכן להורדה (הדגמה)', 'ייצוא לקובץ', G_DOWNLOAD) + rbtnH('demo:הרשימה נשלחה להדפסה (הדגמה)', 'הדפסת הקבוצה', G_PRINT)) + '</div>' +
+        : '<button type="button" class="btn btn-s btn-o" data-scr="pmap">' + g('pin') + 'תצוגת מפה</button><button type="button" class="btn btn-s btn-o" data-scr="purim-edit">' + g('edit') + 'עריכה</button>' + rbtnH('demo:הקובץ מוכן להורדה (הדגמה)', 'ייצוא לקובץ', G_DOWNLOAD) + rbtnH('demo:הרשימה נשלחה להדפסה (הדגמה)', 'הדפסת הקבוצה', G_PRINT)) + '</div>' +
       '<div class="sums"><span class="sums-l"><b>' + esc(gr.city) + ' · ' + esc(gr.group) + '</b>סכום סופי לקבוצה</span>' + X.years.map(function (y) {
         return '<span class="sum' + (y === cur ? ' is-now' : '') + '"><i>' + esc(y) + '</i><b>' + nis(gr.sums[y]) + '</b></span>';
       }).join('') + '</div>' +
@@ -2781,50 +2904,6 @@ window.TZ_DATA = (function () {
       '<div class="tl-sum" style="--cols:44px minmax(0,1.1fr) minmax(0,1.3fr) ' + years.map(function () { return 'minmax(0,.7fr)'; }).join(' ') + ' minmax(0,1.2fr)"><span></span><span><b>סך הכול ברשימה</b></span><span></span>' +
       colSum.map(function (v) { return '<span><b>' + nis(v) + '</b></span>'; }).join('') + '<span></span></div>' +
       '<p class="ml-foot">מוצגות ' + gr.rows.length + ' כתובות לדוגמה מתוך ' + gr.addresses + ' בקבוצה</p>';
-  }
-
-  /* ---------- מסלול הגבייה במפות גוגל ----------
-     כתובות סמוכות באותו רחוב לא נשלחות כל אחת בנפרד: ממילא עוברים שם.
-     רחוב שכל הכתובות בו קרובות (עד NEAR מספרי בית) = עצירה אחת. רחוב ארוך = שתי עצירות, בתחילתו ובהמשכו. */
-  GL.pin = '<path d="M12 21s-6.5-6.1-6.5-11a6.5 6.5 0 0 1 13 0c0 4.9-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/>';
-  var ROUTE_NEAR = 10, ROUTE_MAX = 11;
-  function purimStops(gr) {
-    var by = {}, order = [], stops = [];
-    gr.rows.forEach(function (r) { if (!by[r.street]) { by[r.street] = []; order.push(r.street); } by[r.street].push(r.house); });
-    order.forEach(function (st) {
-      var hs = by[st].slice().sort(function (a, b) { return a - b; }), lo = hs[0], hi = hs[hs.length - 1], mid = (lo + hi) / 2;
-      if (hi - lo <= ROUTE_NEAR) stops.push({ street: st, house: lo, covers: hs });
-      else {
-        stops.push({ street: st, house: lo, covers: hs.filter(function (h) { return h <= mid; }) });
-        stops.push({ street: st, house: hi, covers: hs.filter(function (h) { return h > mid; }) });
-      }
-    });
-    return stops;
-  }
-  function mapsUrl(stops, city) {
-    var a = stops.map(function (s) { return s.street + ' ' + s.house + ', ' + city; });
-    if (a.length === 1) return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(a[0]);
-    var u = 'https://www.google.com/maps/dir/?api=1&travelmode=walking&origin=' + encodeURIComponent(a[0]) + '&destination=' + encodeURIComponent(a[a.length - 1]);
-    if (a.length > 2) u += '&waypoints=' + encodeURIComponent(a.slice(1, -1).join('|'));
-    return u;
-  }
-  // מפות גוגל מקבלות עד 11 נקודות בקישור אחד. מסלול ארוך יותר מתחלק לחלקים, וכל חלק מתחיל בנקודה שבה הקודם נגמר.
-  function routeParts(stops) {
-    var parts = [], i = 0;
-    while (i < stops.length) { parts.push(stops.slice(i, i + ROUTE_MAX)); if (i + ROUTE_MAX >= stops.length) break; i += ROUTE_MAX - 1; }
-    return parts;
-  }
-  function routeHTML(gr) {
-    var stops = purimStops(gr), parts = routeParts(stops);
-    var X = '<button type="button" class="x" data-close aria-label="סגירה">' + g('close') + '</button>';
-    return '<div class="sheet-s">' + X + '<h2 class="fh"><span class="lt">' + esc(gr.city) + ' · ' + esc(gr.group) + '</span>מסלול הגבייה</h2>' +
-      '<p class="fnote"><b>' + gr.rows.length + ' כתובות, ' + stops.length + ' עצירות.</b> כתובות סמוכות באותו רחוב מופיעות כעצירה אחת. ברחוב ארוך יש שתי עצירות: בתחילתו ובהמשכו.</p>' +
-      '<ol class="rlist route">' + stops.map(function (s, i) {
-        return '<li><span class="dsc">' + (i + 1) + '</span><span><b>' + esc(s.street) + ' ' + s.house + '</b>' +
-          (s.covers.length > 1 ? 'מכסה ' + s.covers.length + ' כתובות: מספרים ' + s.covers.join(', ') : 'כתובת אחת') + '</span></li>';
-      }).join('') + '</ol></div><div class="sheet-f">' + parts.map(function (pt, i) {
-        return '<a class="btn" href="' + esc(mapsUrl(pt, gr.city)) + '" target="_blank" rel="noopener">' + g('pin') + (parts.length > 1 ? 'מפות גוגל · חלק ' + (i + 1) : 'פתיחה במפות גוגל') + '</a>';
-      }).join('') + '<button type="button" class="btn btn-o" data-close>סגירה</button></div>';
   }
 
   /* ---------- דו״ח תנועות ---------- */
@@ -3010,7 +3089,7 @@ window.TZ_DATA = (function () {
     },
     purim: {
       hero: function () { return { slot: 'purim', sub: 'רשימות הכתובות לפי עיר וקבוצה, והסכומים של כל שנה.', stamp: [['יום הפורים', 'קמפיין ' + S.year, 'כתובות'], String(D.summary.purimAddresses), 'כתובות'],
-        cta: '<button type="button" class="btn btn-k" data-scr="purim-edit">הזנת סכומים' + g('chev2') + '</button><button type="button" class="lnk" data-scr="route"><span>מסלול במפות גוגל</span>' + g('chev') + '</button>' }; },
+        cta: '<button type="button" class="btn btn-k" data-scr="purim-edit">הזנת סכומים' + g('chev2') + '</button><button type="button" class="lnk" data-scr="pplan"><span>בניית מסלולים אוטומטית</span>' + g('chev') + '</button>' }; },
       body: purimBody
     },
     transactions: {
@@ -3039,7 +3118,6 @@ window.TZ_DATA = (function () {
   var FORM = { kind: '', arg: null, step: 1 };
   function formHTML(kind, arg) {
     var years = [D.settings.campaignYear, D.settings.todayHebrewYear, D.yearly[D.yearly.length - 2].year], h = '', m, b;
-    if (kind === 'route') return routeHTML(arg);
     var X = '<button type="button" class="x" data-close aria-label="סגירה">' + g('close') + '</button>';
     function foot(label) { return '<div class="sheet-f"><button type="submit" class="btn">' + label + g('chev2') + '</button><button type="button" class="btn btn-o" data-close>ביטול</button></div>'; }
     if (kind === 'member') {
@@ -3123,6 +3201,7 @@ window.TZ_DATA = (function () {
       else if (FORM.step === 2) { FORM.step = 3; openForm('credit'); }
       else { closeAll(); toast('ההפקדה באשראי נרשמה: ' + ltr('₪' + num(FORM.amt || 0)), 'check'); FORM.step = 1; }
     } else if (kind === 'settings') { toast('היעדים נשמרו (הדגמה)', 'check'); }
+    else if (kind === 'plan') { planRead(); scrDraw(); }
     else if (kind === 'cat') {
       name = val('s-cat'); if (!name) return false;
       D.settingsX.categories.push(name); scrDraw(); toast('הקטגוריה נוספה', 'check');
@@ -3141,9 +3220,9 @@ window.TZ_DATA = (function () {
     if (a === 'pkg-edit') { st = SC.grants; if (st.editPkg) { D.grantsX.package.forEach(function (p) { p.total = p.items.reduce(function (s, it) { return s + it.value; }, 0); }); toast('תכולת החבילה נשמרה', 'check'); } st.editPkg = !st.editPkg; scrDraw(); return; }
     if (a === 'groom-del') { X = D.grantsX; X.recipients = X.recipients.filter(function (r) { return String(r.n) !== v; }); X.recipients.forEach(function (r, n) { r.n = n + 1; }); scrDraw(); toast('החתן הוסר מהרשימה', 'check'); return; }
     if (a === 'bill') { openForm('bill', D.grantsX.halves[SC.grants.half].bills[+v]); return; }
-    if (a === 'route') { st = SC.purim; if (!st.city) st.city = D.purimX.cities[0]; X = purimGroupsOf(st.city); openForm('route', X[Math.min(st.group, X.length - 1)]); return; }
-    if (a === 'city') { SC.purim.city = v; SC.purim.group = 0; SC.purim.edit = false; scrDraw(); return; }
-    if (a === 'group') { SC.purim.group = +v; SC.purim.edit = false; scrDraw(); return; }
+    if (a === 'city') { SC.purim.city = v; SC.purim.group = 0; SC.purim.edit = false; SC.purim.better = false; if (SC.purim.plan) SC.purim.plan.res = null; scrDraw(); return; }
+    if (a === 'group') { SC.purim.group = +v; SC.purim.edit = false; SC.purim.better = false; scrDraw(); return; }
+    if (routeAct(a, v)) return;
     if (a === 'purim-edit') { SC.purim.edit = true; scrDraw(); var f = $('.tl-purim input', id('scr')); scrollToEl($('.sums', id('scr'))); if (f) later(function () { try { f.focus({ preventScroll: true }); } catch (e) {} }, 350); return; }
     if (a === 'purim-save' || a === 'purim-cancel') { SC.purim.edit = false; scrDraw(); if (a === 'purim-save') toast('הסכומים נשמרו', 'check'); return; }
     if (a === 'period') { SC.transactions.period = v; scrDraw(); return; }
@@ -3157,6 +3236,7 @@ window.TZ_DATA = (function () {
     root.addEventListener('change', function (e) {
       var t = e.target, a = t.getAttribute && (t.getAttribute('data-scrsel') || t.getAttribute('data-scrtog')), p, m;
       // תשלום לחנות: אמצעי ותאריך מוצגים רק כשמסמנים "שולם"
+      if (t.getAttribute && t.getAttribute('data-plan') === 'mode') { planRead(); scrDraw(); return; }
       if (t.name === P + 'b-paid') { $$('.paid-only', id('fsheet')).forEach(function (f) { f.classList.toggle('is-off', t.value !== 'שולם'); }); return; }
       if (!a) return;
       if (a === 'method') { SC.transactions.method = t.value; scrDraw(); }
@@ -3178,6 +3258,247 @@ window.TZ_DATA = (function () {
       else if (p[0] === 'purim') { var st = SC.purim, gr = purimGroupsOf(st.city)[st.group]; gr.rows[+p[1]].amounts[D.purimX.years[D.purimX.years.length - 1]] = +d || 0; }
       else if (p[0] === 'psum') D.purimX.groups[+p[1]].sums[p[2]] = +d || 0;
     });
+  }
+
+/* ============ מסלולי הגבייה של פורים: מפה, מסלול קצר יותר, ובניית מסלולים אוטומטית ============
+     נכנס לתוך script.js אחרי screens.js (shared/build.js). אין כאן פנייה לשום שירות חיצוני:
+     המפה מצוירת מהמיקומים שבנתוני ההדגמה, והמרחק הוא מרחק הליכה ברשת רחובות (לאורך ולרוחב).
+     במערכת האמיתית המיקומים יגיעו מאיתור כתובות, וזמני ההליכה משירות מפות. האלגוריתם עצמו נשאר.
+
+     הכללים:
+     - זמן לכל כתובת בנפרד: הליכה מהכתובת הקודמת + שהייה. גם כמה כתובות באותו רחוב מחושבות אחת אחת.
+     - כתובת עם שעות (רק אחרי / עד שעה) מוזזת במסלול למקום שבו מגיעים אליה בזמן, במחיר הקטן ביותר.
+     - "אזורים": כל קבוצה מקבלת אזור מרוכז, כך שאפשר לחזור לכתובת שלא ענו בה.
+     - "מסלול ארוך": קו אחד רציף שנחתך לקטעים. אין דרך חזרה לכתובת שדילגו עליה. */
+  GL.pin = '<path d="M12 21s-6.5-6.1-6.5-11a6.5 6.5 0 0 1 13 0c0 4.9-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/>';
+  GL.bulb = '<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.6.5 1 1.2 1.1 2.2h5c.1-1 .5-1.7 1.1-2.2A6 6 0 0 0 12 3z"/>';
+  GL.clock = '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>';
+  var RT = { speed: 75, per: 4, start: '10:00', end: '16:00' };   // speed = מטרים בדקה (4.5 קמ״ש)
+  var LETTERS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳'];
+
+  /* ---------- חישוב ---------- */
+  function hm(s) { var p = String(s).split(':'); return (+p[0]) * 60 + (+p[1] || 0); }
+  function fmtT(min) { min = Math.round(min); return ('0' + (Math.floor(min / 60) % 24)).slice(-2) + ':' + ('0' + (min % 60)).slice(-2); }
+  function rdist(a, b) { return Math.abs(a.x - b.x) + Math.abs(a.y - b.y); }
+  function walkLen(o) { var d = 0, i; for (i = 1; i < o.length; i++) d += rdist(o[i - 1], o[i]); return d; }
+  // לוח הזמנים של מסלול: מתי מגיעים לכל כתובת, כמה מחכים, ומי לא נכנס בזמן
+  function simulate(order, cfg) {
+    var t = hm(cfg.start), end = hm(cfg.end), steps = [], walk = 0, wait = 0, late = 0, over = 0, i, r, d, w, isLate;
+    for (i = 0; i < order.length; i++) {
+      r = order[i]; d = i ? rdist(order[i - 1], r) : 0; walk += d; t += d / cfg.speed; w = 0;
+      if (r.win && r.win.from && t < hm(r.win.from)) { w = hm(r.win.from) - t; t += w; wait += w; }
+      isLate = !!(r.win && r.win.to && t > hm(r.win.to));
+      if (isLate) late++;
+      if (t + cfg.per > end) over++;
+      steps.push({ row: r, arrive: t, wait: w, late: isLate, over: t + cfg.per > end });
+      t += cfg.per;
+    }
+    return { steps: steps, walkM: walk, walkMin: walk / cfg.speed, waitMin: wait, stayMin: order.length * cfg.per, endMin: t, totalMin: t - hm(cfg.start), late: late, over: over };
+  }
+  // המחיר של מסלול: כמה זמן הוא לוקח, עם קנס כבד על כתובת שמפספסים את השעות שלה
+  function routeCost(order, cfg) { var s = simulate(order, cfg); return s.totalMin + s.late * 600; }
+  function nearestFirst(rows) {
+    var best = null, bestLen = Infinity, s, left, cur, o, k, bi, bd, d;
+    for (s = 0; s < rows.length; s++) {
+      left = rows.slice(); cur = left.splice(s, 1)[0]; o = [cur];
+      while (left.length) { bi = 0; bd = Infinity; for (k = 0; k < left.length; k++) { d = rdist(cur, left[k]); if (d < bd) { bd = d; bi = k; } } cur = left.splice(bi, 1)[0]; o.push(cur); }
+      d = walkLen(o); if (d < bestLen) { bestLen = d; best = o; }
+    }
+    return best || [];
+  }
+  function twoOpt(o) {
+    var improved = true, n = o.length, i, j, before, after, guard = 0;
+    o = o.slice();
+    while (improved && guard++ < 60) {
+      improved = false;
+      for (i = 0; i < n - 1; i++) for (j = i + 1; j < n; j++) {
+        before = (i ? rdist(o[i - 1], o[i]) : 0) + (j < n - 1 ? rdist(o[j], o[j + 1]) : 0);
+        after = (i ? rdist(o[i - 1], o[j]) : 0) + (j < n - 1 ? rdist(o[i], o[j + 1]) : 0);
+        if (after < before - .5) { o = o.slice(0, i).concat(o.slice(i, j + 1).reverse(), o.slice(j + 1)); improved = true; }
+      }
+    }
+    return o;
+  }
+  function fixWindows(order, cfg) {
+    var pass, wins, wi, r, rest, best, bc, p, t, c;
+    for (pass = 0; pass < 2; pass++) {
+      wins = order.filter(function (x) { return x.win; });
+      for (wi = 0; wi < wins.length; wi++) {
+        r = wins[wi]; rest = order.filter(function (x) { return x !== r; }); best = order; bc = routeCost(order, cfg);
+        for (p = 0; p <= rest.length; p++) { t = rest.slice(0, p).concat([r], rest.slice(p)); c = routeCost(t, cfg); if (c < bc - .01) { bc = c; best = t; } }
+        order = best;
+      }
+    }
+    return order;
+  }
+  function bestRoute(rows, cfg) {
+    if (rows.length < 3) return rows.slice();
+    var o = twoOpt(nearestFirst(rows)), back = o.slice().reverse();
+    o = fixWindows(o, cfg); back = fixWindows(back, cfg);
+    return routeCost(back, cfg) < routeCost(o, cfg) ? back : o;
+  }
+  function spread(rows) { var m = 0, i, j; for (i = 0; i < rows.length; i++) for (j = i + 1; j < rows.length; j++) m = Math.max(m, rdist(rows[i], rows[j])); return m; }
+  // חלוקה לאזורים: מרכזים רחוקים זה מזה, כל כתובת למרכז הקרוב, ואיזון כך שאף קבוצה לא גדולה בהרבה מהאחרות
+  function planAreas(rows, k) {
+    var cents = [rows[0]], i, it, groups, far, fd, d, moved, big, small, bi, cand, cd, target = rows.length / k;
+    while (cents.length < k) {
+      far = null; fd = -1;
+      rows.forEach(function (r) { d = Math.min.apply(null, cents.map(function (c) { return rdist(r, c); })); if (d > fd) { fd = d; far = r; } });
+      cents.push(far);
+    }
+    cents = cents.map(function (c) { return { x: c.x, y: c.y }; });
+    for (it = 0; it < 14; it++) {
+      groups = cents.map(function () { return []; });
+      rows.forEach(function (r) { bi = 0; fd = Infinity; cents.forEach(function (c, ci) { d = rdist(r, c); if (d < fd) { fd = d; bi = ci; } }); groups[bi].push(r); });
+      cents = groups.map(function (gp, gi) { return gp.length ? { x: gp.reduce(function (a, r) { return a + r.x; }, 0) / gp.length, y: gp.reduce(function (a, r) { return a + r.y; }, 0) / gp.length } : cents[gi]; });
+    }
+    for (moved = 0; moved < rows.length; moved++) {
+      big = 0; small = 0;
+      groups.forEach(function (gp, gi) { if (gp.length > groups[big].length) big = gi; if (gp.length < groups[small].length) small = gi; });
+      if (groups[big].length - groups[small].length <= Math.max(2, Math.round(target * .25))) break;
+      cand = 0; cd = Infinity;
+      groups[big].forEach(function (r, ri) { d = rdist(r, cents[small]) - rdist(r, cents[big]); if (d < cd) { cd = d; cand = ri; } });
+      groups[small].push(groups[big].splice(cand, 1)[0]);
+    }
+    return groups.filter(function (gp) { return gp.length; });
+  }
+  // מסלול ארוך: קו אחד על כל הכתובות, שנחתך לקטעים שלוקחים בערך אותו זמן
+  function planLine(rows, k, cfg) {
+    var o = twoOpt(nearestFirst(rows)), per = [], total = 0, i, groups = [], cur = [], acc = 0, share;
+    for (i = 0; i < o.length; i++) { per.push((i ? rdist(o[i - 1], o[i]) / cfg.speed : 0) + cfg.per); total += per[i]; }
+    share = total / k;
+    for (i = 0; i < o.length; i++) {
+      cur.push(o[i]); acc += per[i];
+      if (acc >= share * (groups.length + 1) - cfg.per / 2 && groups.length < k - 1 && o.length - i - 1 >= k - groups.length - 1) { groups.push(cur); cur = []; }
+    }
+    if (cur.length) groups.push(cur);
+    return groups;
+  }
+  function buildPlan(rows, pl) {
+    var cfg = { speed: RT.speed, per: pl.per, start: pl.start, end: pl.end };
+    var raw = pl.mode === 'line' ? planLine(rows, pl.k, cfg) : planAreas(rows, pl.k);
+    return raw.map(function (gp) { var o = pl.mode === 'line' ? fixWindows(gp, cfg) : bestRoute(gp, cfg); return { rows: o, sim: simulate(o, cfg), back: spread(o) / cfg.speed }; });
+  }
+
+  /* ---------- ציור המפה ---------- */
+  var MAP_STYLE = [['#CEA130', '#0B0B0B', '#0B0B0B'], ['#0B0B0B', '#0B0B0B', '#D9B85F'], ['#FFFFFF', '#0B0B0B', '#0B0B0B'], ['#8C8577', '#8C8577', '#FFFFFF'], ['#F2E5C2', '#0B0B0B', '#0B0B0B'], ['#7D5F0E', '#7D5F0E', '#FFFFFF']];
+  function mapSVG(sets, label) {
+    var X = D.purimX, W = 620, H = 540, pad = 46, sx = (W - pad * 2) / X.span.w, sy = (H - pad * 2) / X.span.h;
+    function px(p) { return (W - pad - p.x * sx).toFixed(1); }   // מזרח בימין, כמו במפה רגילה
+    function py(p) { return (pad + p.y * sy).toFixed(1); }
+    var h = '<svg class="pmap" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(label) + '">';
+    X.streets.forEach(function (st) {
+      if (st[2] === 'h') h += '<line class="pm-st" x1="' + (pad - 26) + '" x2="' + (W - pad + 26) + '" y1="' + py({ y: st[1] }) + '" y2="' + py({ y: st[1] }) + '"/><text class="pm-sn" x="' + (W - 18) + '" y="' + (+py({ y: st[1] }) - 15) + '" text-anchor="end" direction="rtl">' + esc(st[0]) + '</text>';
+      else h += '<line class="pm-st" y1="' + (pad - 26) + '" y2="' + (H - pad + 26) + '" x1="' + px({ x: st[1] }) + '" x2="' + px({ x: st[1] }) + '"/><text class="pm-sn" x="' + (+px({ x: st[1] }) - 13) + '" y="' + (H - 9) + '" text-anchor="end" direction="rtl">' + esc(st[0]) + '</text>';
+    });
+    sets.forEach(function (set, si) {
+      var stl = MAP_STYLE[set.style % MAP_STYLE.length], d = '';
+      set.rows.forEach(function (r, i) { d += i ? 'H' + px(r) + 'V' + py(r) : 'M' + px(r) + ',' + py(r); });
+      h += '<path class="pm-route' + (set.ghost ? ' is-ghost' : '') + '" d="' + d + '" style="stroke:' + stl[1] + ';--i:' + si + '"/>';
+    });
+    sets.forEach(function (set) {
+      if (set.ghost) return;
+      var stl = MAP_STYLE[set.style % MAP_STYLE.length];
+      set.rows.forEach(function (r, i) {
+        var step = set.sim && set.sim.steps[i], bad = step && (step.late || step.over);
+        h += '<g class="pm-pin' + (bad ? ' is-bad' : '') + '" transform="translate(' + px(r) + ' ' + py(r) + ')" data-tip="' + esc(r.family + ' · ' + r.street + ' ' + r.house) + (step ? '|הגעה ' + fmtT(step.arrive) + (r.win ? '|' + winText(r.win) : '') : '') + '" tabindex="0">' +
+          (r.win ? '<circle class="pm-win" r="15"/>' : '') + '<circle r="11" style="fill:' + stl[0] + ';stroke:' + stl[1] + '"/><text y="4" text-anchor="middle" style="fill:' + stl[2] + '">' + (set.letter || i + 1) + '</text></g>';
+      });
+    });
+    return h + '</svg>';
+  }
+  function addrN(n) { return n === 1 ? 'כתובת אחת' : n + ' כתובות'; }
+  function winText(w) { return w.from ? 'רק אחרי ' + w.from : 'עד ' + w.to; }
+  function minT(m) { m = Math.round(m); return m >= 60 ? Math.floor(m / 60) + ':' + ('0' + (m % 60)).slice(-2) + ' שעות' : m + ' דק׳'; }
+  function kmT(m) { return m >= 1000 ? (m / 1000).toFixed(1) + ' ק״מ' : Math.round(m / 10) * 10 + ' מ׳'; }
+  function statsH(sim) {
+    return '<div class="pm-stats"><span><i>הליכה</i><b>' + kmT(sim.walkM) + '</b><u>' + minT(sim.walkMin) + '</u></span><span><i>בכתובות</i><b>' + minT(sim.stayMin) + '</b><u>' + sim.steps.length + ' כתובות</u></span>' +
+      (sim.waitMin >= 1 ? '<span><i>המתנה</i><b>' + minT(sim.waitMin) + '</b><u>לכתובת עם שעות</u></span>' : '') +
+      '<span class="is-end"><i>סיום משוער</i><b dir="ltr">' + fmtT(sim.endMin) + '</b><u>התחלה ' + esc(RT.start) + '</u></span></div>';
+  }
+
+  /* ---------- תצוגת מפה לקבוצה ---------- */
+  function routeCfg() { return { speed: RT.speed, per: RT.per, start: RT.start, end: RT.end }; }
+  function mapView(gr) {
+    var st = SC.purim, cfg = routeCfg(), cur = simulate(gr.rows, cfg), best = bestRoute(gr.rows, cfg), bs = simulate(best, cfg);
+    var gain = cur.totalMin - bs.totalMin, fixes = cur.late - bs.late, hasBetter = gain >= 3 || fixes > 0;
+    var showBest = st.better && hasBetter, order = showBest ? best : gr.rows, sim = showBest ? bs : cur;
+    var bulb = !hasBetter ? '<div class="pm-ok">' + g('checkc') + '<span><b>זה המסלול הקצר ביותר שמצאנו</b>לא נמצא סדר שחוסך זמן.</span></div>'
+      : showBest ? '<div class="bulb is-on"><span class="bulb-i">' + g('bulb') + '</span><span><b>מוצג המסלול הקצר</b>' + (gain >= 1 ? 'חוסך ' + minT(gain) : 'אותו זמן') + (fixes > 0 ? ' · מגיעים בזמן לכל הכתובות' : '') + '</span>' +
+        '<button type="button" class="btn btn-s btn-o" data-scr="pbetter:0">חזרה למסלול המקורי</button><button type="button" class="btn btn-s btn-k" data-scr="pkeep">שמירת הסדר הזה</button></div>'
+        : '<button type="button" class="bulb" data-scr="pbetter:1"><span class="bulb-i">' + g('bulb') + '</span><span><b>נמצא מסלול ' + (gain >= 1 ? 'קצר' : 'טוב') + ' יותר</b>' + (gain >= 1 ? 'חוסך ' + minT(gain) : '') + (fixes > 0 ? (gain >= 1 ? ', ו' : '') + 'מגיעים בזמן גם ל' + (fixes === 1 ? 'כתובת עם השעות' : fixes + ' כתובות עם שעות') : '') + '. לחיצה מציגה אותו.</span>' + g('chev') + '</button>';
+    var rows = sim.steps.map(function (s, i) {
+      var r = s.row;
+      return '<div class="pm-row' + (s.late || s.over ? ' is-bad' : '') + '"><span class="pm-n">' + (i + 1) + '</span><span class="pm-t"><b>' + esc(r.family) + ' <small>' + esc(r.first) + '</small></b><i>' + esc(r.street) + ' ' + r.house + ' · דירה ' + r.apt + '</i></span>' +
+        '<span class="pm-e">' + (r.win ? '<span class="tag ' + (s.late ? 't-bad' : 't-warn') + '">' + esc(winText(r.win)) + '</span>' : '') + (s.wait >= 1 ? '<i>המתנה ' + minT(s.wait) + '</i>' : '') + '</span><b class="pm-h" dir="ltr">' + fmtT(s.arrive) + '</b></div>';
+    }).join('');
+    var warn = sim.late || sim.over ? '<p class="pm-warn">' + (sim.late ? (sim.late === 1 ? 'לכתובת אחת עם שעות מגיעים מאוחר מדי. ' : 'ל-' + sim.late + ' כתובות עם שעות מגיעים מאוחר מדי. ') : '') + (sim.over ? addrN(sim.over) + (sim.over === 1 ? ' נשארת' : ' נשארות') + ' אחרי ' + esc(RT.end) + '.' : '') + '</p>' : '';
+    return '<div class="pm"><div class="pm-list">' + bulb + warn + '<div class="pm-rows">' + rows + '</div><p class="ml-foot">' + RT.per + ' דקות בכל כתובת · הליכה במהירות 4.5 קמ״ש · כל כתובת מחושבת בנפרד</p></div>' +
+      '<aside class="panel pm-map"><div class="panel-h"><h3><span class="lt">' + esc(gr.city) + ' · ' + esc(gr.group) + '</span>' + (showBest ? 'המסלול הקצר' : 'המסלול לפי הרשימה') + '</h3></div>' + statsH(sim) +
+      mapSVG((showBest ? [{ rows: gr.rows, style: 3, ghost: true }] : []).concat([{ rows: order, style: 0, sim: sim }]), 'מפת המסלול של ' + gr.group) +
+      '<div class="leg pm-leg"><span><i class="pl-pin"></i>כתובת לפי סדר הביקור</span><span><i class="pl-win"></i>כתובת עם שעות</span>' + (showBest ? '<span><i class="pl-ghost"></i>המסלול המקורי</span>' : '') + '</div></aside></div>';
+  }
+
+  /* ---------- בניית מסלולים אוטומטית ---------- */
+  function cityRows(city) { var all = []; purimGroupsOf(city).forEach(function (gr) { all = all.concat(gr.rows); }); return all; }
+  function planView(city) {
+    var pl = SC.purim.plan, rows = cityRows(city);
+    if (!pl.res) pl.res = buildPlan(rows, pl);
+    var res = pl.res, late = 0, over = 0, maxEnd = 0, walk = 0;
+    res.forEach(function (gp) { late += gp.sim.late; over += gp.sim.over; maxEnd = Math.max(maxEnd, gp.sim.endMin); walk += gp.sim.walkM; });
+    var cards = res.map(function (gp, i) {
+      var stl = MAP_STYLE[i % MAP_STYLE.length];
+      return '<div class="pl-card"><span class="pl-dot" style="background:' + stl[0] + ';border-color:' + stl[1] + ';color:' + stl[2] + '">' + LETTERS[i].charAt(0) + '</span><span class="pl-tx"><b>קבוצה ' + LETTERS[i] + '</b><i>' + addrN(gp.rows.length) + ' · הליכה ' + kmT(gp.sim.walkM) + '</i>' +
+        (pl.mode === 'area' ? '<i>חזרה לכל כתובת: עד ' + minT(gp.back) + ' הליכה</i>' : '<i>מקצה לקצה: ' + minT(gp.back) + ' הליכה</i>') + '</span>' +
+        '<span class="pl-end"><b dir="ltr">' + fmtT(gp.sim.endMin) + '</b><i>סיום</i>' + (gp.sim.late || gp.sim.over ? '<span class="tag t-bad">' + (gp.sim.late + gp.sim.over) + ' לא בזמן</span>' : '<span class="tag t-good">הכול בזמן</span>') + '</span></div>';
+    }).join('');
+    function fnum(fid, label, v, extra) { return '<div class="fld"><label for="' + P + fid + '">' + label + '</label><div class="uin"><input id="' + P + fid + '" type="text" value="' + esc(v) + '" autocomplete="off" dir="ltr" style="text-align:right" data-plan="' + fid + '"' + (extra || '') + '></div></div>'; }
+    return '<div class="pm pm-plan"><div class="pm-list"><form class="pl-form" data-form="plan" novalidate><div class="sh pl-h"><span class="dot"></span><h2><span class="lt">' + rows.length + ' כתובות ב' + esc(city) + '</span>בניית מסלולים</h2></div>' +
+      '<div class="dform pl-grid">' + fnum('pl-k', 'כמה קבוצות', pl.k, ' inputmode="numeric"') + fnum('pl-per', 'דקות בכל כתובת', pl.per, ' inputmode="numeric"') + fnum('pl-start', 'שעת התחלה', pl.start) + fnum('pl-end', 'לסיים עד', pl.end) + '</div>' +
+      '<div class="fld pl-mode"><span class="lb">מה חשוב יותר</span><div class="seg" role="radiogroup"><label><input type="radio" name="' + P + 'pl-mode" value="area"' + (pl.mode === 'area' ? ' checked' : '') + ' data-plan="mode">' + BRUSH + '<span>אזורים (מומלץ)</span></label>' +
+      '<label><input type="radio" name="' + P + 'pl-mode" value="line"' + (pl.mode === 'line' ? ' checked' : '') + ' data-plan="mode">' + BRUSH + '<span>מסלול ארוך</span></label></div></div>' +
+      '<p class="scr-note pl-exp">' + (pl.mode === 'area' ? '<b>אזורים:</b> כל קבוצה מקבלת אזור מרוכז. אם לא ענו בכתובת, אפשר לחזור אליה אחר כך בלי לאבד הרבה זמן.' : '<b>מסלול ארוך:</b> קו אחד רציף שמתחלק בין הקבוצות, וכל קבוצה ממשיכה מהמקום שבו הקודמת סיימה. מי שלא ענה נשאר מאחור, ואין דרך לחזור אליו.') + '</p>' +
+      '<div class="pl-acts"><button type="submit" class="btn btn-k">חישוב מחדש' + g('chev2') + '</button><button type="button" class="btn btn-o" data-scr="pplan-off">ביטול</button></div></form>' +
+      '<div class="pl-cards">' + cards + '</div>' +
+      '<div class="pl-acts pl-apply"><button type="button" class="btn" data-scr="pplan-apply">אישור החלוקה' + g('chev2') + '</button><span class="scr-note">הקבוצות הקיימות ב' + esc(city) + ' יוחלפו ב-' + res.length + ' הקבוצות האלה.</span></div></div>' +
+      '<aside class="panel pm-map"><div class="panel-h"><h3><span class="lt">' + esc(city) + ' · ' + res.length + ' קבוצות</span>' + (pl.mode === 'area' ? 'חלוקה לאזורים' : 'מסלול ארוך אחד') + '</h3></div>' +
+      '<div class="pm-stats"><span><i>סך ההליכה</i><b>' + kmT(walk) + '</b><u>לכל הקבוצות</u></span><span><i>כתובות</i><b>' + rows.length + '</b><u>' + (late + over ? (late + over) + ' לא בזמן' : 'כולן בזמן') + '</u></span><span class="is-end"><i>האחרונה מסיימת</i><b dir="ltr">' + fmtT(maxEnd) + '</b><u>התחלה ' + esc(pl.start) + '</u></span></div>' +
+      mapSVG(res.map(function (gp, i) { return { rows: gp.rows, style: i, sim: gp.sim, letter: LETTERS[i].charAt(0) }; }), 'מפת החלוקה לקבוצות') +
+      '<div class="leg pm-leg">' + res.map(function (gp, i) { var stl = MAP_STYLE[i % MAP_STYLE.length]; return '<span><i class="pl-pin" style="background:' + stl[0] + ';border-color:' + stl[1] + '"></i>קבוצה ' + LETTERS[i] + '</span>'; }).join('') + '<span><i class="pl-win"></i>כתובת עם שעות</span></div></aside></div>';
+  }
+  function planRead() {
+    var pl = SC.purim.plan, k = parseInt(val('pl-k'), 10), per = parseInt(val('pl-per'), 10), ok = /^\d{1,2}:\d{2}$/;
+    var mode = ($('input[name="' + P + 'pl-mode"]:checked', id('scr')) || {}).value;
+    pl.k = Math.max(1, Math.min(6, k || pl.k)); pl.per = Math.max(1, Math.min(30, per || pl.per));
+    if (ok.test(val('pl-start'))) pl.start = val('pl-start');
+    if (ok.test(val('pl-end'))) pl.end = val('pl-end');
+    if (mode) pl.mode = mode;
+    pl.k = Math.min(pl.k, cityRows(SC.purim.city).length);
+    pl.res = null;
+  }
+  function routeAct(a, v) {
+    var st = SC.purim, X = D.purimX, groups, gr, old;
+    if (!st.city) st.city = X.cities[0];
+    if (a === 'pmap') { st.map = !st.map; st.better = false; st.edit = false; st.plan = null; scrDraw(); if (st.map) scrollToEl($('.scr-bar', id('scr'))); return true; }
+    if (a === 'pbetter') { st.better = v === '1'; scrDraw(); return true; }
+    if (a === 'pkeep') {
+      groups = purimGroupsOf(st.city); gr = groups[Math.min(st.group, groups.length - 1)];
+      gr.rows = bestRoute(gr.rows, routeCfg()); gr.rows.forEach(function (r, i) { r.n = i + 1; }); st.better = false; scrDraw(); toast('סדר הכתובות עודכן למסלול הקצר', 'check'); return true;
+    }
+    if (a === 'pplan') { st.plan = { k: purimGroupsOf(st.city).length, per: RT.per, start: RT.start, end: RT.end, mode: 'area', res: null }; st.map = true; st.edit = false; if (S.soon !== 'purim') go('purim'); else scrDraw(); scrollToEl($('.scr-bar', id('scr'))); return true; }
+    if (a === 'pplan-off') { st.plan = null; scrDraw(); return true; }
+    if (a === 'pplan-apply') {
+      old = purimGroupsOf(st.city);
+      var oldTotal = old.reduce(function (s, x) { return s + x.addresses; }, 0), nRows = cityRows(st.city).length;
+      X.groups = X.groups.filter(function (x) { return x.city !== st.city; }).concat(st.plan.res.map(function (gp, i) {
+        var sums = {}; X.years.forEach(function (y) { sums[y] = old[i] ? old[i].sums[y] : 0; });
+        gp.rows.forEach(function (r, n) { r.n = n + 1; });
+        return { city: st.city, group: 'קבוצה ' + LETTERS[i], addresses: Math.round(oldTotal * gp.rows.length / nRows), sums: sums, rows: gp.rows };
+      }));
+      RT.per = st.plan.per; RT.start = st.plan.start; RT.end = st.plan.end;
+      toast('נבנו ' + st.plan.res.length + ' קבוצות ב' + esc(st.city), 'check'); st.plan = null; st.group = 0; st.better = false; scrDraw(); return true;
+    }
+    return false;
   }
 
 
