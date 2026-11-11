@@ -61,6 +61,19 @@ function site(k) {
   let n = 0;
   fs.readdirSync(src).filter((f) => /\.(webp|png|jpe?g)$/i.test(f)).forEach((f) => { fs.copyFileSync(path.join(src, f), path.join(IMG, f)); n++; });
   fs.copyFileSync(path.join(SHARED, 'logo.png'), path.join(IMG, 'logo.png'));
+  // דף התמונות: כל תמונות העיצוב בדף רגיל ופשוט. מסנני תוכן (נטפרי) לא רואים תמונות שבתוך shadow root,
+  // ובדף הזה הם רואים אותן, כך שאפשר לבקש עליהן אישור. אישור של תמונה חל גם בתוך המערכת (אותו קובץ, אותה כתובת).
+  const { slots } = require('./images.js');
+  const escH = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+  const pics = slots().filter((sl) => fs.existsSync(path.join(IMG, sl.key + '.webp')));
+  const page = '<!doctype html>\n<html lang="he" dir="rtl">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<meta name="robots" content="noindex">\n' +
+    '<title>תמונות המערכת · צדקת רבי שמעון</title>\n<link rel="stylesheet" href="nd/pictures.css">\n</head>\n<body>\n<main>\n' +
+    '<h1>תמונות המערכת</h1>\n<p>אלה כל התמונות שמופיעות במערכת הניהול של צדקת רבי שמעון: ' + pics.length + ' תמונות של חפצים ומקומות, בלי אנשים. ' +
+    'הדף נועד לבדיקה ולאישור של סינון התמונות (נטפרי). תמונה שאושרה כאן מוצגת גם בתוך המערכת.</p>\n' +
+    pics.map((sl) => '<figure><img src="assets/img/nd/' + sl.key + '.webp" alt="' + escH(sl.label) + '" width="' + sl.w + '" height="' + sl.h + '"><figcaption>' + escH(sl.label) + '</figcaption></figure>').join('\n') +
+    '\n<figure><img src="assets/img/nd/logo.png" alt="סמל צדקת רבי שמעון" width="512" height="523"><figcaption>סמל צדקת רבי שמעון</figcaption></figure>\n</main>\n</body>\n</html>\n';
+  fs.writeFileSync(path.join(REPO, 'pictures.html'), page);
+  fs.writeFileSync(path.join(ND, 'pictures.css'), banner + 'body{margin:0;background:#fff;color:#0B0B0B;font:16px/1.5 Heebo,Arial,sans-serif}main{max-width:1100px;margin:0 auto;padding:28px 16px 60px}h1{margin:0 0 6px;font-size:30px}p{margin:0 0 26px;max-width:720px}figure{margin:0 0 30px}img{display:block;max-width:100%;height:auto;border:1px solid #E2E2E2;border-radius:8px}figcaption{margin-top:8px;font-weight:700}\n');
   console.log('site: nd/ui.css', Math.round(fs.statSync(path.join(ND, 'ui.css')).size / 1024) + ' KB · nd/ui.js', Math.round(fs.statSync(path.join(ND, 'ui.js')).size / 1024) + ' KB ·', n, 'images');
 }
 
