@@ -29,7 +29,9 @@
     var h = HOST(), args = Array.prototype.slice.call(arguments, 1), r;
     if (!has(name)) { if (h) h.classic(S.view === 'soon' ? S.soon : S.view, S.soon === 'settings' ? SC.settings.tab : null); return { ok: false, classic: true }; }
     try { r = h[name].apply(h, args); } catch (e) { try { console.error('nd host ' + name, e); } catch (x) {} r = { ok: false, error: 'הפעולה לא בוצעה. אפשר לנסות שוב' }; }
-    return r || { ok: true };
+    r = r || { ok: true };
+    if (r.ok !== false && S.view === 'soon') scrDraw();   // הפעולה הצליחה: המסך מצויר מחדש מהנתונים המעודכנים, גם אם הסמן נשאר בשדה
+    return r;
   }
   function hdo() { var r = hcall.apply(null, arguments); if (r.ok === false && !r.classic) toast(esc(r.error || 'הפעולה לא בוצעה'), 'info'); return r.ok !== false; }
   function numIn(v) { var n = parseFloat(String(v == null ? '' : v).replace(/[^\d.]/g, '')); return isFinite(n) ? n : 0; }
@@ -80,12 +82,14 @@
   function renderScreen(k) {
     var sc = SCREENS[k];
     if (!sc || !navOf(k)) return false;
+    S.dirty = false;
     id('soon').innerHTML = scrHero(k, sc.hero()) + '<div class="wrap scr-body" id="' + P + 'scr">' + safeBody(k) + '</div>';
     return true;
   }
   function scrDraw() {
     var b = id('scr');
     if (!b || !S.soon || !SCREENS[S.soon]) return;
+    S.dirty = false;
     b.innerHTML = safeBody(S.soon);
     $$('.a', b).forEach(function (el) { el.classList.remove('a'); });
   }
@@ -530,24 +534,39 @@
   function parseGroomPaste(text) {
     var rows = [], skipped = 0, map = null;
     function dateOf(c) { var m = String(c).trim().match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2}|\d{4})$/); return m ? ('0' + m[1]).slice(-2) + '/' + ('0' + m[2]).slice(-2) + '/' + (m[3].length === 2 ? '20' + m[3] : m[3]) : ''; }
-    function digs(c) { return String(c).replace(/[\s\-]/g, ''); }
-    function isNum(c) { return /^\d{7,10}$/.test(digs(c)); }
-    function phoneOf(c) { var d = digs(c); return d.length === 9 && d.charAt(0) === '5' ? '0' + d : d; }
+    // תא של מספר: ספרות עם רווחים, מקפים, סוגריים, נקודות או + (כך אקסל מעתיק טלפונים), בלי אותיות
+    function digs(c) { return String(c).replace(/\D/g, ''); }
+    function isNum(c) { c = String(c).replace(/\.0+$/, ''); return !/[\u0590-\u05FFA-Za-z]/.test(c) && /^\d{7,13}$/.test(digs(c)) && !dateOf(c); }
+    function idOf(c) { return digs(String(c).replace(/\.0+$/, '')); }
+    function phoneOf(c) {
+      var d = digs(String(c).replace(/\.0+$/, ''));
+      if (d.indexOf('972') === 0 && d.length >= 11) d = '0' + d.slice(3);
+      return (d.length === 9 && d.charAt(0) === '5') || (d.length === 8 && /^[23489]/.test(d)) ? '0' + d : d;
+    }
+    // בעמודה שכותרתה "טלפון" כל ערך הוא טלפון, גם אם אינו מספר נקי (שני מספרים, שלוחה וכדומה)
+    function phoneCell(c) { c = String(c || '').trim(); return !c ? '' : isNum(c) ? phoneOf(c) : c; }
     String(text || '').split(/\r?\n/).forEach(function (line, li) {
       if (!line.trim()) return;
-      var cells = (line.indexOf('\t') > -1 ? line.split('\t') : line.trim().split(/\s{2,}/)).map(function (c) { return c.trim(); });
+      // אקסל מוסיף לפעמים תווי כיוון נסתרים ומירכאות סביב תאים: מנקים אותם לפני הזיהוי
+      var cells = (line.indexOf('\t') > -1 ? line.split('\t') : line.trim().split(/\s{2,}/)).map(function (c) { c = c.replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069\ufeff\u00a0]/g, ' ').trim(); if (/^".*"$/.test(c)) c = c.slice(1, -1).replace(/""/g, '"').trim(); return c.replace(/^'/, ''); });
+      // הדבקה שאיבדה את הטאבים (רווח אחד בין העמודות): מפרקים לפי תאריך ומספרים, והשאר הוא השם
+      if (cells.length === 1 && /\d{7,}|\d{1,2}[\/.]\d{1,2}[\/.]\d{2,4}/.test(cells[0])) {
+        var tk = cells[0].split(/\s+/), nm = [], rest = [];
+        tk.forEach(function (t) { if (!rest.length && !dateOf(t) && !/^[\d\-+().]{7,}$/.test(t)) nm.push(t); else rest.push(t); });
+        cells = [nm.join(' ')].concat(rest);
+      }
       var r = { name: '', idn: '', date: '', phone: '', line: li + 1 }, di = -1, nums = [], i, c;
       if (cells.some(function (x) { return /^שם/.test(x); }) && cells.some(function (x) { return /זהות|ת\.?ז|טלפון|תאריך/.test(x); })) {
-        map = {}; cells.forEach(function (x, ci) { if (/זהות|ת\.?ז/.test(x)) map.idn = ci; else if (/תאריך/.test(x)) map.date = ci; else if (/טלפון|נייד|פלאפון/.test(x)) map.phone = ci; else if (/^שם/.test(x) && map.name == null) map.name = ci; });
+        map = {}; cells.forEach(function (x, ci) { if (/זהות|ת\.?ז/.test(x)) map.idn = ci; else if (/תאריך/.test(x)) map.date = ci; else if (/טלפון|טל['׳.]?$|נייד|פלאפון|סלולרי/.test(x)) map.phone = ci; else if (/^שם/.test(x) && map.name == null) map.name = ci; });
         return;
       }
       if (map && map.name != null && cells.length > 1) {
-        r.name = cells[map.name] || ''; r.idn = map.idn != null && isNum(cells[map.idn] || '') ? digs(cells[map.idn]) : ''; r.date = map.date != null ? dateOf(cells[map.date] || '') || (cells[map.date] || '') : '';
-        r.phone = map.phone != null && isNum(cells[map.phone] || '') ? phoneOf(cells[map.phone]) : '';
+        r.name = cells[map.name] || ''; r.idn = map.idn != null && isNum(cells[map.idn] || '') ? idOf(cells[map.idn]) : ''; r.date = map.date != null ? dateOf(cells[map.date] || '') || (cells[map.date] || '') : '';
+        r.phone = map.phone != null ? phoneCell(cells[map.phone]) : '';
       } else {
-        for (i = 0; i < cells.length; i++) { c = cells[i]; if (!c) continue; if (dateOf(c)) { r.date = dateOf(c); di = i; } else if (isNum(c)) nums.push({ i: i, v: digs(c) }); else if (!r.name && /[\u0590-\u05FFA-Za-z]/.test(c)) r.name = c; }
+        for (i = 0; i < cells.length; i++) { c = cells[i]; if (!c) continue; if (dateOf(c)) { r.date = dateOf(c); di = i; } else if (isNum(c)) nums.push({ i: i, v: idOf(c) }); else if (!r.name && /[\u0590-\u05FFA-Za-z]/.test(c)) r.name = c; }
         if (nums.length >= 2) { r.idn = nums[0].v; r.phone = phoneOf(nums[1].v); }
-        else if (nums.length === 1) { if (di > -1 ? nums[0].i > di : /^0?5\d{8}$/.test(nums[0].v)) r.phone = phoneOf(nums[0].v); else r.idn = nums[0].v; }
+        else if (nums.length === 1) { if (di > -1 ? nums[0].i > di : /^(972|0)?5\d{8}$/.test(nums[0].v)) r.phone = phoneOf(nums[0].v); else r.idn = nums[0].v; }
       }
       if ((!r.name && !r.idn) || (!r.idn && !r.date && !r.phone)) { skipped++; return; }   // כותרת הגיליון, שורת סיכום וכדומה
       rows.push(r);
@@ -743,14 +762,15 @@
       if (!a) return;
       if (a === 'method') { SC.transactions.method = t.value; scrDraw(); }
       else if (a === 'expyear') { SC.expenses.year = t.value; scrDraw(); }
-      else if (a === 'gyear') { if (t.value !== D.grantsX.year) { if (HOST() && HOST().setGrantsYear) { SC.grants.editPkg = false; HOST().setGrantsYear(t.value); } else { toast('בהדגמה מוצגת שנת ' + esc(D.grantsX.year) + ' בלבד', 'info'); t.value = D.grantsX.year; } } }
+      else if (a === 'gyear') { if (t.value !== D.grantsX.year) { if (HOST() && HOST().setGrantsYear) { SC.grants.editPkg = false; if (!hdo('setGrantsYear', t.value)) t.value = D.grantsX.year; } else { toast('בהדגמה מוצגת שנת ' + esc(D.grantsX.year) + ' בלבד', 'info'); t.value = D.grantsX.year; } } }
       else if (a === 'allyears') { SC.purim.all = t.checked; scrDraw(); }
       else if (a === 'mtype') { var sh = id('m-shiur'), box = id('m-shiur-f'); box.hidden = t.value === 'חיידר'; sh.innerHTML = D.frames[t.value].map(function (o) { return '<option>' + esc(o) + '</option>'; }).join(''); }
       else if (a === 'gpick') { m = byId(t.value); if (m) { id('g-name').value = m.full; id('g-phone').value = m.phone; } }
       else if (a.indexOf('perm:') === 0 && !HOST()) { p = a.split(':'); D.settingsX.users[+p[1]].perms[+p[2]] = t.checked ? 1 : 0; }
     });
     root.addEventListener('input', function (e) {
-      var t = e.target, a = t.getAttribute && t.getAttribute('data-scrin'), p, d;
+      var t = e.target, a = t.getAttribute && t.getAttribute('data-scrin'), p, d, sb = id('scr');
+      if (sb && sb.contains(t) && (t.tagName === 'TEXTAREA' || (t.tagName === 'INPUT' && !/^(checkbox|radio)$/.test(t.type)))) S.dirty = true;
       if (!a) return;
       if (a.indexOf('pk:') === 0 || a.indexOf('pki:') === 0) {
         p = a.split(':'); d = SC.grants.draft; if (!d) return;

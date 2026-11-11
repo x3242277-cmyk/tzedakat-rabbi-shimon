@@ -862,7 +862,7 @@
     if (S.view === 'members') { renderFilters(); renderList(false); }
     else if (S.view === 'soon') {
       if (!navOf(S.soon)) { go('dashboard'); }
-      else { var ae = AE(), scr = id('scr'); if (!(ae && scr && scr.contains(ae) && /^(INPUT|SELECT|TEXTAREA)$/.test(ae.tagName))) { scrDraw(); } }
+      else if (!S.dirty) scrDraw();   // נתונים חדשים מציירים מחדש את המסך, חוץ ממצב שבו המשתמש באמצע הקלדה שעוד לא נשמרה
     }
     markNav();
     return true;
