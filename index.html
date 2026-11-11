@@ -580,8 +580,8 @@
                 <p class="settings-card-sub">בכל מחצית משלמים לכל חנות לפי הקבלות על מה שמומש באותה מחצית</p>
               </div>
               <div class="grants-view-toggle" id="bills-half-toggle">
-                <button type="button" class="grants-view-btn active" data-half="א" data-action="switchBillsHalf" data-args='["א"]'>מחצית א' · תשרי–אדר</button>
-                <button type="button" class="grants-view-btn" data-half="ב" data-action="switchBillsHalf" data-args='["ב"]'>מחצית ב' · ניסן–אלול</button>
+                <button type="button" class="grants-view-btn active" data-half="א" data-action="switchBillsHalf" data-args='["א"]'>מחצית א' · ניסן–אלול</button>
+                <button type="button" class="grants-view-btn" data-half="ב" data-action="switchBillsHalf" data-args='["ב"]'>מחצית ב' · תשרי–אדר</button>
               </div>
             </div>
             <div class="grants-archive-stats store-bills-stats" id="store-bills-stats"></div>
@@ -608,7 +608,7 @@
 
           <div class="card-panel legacy-payments-panel hidden" id="legacy-payments-panel">
             <h3 class="page-title small">תשלומים שנרשמו בשיטה הקודמת <span id="legacy-payments-year-label"></span></h3>
-            <p class="settings-card-sub">רשומות ישנות שעוד לא שויכו למחצית. תשלום מאדר משויך אוטומטית למחצית א' ותשלום מאלול למחצית ב'</p>
+            <p class="settings-card-sub">רשומות ישנות שעוד לא שויכו למחצית. תשלום מאלול משויך אוטומטית למחצית א'; את השאר משייכים ידנית</p>
             <div class="table-container">
               <table class="data-table compact-view">
                 <thead><tr><th>חנות / ספק</th><th>תאריך</th><th>הוצאה / חשבונית</th><th>אמצעי</th><th>סכום ששולם</th><th class="no-export"></th></tr></thead>
@@ -969,8 +969,8 @@
         <h3 class="modal-title" id="legacy-assign-title">שיוך תשלום ישן למחצית</h3>
         <div id="legacy-assign-desc" class="modal-meta"></div>
         <div class="legacy-assign-options">
-          <button type="button" class="legacy-assign-option" data-half="א" data-action="saveLegacyAssign" data-args='["א"]'><strong>מחצית א'</strong><span>תשרי–אדר</span></button>
-          <button type="button" class="legacy-assign-option" data-half="ב" data-action="saveLegacyAssign" data-args='["ב"]'><strong>מחצית ב'</strong><span>ניסן–אלול</span></button>
+          <button type="button" class="legacy-assign-option" data-half="א" data-action="saveLegacyAssign" data-args='["א"]'><strong>מחצית א'</strong><span>ניסן–אלול</span></button>
+          <button type="button" class="legacy-assign-option" data-half="ב" data-action="saveLegacyAssign" data-args='["ב"]'><strong>מחצית ב'</strong><span>תשרי–אדר</span></button>
           <button type="button" class="legacy-assign-option" data-half="none" data-action="saveLegacyAssign" data-args='["none"]'><strong>לא משויך</strong><span>להשאיר ברשימת התשלומים הישנים</span></button>
         </div>
       </div>
@@ -987,7 +987,7 @@
         <div class="form-grid form-grid--2 modal-fields">
           <div class="form-group"><label for="store-bill-store">חנות</label><input type="text" id="store-bill-store" class="ui-input" list="store-names-datalist"></div>
           <div class="form-group"><label for="store-bill-half">מחצית</label>
-            <select id="store-bill-half" class="ui-select"><option value="א">מחצית א' · תשרי–אדר</option><option value="ב">מחצית ב' · ניסן–אלול</option></select>
+            <select id="store-bill-half" class="ui-select"><option value="א">מחצית א' · ניסן–אלול</option><option value="ב">מחצית ב' · תשרי–אדר</option></select>
           </div>
           <div class="form-group"><label for="store-bill-amount">סכום לתשלום לפי הקבלות (₪)</label><input type="number" id="store-bill-amount" class="ui-input" min="0" step="any"></div>
           <div class="form-group"><label for="store-bill-ref">מס' קבלה / חשבונית</label><input type="text" id="store-bill-ref" class="ui-input"></div>

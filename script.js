@@ -4588,7 +4588,7 @@ window.exportGrantsArchiveRecipients = function() {
 
 
 // ==========================================
-// תשלומים לחנויות לפי מחצית (מחצית א' = תשרי–אדר, מחצית ב' = ניסן–אלול)
+// תשלומים לחנויות לפי מחצית (מחצית א' = ניסן–אלול, מחצית ב' = תשרי–אדר של השנה שאחריה)
 // לכל חנות: סכום לתשלום לפי הקבלות, אישור ששולם, וקבלה סרוקה.
 // ==========================================
 state.billsHalf = state.billsHalf || "א";
@@ -4605,7 +4605,8 @@ function getStoreBills(archive, year) {
 }
 
 // ===== תשלומים מהשיטה הקודמת: שיוך למחצית =====
-// תשלום שנרשם באדר שייך למחצית א' (תשרי-אדר), ותשלום באלול למחצית ב' (ניסן-אלול).
+// תשלום שנרשם באלול של השנה שייך למחצית א' (ניסן-אלול). תשלום מאדר לא משויך אוטומטית:
+// אדר של השנה עצמה שייך לשנת המענקים הקודמת, ולכן הוא נשאר ברשימה לשיוך ידני.
 // אפשר לשנות ידנית בכפתור "שיוך"; הבחירה נשמרת ב-years[year].legacyHalves
 function legacyPaymentKey(p) {
   return [p.store, p.date, p.amount, p.description].map(x => String(x == null ? "" : x).trim()).join("|");
@@ -4616,13 +4617,13 @@ function guessLegacyPaymentHalf(p, year) {
   if (!text) return null;
   const yearInText = (text.match(/תש[א-ת]*["״][א-ת]/) || [])[0];
   if (yearInText && yearInText.replace("״", '"') !== year) return null;
-  if (/אדר/.test(text)) return "א";
-  if (/אלול/.test(text)) return "ב";
+  if (/אלול/.test(text)) return "א";
+  if (/אדר/.test(text)) return null;
   const d = parseAppDate(text);
   const parts = d ? getHebrewDateParts(d) : null;
-  if (!parts || parts.year !== hebrewYearLabelToNumber(year)) return null;
-  if (/^Adar/.test(parts.month)) return "א";
-  if (parts.month === "Elul") return "ב";
+  if (!parts) return null;
+  if (parts.month === "Elul" && parts.year === hebrewYearLabelToNumber(year)) return "א";
+  if (/^Adar/.test(parts.month) && parts.year === hebrewYearLabelToNumber(year) + 1) return "ב";
   return null;
 }
 
@@ -4697,9 +4698,9 @@ function countGroomsByHalf(archive, year) {
   const counts = { "א": 0, "ב": 0, none: 0 };
   ((archive.years[year] && archive.years[year].recipients) || []).forEach(r => {
     const d = parseAppDate(r.date);
-    const parts = d ? getHebrewDateParts(d) : null;
-    if (!d || !parts || (yearNum && parts.year !== yearNum)) { counts.none++; return; }
-    counts[getHalfForDate(d)]++;
+    const half = d ? getGrantHalf(d, year) : null;
+    if (!half) { counts.none++; return; }
+    counts[half]++;
   });
   return counts;
 }
@@ -5455,11 +5456,25 @@ function getHebrewDateParts(date) {
     return { year: Number(get("year")), month: get("month"), day: Number(get("day")) };
   } catch (e) { return null; }
 }
-// מחצית א' = תשרי עד אדר, מחצית ב' = ניסן עד אלול
+// שנת המענקים רצה מפורים עד פורים, לא לפי השנה העברית:
+// מחצית א' = ניסן עד אלול של אותה שנה, מחצית ב' = תשרי עד אדר של השנה שאחריה.
+// לדוגמה, במענקי תשפ"ה: סיוון תשפ"ה הוא מחצית א', וחשוון תשפ"ו הוא מחצית ב'.
+const GRANT_SUMMER_MONTHS = ["Nisan", "Iyar", "Sivan", "Tamuz", "Av", "Elul"];
 function getHalfForDate(date) {
   const p = getHebrewDateParts(date);
   if (!p) return null;
-  return ["Nisan", "Iyar", "Sivan", "Tamuz", "Av", "Elul"].includes(p.month) ? "ב" : "א";
+  return GRANT_SUMMER_MONTHS.includes(p.month) ? "א" : "ב";
+}
+// המחצית של תאריך בתוך שנת מענקים מסוימת, או null אם התאריך בכלל לא בשנת המענקים הזאת
+function getGrantHalf(date, yearLabel) {
+  const p = getHebrewDateParts(date);
+  if (!p) return null;
+  const yearNum = hebrewYearLabelToNumber(yearLabel);
+  const summer = GRANT_SUMMER_MONTHS.includes(p.month);
+  if (!yearNum) return summer ? "א" : "ב";
+  if (summer && p.year === yearNum) return "א";
+  if (!summer && p.year === yearNum + 1) return "ב";
+  return null;
 }
 function hebrewYearNumberToLetters(num) {
   let n = Number(num) % 1000;

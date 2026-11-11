@@ -20,7 +20,8 @@
   var YEARS_FALLBACK = ['תשע"ה', 'תשע"ו', 'תשע"ז', 'תשע"ח', 'תשע"ט', 'תש"פ', 'תשפ"א', 'תשפ"ב', 'תשפ"ג', 'תשפ"ד', 'תשפ"ה', 'תשפ"ו', 'תשפ"ז', 'תשפ"ח', 'תשפ"ט', 'תש"צ'];
   var DEFAULT_YEAR = 'תשפ"ו';
   var DEFAULT_CATS = ['הדפסות', 'כנסים', 'סעודות', 'מתנות', 'תפעול', 'שונות'];
-  var HALF_LABELS = { 'א': 'מחצית א׳ · תשרי–אדר', 'ב': 'מחצית ב׳ · ניסן–אלול' };
+  // שנת המענקים רצה מפורים עד פורים: מחצית א׳ = ניסן–אלול, מחצית ב׳ = תשרי–אדר של השנה שאחריה
+  var HALF_LABELS = { 'א': 'מחצית א׳ · ניסן–אלול', 'ב': 'מחצית ב׳ · תשרי–אדר' };
   var PERMS = [['canEdit', 'הוספה ועריכה'], ['canViewIncome', 'הכנסות ופורים'], ['canViewExpenses', 'הוצאות'], ['canViewGrants', 'מענקים'], ['canViewHistory', 'היסטוריית זכאות']];
   var ACTIONS = { create: 'הוספה', update: 'עדכון', 'delete': 'מחיקה', 'import': 'ייבוא', paid: 'סימון תשלום', upload: 'העלאת קבלה' };
   var ENTITIES = { member: 'בחור', donation: 'הפקדה', expense: 'הוצאה', purim: 'כתובות פורים', settings: 'הגדרות', 'expense-category': 'קטגוריית הוצאה',
@@ -142,14 +143,11 @@
   // המחצית של חתן לפי התאריך שלו, רק אם התאריך בתוך שנת המענקים (כמו countGroomsByHalf). אחרת ''.
   function halfOfRecipient(dateVal, year) {
     try {
-      var d = parseDate(dateVal);
-      if (!d || typeof getHebrewDateParts !== 'function' || typeof getHalfForDate !== 'function') return '';
-      var parts = getHebrewDateParts(d);
-      if (!parts) return '';
-      var yearNum = typeof hebrewYearLabelToNumber === 'function' ? hebrewYearLabelToNumber(year) : null;
-      if (yearNum && parts.year !== yearNum) return '';
-      var h = getHalfForDate(d);
-      return h === 'א' || h === 'ב' ? h : '';
+      var d = parseDate(dateVal), h;
+      if (!d) return '';
+      // כלל המחציות של המנוע: שנת מענקים מפורים עד פורים (ניסן–אלול = א׳, תשרי–אדר של השנה שאחריה = ב׳)
+      if (typeof getGrantHalf === 'function') { h = getGrantHalf(d, year); return h === 'א' || h === 'ב' ? h : ''; }
+      return '';
     } catch (e) { return ''; }
   }
   function legacyBills(archive, year, half, storeNames) {
