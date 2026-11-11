@@ -99,6 +99,49 @@
     return function () { if (raw) { e.value = ''; e.type = 'date'; } };
   }
 
+  /* ---------- ייבוא רשימה ---------- */
+  function digitsOf(v) { return str(v).replace(/\D/g, ''); }
+  function nameKey(v) { return str(v).replace(/["'׳״.\-]/g, '').replace(/\s+/g, ' ').trim(); }
+  // מיקום החתן ברשימה: לפי rid, אחר כך לפי תעודת זהות, ואם לשורה החדשה אין תעודת זהות: לפי שם (רק כשיש בדיוק אחד כזה)
+  function matchIndex(list, rec) {
+    var i, id = digitsOf(rec.id), nk = nameKey(rec.name), hits = [];
+    if (rec.rid) for (i = 0; i < list.length; i++) if (list[i] && list[i].rid === rec.rid) return i;
+    if (id) for (i = 0; i < list.length; i++) if (list[i] && digitsOf(list[i].id) === id) return i;
+    if (nk) for (i = 0; i < list.length; i++) if (list[i] && nameKey(list[i].name) === nk && (!id || !digitsOf(list[i].id))) hits.push(i);
+    return hits.length === 1 ? hits[0] : -1;
+  }
+  // משלים פרטים: ערך חדש שאינו ריק גובר, ערך קיים נשמר כשהחדש ריק
+  function mergeRec(old, rec) {
+    var out = {}, k;
+    for (k in old) if (Object.prototype.hasOwnProperty.call(old, k)) out[k] = old[k];
+    ['name', 'id', 'phone', 'date'].forEach(function (f) { if (rec[f]) out[f] = rec[f]; });
+    if (!out.rid) out.rid = rec.rid;
+    return out;
+  }
+  function importPlan(rows, existing) {
+    var plan = { add: [], update: [], same: 0, bad: [], error: '' }, seen = [];
+    if (!Array.isArray(rows) || !rows.length) { plan.error = 'לא נמצאו שורות לייבוא'; return plan; }
+    rows.forEach(function (r, n) {
+      r = r && typeof r === 'object' ? r : {};
+      var rec = {}, d = isoDate(r.date), i, cur, merged;
+      if (str(r.name).trim()) rec.name = str(r.name).trim();
+      if (str(r.idn).trim()) rec.id = str(r.idn).trim();
+      if (str(r.phone).trim()) rec.phone = str(r.phone).trim();
+      if (d === null) { plan.bad.push(r.line || n + 1); return; }
+      if (d) rec.date = d;
+      if (!rec.name && !rec.id) return;
+      if (matchIndex(seen, rec) > -1) return;            // אותה שורה פעמיים בהדבקה
+      seen.push(rec);
+      i = matchIndex(existing, rec);
+      if (i === -1) { rec.rid = window.generateId ? window.generateId('R') : 'R-' + Date.now() + '-' + n; plan.add.push(rec); return; }
+      cur = existing[i]; merged = mergeRec(cur, rec);
+      if (['name', 'id', 'phone', 'date'].every(function (f) { return str(cur[f]) === str(merged[f]); })) { plan.same++; return; }
+      rec.rid = cur.rid || (window.generateId ? window.generateId('R') : 'R-' + Date.now() + '-' + n);
+      plan.update.push({ rec: rec });
+    });
+    return plan;
+  }
+
   /* ---------- רענון העיצוב החדש אחרי שהמנוע שינה את נתוני המענקים ---------- */
   // חלון התשלום לחנות, שיוך תשלום ישן, מחיקה ו"בטל פעולה" מסתיימים ב-renderGrantsArchive ולא ב-renderAll.
   // לכן עוטפים גם אותה. מרעננים רק אם הנתונים באמת השתנו מאז הבנייה האחרונה של TZ_DATA.
@@ -271,6 +314,43 @@
     }),
 
     // הסרה עם "בטל פעולה", כמו במסך הישן
+    /* --- ייבוא רשימה (הדבקה מאקסל) --- */
+    // rows = [{ name, idn, phone, date: 'dd/mm/yyyy' }]. חתן שכבר רשום (לפי תעודת זהות, ואם אין: לפי שם) מתעדכן ולא מוכפל.
+    // planGroomImport רק סופר (לתצוגה מקדימה); importGrooms שומר הכול בשמירה אחת של המאגר.
+    planGroomImport: safe(function (rows) {
+      var pl = importPlan(rows, recipientsOf(shownYear()));
+      return pl.error ? no(pl.error) : ok({ added: pl.add.length, updated: pl.update.length, same: pl.same, bad: pl.bad });
+    }),
+    importGrooms: safe(function (rows) {
+      if (!_.canEdit()) return no(NO_EDIT);
+      if (!has('mutateGrantsArchive', 'generateId')) return no();
+      var year = useYear(), pl = importPlan(rows, recipientsOf(year)), p;
+      if (pl.error) return no(pl.error);
+      if (pl.bad.length) return no('בשורה ' + pl.bad[0] + ' התאריך לא תקין. יש להקליד יום/חודש/שנה');
+      if (!pl.add.length && !pl.update.length) return ok({ added: 0, updated: 0, same: pl.same });
+      p = window.mutateGrantsArchive(function (a) {
+        if (!a.years[year] || typeof a.years[year] !== 'object') a.years[year] = { recipients: [] };
+        if (!Array.isArray(a.years[year].recipients)) a.years[year].recipients = [];
+        var list = a.years[year].recipients;
+        // הפונקציה רצה פעמיים (על העותק המקומי ועל העותק הטרי מהשרת), ולכן כל שלב בודק שלא בוצע כבר
+        pl.update.forEach(function (u) {
+          var i = matchIndex(list, u.rec);
+          if (i > -1) list[i] = mergeRec(list[i], u.rec);
+          else list.push(mergeRec({}, u.rec));
+        });
+        pl.add.forEach(function (rec) { if (matchIndex(list, rec) === -1) list.push(mergeRec({}, rec)); });
+      });
+      try { if (_.fn('renderGrantsArchive')) window.renderGrantsArchive(); if (_.fn('renderDashboard')) window.renderDashboard(); } catch (e) { log(e); }
+      if (p && typeof p.then === 'function') p.then(function (saved) {
+        try {
+          if (_.fn('reportSave')) window.reportSave(saved, 'הרשימה יובאה: ' + pl.add.length + ' נוספו, ' + pl.update.length + ' עודכנו');
+          if (_.fn('logAudit')) window.logAudit('import', 'grant-recipient', null, { year: year, added: pl.add.length, updated: pl.update.length });
+        } catch (e) { log(e); }
+      }, function () {});
+      _.sync();
+      return ok({ added: pl.add.length, updated: pl.update.length, same: pl.same });
+    }),
+
     removeGroom: safe(function (ref) {
       var year, list, idx, before, res;
       if (!_.canEdit()) return no(NO_EDIT);

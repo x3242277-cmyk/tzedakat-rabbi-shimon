@@ -490,3 +490,13 @@
   .tz-b1 .pkg-eh > :nth-child(2){grid-column:1;grid-row:2}
   .tz-b1 .pe-2{flex-wrap:wrap}
 }
+
+/* ---------- הדבקת רשימה מאקסל ---------- */
+.tz-b1 .sh .sh-btn{margin-inline-start:auto}
+.tz-b1 .fs-gimport textarea{width:100%;min-height:150px;font:500 14px/1.5 var(--ff);direction:rtl;white-space:pre;overflow:auto;resize:vertical;border:0;background:none;color:inherit;padding:8px 2px}
+.tz-b1 .gi-sum{margin:0 0 8px;font-size:14.5px}
+.tz-b1 .gi-sum.is-bad{color:var(--bad-ink);font-weight:700}
+.tz-b1 .gi-tb{display:grid;gap:2px;font-size:14px}
+.tz-b1 .gi-tb > div{display:grid;grid-template-columns:minmax(0,1.5fr) 110px 100px 110px;gap:12px;padding:5px 12px;border-radius:10px;background:var(--grey-2)}
+.tz-b1 .gi-tb .gi-more{display:block;background:none;color:var(--mute)}
+@media (max-width:640px){.tz-b1 .gi-tb > div{grid-template-columns:minmax(0,1fr) auto;row-gap:0}}

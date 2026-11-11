@@ -1525,6 +1525,16 @@
   .tz-b1 .pe-2{flex-wrap:wrap}
 }
 
+/* ---------- הדבקת רשימה מאקסל ---------- */
+.tz-b1 .sh .sh-btn{margin-inline-start:auto}
+.tz-b1 .fs-gimport textarea{width:100%;min-height:150px;font:500 14px/1.5 var(--ff);direction:rtl;white-space:pre;overflow:auto;resize:vertical;border:0;background:none;color:inherit;padding:8px 2px}
+.tz-b1 .gi-sum{margin:0 0 8px;font-size:14.5px}
+.tz-b1 .gi-sum.is-bad{color:var(--bad-ink);font-weight:700}
+.tz-b1 .gi-tb{display:grid;gap:2px;font-size:14px}
+.tz-b1 .gi-tb > div{display:grid;grid-template-columns:minmax(0,1.5fr) 110px 100px 110px;gap:12px;padding:5px 12px;border-radius:10px;background:var(--grey-2)}
+.tz-b1 .gi-tb .gi-more{display:block;background:none;color:var(--mute)}
+@media (max-width:640px){.tz-b1 .gi-tb > div{grid-template-columns:minmax(0,1fr) auto;row-gap:0}}
+
 </style>
 <div class="tz-b1" id="tz-b1" dir="rtl" lang="he">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
@@ -3018,7 +3028,7 @@ window.TZ_DATA = (function () {
     if (live && st.editPkg) return '<div class="panel pkg-full"><div class="panel-h"><h3><span class="lt">מה מקבל כל חתן · ' + esc(X.year) + '</span>עריכת תכולת המענק</h3></div>' + pkgEditor() + '</div>';
     var rows = X.recipients.map(function (r, ri) {
       return '<div class="trow">' + tc('מס׳', '<b class="num">' + r.n + '</b>') + tc('שם ומשפחה', '<b>' + esc(r.name || '—') + '</b>') + tc('תעודת זהות', ltr(esc(r.idn || '—'))) + tc('טלפון', ltr(esc(r.phone || '—'))) + tc('תאריך', ltr(esc(r.date || '—'))) +
-        tc('מחצית', r.half ? '<span class="tag t-neutral">מחצית ' + esc(r.half) + '׳</span>' : '<span class="tag t-idle">ללא תאריך</span>') +
+        tc('מחצית', r.half ? '<span class="tag t-neutral">מחצית ' + esc(r.half) + '׳</span>' : '<span class="tag t-idle">' + (r.date ? 'תאריך משנה אחרת' : 'ללא תאריך') + '</span>') +
         (live ? (canE ? '<span class="tc-ics"><button type="button" class="ic" data-scr="groom-edit:' + ri + '" aria-label="עריכת ' + esc(r.name) + '">' + g('edit') + '</button><button type="button" class="ic" data-scr="groom-del:' + ri + '" aria-label="הסרת ' + esc(r.name) + '">' + g('close') + '</button></span>' : '<span></span>')
           : '<button type="button" class="ic" data-scr="groom-del:' + r.n + '" aria-label="הסרת ' + esc(r.name) + '">' + g('close') + '</button>') + '</div>';
     }).join('');
@@ -3029,7 +3039,7 @@ window.TZ_DATA = (function () {
           (st.editPkg ? '<label class="uin uin-s" dir="ltr"><span class="pre">₪</span><input type="text" inputmode="numeric" value="' + it.value + '" data-scrin="pkg:' + pi + ':' + ii + '" aria-label="שווי ' + esc(it.name) + '"></label>' : '<span>' + nis(it.value) + '</span>') + '</div>';
       }).join('') + '</div>';
     }).join('');
-    return '<div class="scr-2"><div>' + shH('מי קיבל השנה', 'מקבלי המענק') +
+    return '<div class="scr-2"><div>' + shH('מי קיבל השנה', 'מקבלי המענק', live && canE && has('importGrooms') ? '<button type="button" class="btn btn-s btn-o sh-btn" data-scr="form:gimport">' + g('list') + 'הדבקה מאקסל</button>' : '') +
       tlH('44px minmax(0,1.5fr) minmax(0,.9fr) minmax(0,1.1fr) minmax(0,.9fr) 96px ' + (live ? '80px' : '40px'), ['מס׳', 'שם ומשפחה', 'תעודת זהות', 'טלפון', 'תאריך', 'מחצית', ''], rows, 'tl-grooms') +
       '<p class="ml-foot">' + (X.recipients.length ? X.recipients.length + ' חתנים בשנת ' + esc(X.year) : 'עדיין לא נרשמו חתנים בשנת ' + esc(X.year)) + '</p></div>' +
       '<aside class="feed pkg-box"><div class="feed-h"><h3><span class="lt">שווי חבילה לחתן ' + nis(total) + '</span>מה מקבלים</h3>' +
@@ -3373,6 +3383,11 @@ window.TZ_DATA = (function () {
         fldH('שם ומשפחה', inH('g-name', gr0.name || ''), '', 'g-name') + fldH('תעודת זהות', inH('g-idn', gr0.idn || '', 'inputmode="numeric" dir="ltr" style="text-align:right"'), '', 'g-idn') +
         fldH('טלפון', inH('g-phone', gr0.phone || '', 'inputmode="tel" dir="ltr" style="text-align:right"'), '', 'g-phone') + fldH('תאריך', inH('g-date', arg ? (gr0.date || '') : D.settings.todayLabel, 'inputmode="numeric" dir="ltr" style="text-align:right"') + g('calendar'), '', 'g-date') +
         '<p class="err fld w2" id="' + P + 'ferr" role="alert"></p></div></div>' + foot(arg ? 'שמירת השינויים' : 'הוספת החתן') + '</form>';
+    } else if (kind === 'gimport') {
+      h = '<form data-form="gimport" novalidate><div class="sheet-s">' + X + '<h2 class="fh"><span class="lt">מקבלי המענק · ' + esc(D.grantsX.year) + '</span>הדבקת רשימה מאקסל</h2>' +
+        '<p class="fnote">מסמנים באקסל את השורות עם העמודות <b>שם ומשפחה, תעודת זהות, תאריך, טלפון</b>, מעתיקים ומדביקים כאן. חתן שכבר רשום (לפי תעודת זהות או שם) מתעדכן ולא מוכפל.</p>' +
+        '<div class="dform"><div class="fld w2"><label for="' + P + 'gi-text">הרשימה</label><div class="uin"><textarea id="' + P + 'gi-text" rows="8" data-scrin="gimport" placeholder="מדביקים כאן (Ctrl+V)" spellcheck="false"></textarea></div></div>' +
+        '<div class="fld w2 gi-prev" id="' + P + 'gi-prev" aria-live="polite"></div><p class="err fld w2" id="' + P + 'ferr" role="alert"></p></div></div>' + foot('ייבוא הרשימה') + '</form>';
     } else if (kind === 'gyear') {
       h = '<form data-form="gyear" novalidate><div class="sheet-s">' + X + '<h2 class="fh"><span class="lt">מענקים</span>הוספת שנת מענקים</h2><div class="dform">' +
         fldH('שם השנה', inH('gy-name', '', 'placeholder="למשל ' + esc(D.settings.todayHebrewYear) + '"'), 'w2', 'gy-name') + '<p class="err fld w2" id="' + P + 'ferr" role="alert"></p></div>' +
@@ -3421,6 +3436,46 @@ window.TZ_DATA = (function () {
   // שיעור שמור שאינו ברשימה הרגילה נשאר אפשרות בטופס, כדי ששמירה לא תשנה אותו בלי כוונה
   function shiurList(opts, sh) { var l = (opts || []).slice(), raw = String(sh || '').replace(/['׳"״\s]/g, ''); if (raw && !shiurOpt(l, sh)) l.push(raw); return l; }
   function shiurOpt(opts, sh) { var i; sh = String(sh || '').replace(/['׳"״\s]/g, ''); for (i = 0; i < (opts || []).length; i++) if (String(opts[i]).replace(/['׳"״\s]/g, '') === sh) return opts[i]; return ''; }
+  // רשימה שהודבקה מאקסל: שורה לכל חתן, עמודות מופרדות בטאב. מזהה שורת כותרת, ומדלג על שורות שאינן חתן
+  function parseGroomPaste(text) {
+    var rows = [], skipped = 0, map = null;
+    function dateOf(c) { var m = String(c).trim().match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2}|\d{4})$/); return m ? ('0' + m[1]).slice(-2) + '/' + ('0' + m[2]).slice(-2) + '/' + (m[3].length === 2 ? '20' + m[3] : m[3]) : ''; }
+    function digs(c) { return String(c).replace(/[\s\-]/g, ''); }
+    function isNum(c) { return /^\d{7,10}$/.test(digs(c)); }
+    function phoneOf(c) { var d = digs(c); return d.length === 9 && d.charAt(0) === '5' ? '0' + d : d; }
+    String(text || '').split(/\r?\n/).forEach(function (line, li) {
+      if (!line.trim()) return;
+      var cells = (line.indexOf('\t') > -1 ? line.split('\t') : line.trim().split(/\s{2,}/)).map(function (c) { return c.trim(); });
+      var r = { name: '', idn: '', date: '', phone: '', line: li + 1 }, di = -1, nums = [], i, c;
+      if (cells.some(function (x) { return /^שם/.test(x); }) && cells.some(function (x) { return /זהות|ת\.?ז|טלפון|תאריך/.test(x); })) {
+        map = {}; cells.forEach(function (x, ci) { if (/זהות|ת\.?ז/.test(x)) map.idn = ci; else if (/תאריך/.test(x)) map.date = ci; else if (/טלפון|נייד|פלאפון/.test(x)) map.phone = ci; else if (/^שם/.test(x) && map.name == null) map.name = ci; });
+        return;
+      }
+      if (map && map.name != null && cells.length > 1) {
+        r.name = cells[map.name] || ''; r.idn = map.idn != null && isNum(cells[map.idn] || '') ? digs(cells[map.idn]) : ''; r.date = map.date != null ? dateOf(cells[map.date] || '') || (cells[map.date] || '') : '';
+        r.phone = map.phone != null && isNum(cells[map.phone] || '') ? phoneOf(cells[map.phone]) : '';
+      } else {
+        for (i = 0; i < cells.length; i++) { c = cells[i]; if (!c) continue; if (dateOf(c)) { r.date = dateOf(c); di = i; } else if (isNum(c)) nums.push({ i: i, v: digs(c) }); else if (!r.name && /[\u0590-\u05FFA-Za-z]/.test(c)) r.name = c; }
+        if (nums.length >= 2) { r.idn = nums[0].v; r.phone = phoneOf(nums[1].v); }
+        else if (nums.length === 1) { if (di > -1 ? nums[0].i > di : /^0?5\d{8}$/.test(nums[0].v)) r.phone = phoneOf(nums[0].v); else r.idn = nums[0].v; }
+      }
+      if ((!r.name && !r.idn) || (!r.idn && !r.date && !r.phone)) { skipped++; return; }   // כותרת הגיליון, שורת סיכום וכדומה
+      rows.push(r);
+    });
+    return { rows: rows, skipped: skipped };
+  }
+  function groomPastePreview(text) {
+    var gp = parseGroomPaste(text), box = id('gi-prev'), pl, h;
+    if (!box) return;
+    if (!String(text || '').trim()) { box.innerHTML = ''; return; }
+    if (!gp.rows.length) { box.innerHTML = '<p class="scr-note">עדיין לא זוהו שורות של חתנים.</p>'; return; }
+    pl = has('planGroomImport') ? HOST().planGroomImport(gp.rows) : null;
+    h = '<p class="gi-sum"><b>זוהו ' + gp.rows.length + ' חתנים.</b> ' + (pl && pl.ok ? pl.added + ' חדשים · ' + pl.updated + ' יעודכנו · ' + pl.same + ' כבר רשומים' : '') +
+      (gp.skipped ? ' · ' + gp.skipped + ' שורות אחרות דולגו' : '') + '</p>' + (pl && pl.ok && pl.bad.length ? '<p class="gi-sum is-bad">תאריך לא תקין בשורה ' + pl.bad.join(', ') + '</p>' : '');
+    h += '<div class="gi-tb">' + gp.rows.slice(0, 5).map(function (r) { return '<div><b>' + esc(r.name || '—') + '</b><span dir="ltr">' + esc(r.idn || '—') + '</span><span dir="ltr">' + esc(r.date || '—') + '</span><span dir="ltr">' + esc(r.phone || '—') + '</span></div>'; }).join('') +
+      (gp.rows.length > 5 ? '<div class="gi-more">ועוד ' + (gp.rows.length - 5) + '</div>' : '') + '</div>';
+    box.innerHTML = h;
+  }
   function formErr(msg) { var e = id('ferr'); if (e) e.textContent = msg; return false; }
   function digits(fid) { var el = id(fid); return el ? parseInt(String(el.value).replace(/[^\d]/g, ''), 10) || 0 : 0; }
   function val(fid) { var el = id(fid); return el ? String(el.value).trim() : ''; }
@@ -3453,6 +3508,15 @@ window.TZ_DATA = (function () {
       if (hr.classic) return true;
       if (!hr.ok) return formErr(hr.error || 'הפרטים לא נשמרו. אפשר לנסות שוב');
       closeAll(); SC.grants.view = 'give'; return true;
+    } else if (kind === 'gimport') {
+      var gp = parseGroomPaste(id('gi-text').value);
+      if (!gp.rows.length) return formErr('לא זוהו שורות. מדביקים שורות עם שם, תעודת זהות, תאריך וטלפון');
+      hr = hcall('importGrooms', gp.rows);
+      if (hr.classic) return true;
+      if (!hr.ok) return formErr(hr.error || 'הרשימה לא יובאה. אפשר לנסות שוב');
+      closeAll(); SC.grants.view = 'give';
+      if (!hr.added && !hr.updated) toast('כל החתנים שברשימה כבר רשומים', 'info');
+      return true;
     } else if (kind === 'gyear') {
       if (!val('gy-name')) return formErr('צריך להקליד את שם השנה');
       hr = hcall('addGrantsYear', val('gy-name'));
@@ -3604,6 +3668,7 @@ window.TZ_DATA = (function () {
         else if (d[+p[1]] && d[+p[1]].items[+p[2]]) { if (p[3] !== 'name') t.value = t.value.replace(/[^\d.]/g, ''); d[+p[1]].items[+p[2]][p[3]] = t.value; }
         return;
       }
+      if (a === 'gimport') { groomPastePreview(t.value); var ge = id('ferr'); if (ge) ge.textContent = ''; return; }
       if (a === 'rq') { SC.rules.q = t.value; SC.rules.mid = ''; var q = t.value.trim().replace(/[-\s]/g, ''); id('rres').innerHTML = rulesResults(q ? M.filter(function (m) { return (m.full + m.last + m.first + m.yeshiva + m.phone).replace(/[-\s]/g, '').indexOf(q) > -1; }).slice(0, 6) : [], null, q); return; }
       d = t.value.replace(/[^\d]/g, '').slice(0, 6);
       if (a === 'amt') { t.value = d ? num(+d) : ''; var er = id('ferr'); if (er) er.textContent = ''; return; }
