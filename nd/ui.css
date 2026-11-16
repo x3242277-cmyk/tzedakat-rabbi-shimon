@@ -1544,7 +1544,15 @@ img{max-width:100%}
 .tz-b1 .tl-acc .trow > .g{width:18px;height:18px;justify-self:end;transform:rotate(0)}
 
 /* ---------- מענקים: כרטסת לחנות (דרישת תשלום, תשלום, ויתרה בסוף) ---------- */
+.tz-b1 .st-list{max-width:940px}
 .tz-b1 .lg-adds{display:flex;flex-wrap:wrap;gap:8px}
+.tz-b1 .bp-list{display:grid;gap:8px;margin-top:16px}
+.tz-b1 .bp-i{display:flex;align-items:center;gap:12px;width:100%;padding:12px 16px;border-radius:14px;background:var(--grey-2);font-size:15.5px;text-align:start;cursor:pointer;transition:background .2s}
+.tz-b1 .bp-i:hover,.tz-b1 .bp-i:focus-visible{background:var(--y-mist)}
+.tz-b1 .bp-t{flex:1;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px}
+.tz-b1 .bp-t i{font-size:13.5px;color:var(--mute)}
+.tz-b1 .bp-go{display:inline-flex;align-items:center;gap:4px;font-size:13.5px;font-weight:700;white-space:nowrap}
+.tz-b1 .bp-go .g{width:14px;height:14px}
 .tz-b1 .lg-adds .btn-s{min-height:38px;padding:0 14px;font-size:14px;gap:8px}
 .tz-b1 .lg-r{display:grid;grid-template-columns:130px minmax(0,1fr) 150px 96px;gap:14px;align-items:center;min-height:48px;padding:7px 12px;border-top:1.5px solid var(--line);font-size:15.5px}
 .tz-b1 .lg-h{min-height:0;border-top:0;padding-block:4px 6px;font-size:12.5px;font-weight:700;color:var(--mute)}

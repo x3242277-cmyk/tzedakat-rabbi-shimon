@@ -184,14 +184,26 @@
     L.years.forEach(function (Y, yi) {
       var cy = +Y.civil || 0;
       if (cy) heb[cy] = Y.year;
+      // כל החיובים של חנות באותה תקופה הם דרישת תשלום אחת (סכום כולם). במערכת הקודמת תשלום חלקי נרשם כשני חיובים
+      // (החלק ששולם, ו"יתרת חוב" שלא שולמה), ובכרטסת זו דרישה אחת והתשלום שבוצע.
       ['ב', 'א'].forEach(function (h) {
-        var nominal = cy * 10000 + HALF_END[h];
+        var nominal = cy * 10000 + HALF_END[h], groups = {}, names = [];
         ((Y.halves || {})[h] || []).forEach(function (b, i) {
-          var act = 'lb:' + yi + ':' + h + ':' + i, dk = dkeyOf(b.paidOn), paid = b.legacy || b.status === 'שולם';
-          var d = dk && Math.floor(dk / 10000) === cy && dk < nominal ? dk : nominal;   // הדרישה לא מופיעה אחרי התשלום שלה
-          var info = [b.ref ? 'קבלה ' + b.ref : '', b.notes || '', b.legacy ? 'נרשם בשיטה הקודמת' : ''];
-          add(b.store, { k: 'charge', d: d, per: HALF_NAME[h], amt: +b.billed || 0, info: info, act: act, edit: b.legacy ? 'שיוך' : 'עריכה' });
-          if (paid) add(b.store, { k: 'payment', d: dk || d, date: b.paidOn, amt: +b.billed || 0, info: [b.method || '', 'עבור ' + HALF_NAME[h]], act: act, edit: b.legacy ? 'שיוך' : 'עריכה' });
+          var gr = groups[b.store], dk = dkeyOf(b.paidOn), paid = b.legacy || b.status === 'שולם', act = 'lb:' + yi + ':' + h + ':' + i;
+          if (!gr) { gr = groups[b.store] = { amt: 0, min: 0, refs: [], notes: [], idx: [], legacy: 0, pays: [] }; names.push(b.store); }
+          gr.amt += +b.billed || 0; gr.idx.push(i);
+          if (b.legacy) gr.legacy++;
+          if (b.ref && gr.refs.indexOf(b.ref) === -1) gr.refs.push(b.ref);
+          if (paid) {
+            if (dk && Math.floor(dk / 10000) === cy && (!gr.min || dk < gr.min)) gr.min = dk;
+            gr.pays.push({ k: 'payment', d: dk, date: b.paidOn, amt: +b.billed || 0, info: [b.method || '', b.notes || '', 'עבור ' + HALF_NAME[h], b.legacy ? 'נרשם בשיטה הקודמת' : ''], act: act, edit: b.legacy ? 'שיוך' : 'עריכה' });
+          } else if (b.notes) gr.notes.push(b.notes);
+        });
+        names.forEach(function (name) {
+          var gr = groups[name], d = gr.min && gr.min < nominal ? gr.min : nominal, one = gr.idx.length === 1;   // הדרישה לא מופיעה אחרי התשלום שלה
+          add(name, { k: 'charge', d: d, per: HALF_NAME[h], amt: r2(gr.amt), info: [gr.refs.length ? 'קבלה ' + gr.refs.join(', ') : ''].concat(one ? gr.notes : ['סך של ' + gr.idx.length + ' חיובים']),
+            act: one ? 'lb:' + yi + ':' + h + ':' + gr.idx[0] : 'lbs:' + yi + ':' + h + ':' + gr.idx.join(','), edit: one && gr.legacy ? 'שיוך' : 'עריכה' });
+          gr.pays.forEach(function (p) { if (!p.d) p.d = d; add(name, p); });
         });
       });
       (Y.loose || []).forEach(function (l, i) {
@@ -604,6 +616,15 @@
         fldH('תאריך התשלום', inH('b-date', b.paidOn || D.settings.todayLabel, 'inputmode="numeric" dir="ltr" style="text-align:right"') + g('calendar'), 'paid-only' + (b.status === 'שולם' ? '' : ' is-off'), 'b-date') +
         '<div class="fld"><span class="lb">קבלה</span><button type="button" class="btn btn-s btn-o upl" data-scr="demo:כאן בוחרים קובץ קבלה, PDF או תמונה (הדגמה)">' + (b.receipt ? 'החלפת הקבלה' : 'צירוף קבלה') + '</button></div>' +
         '<p class="err fld w2" id="' + P + 'ferr" role="alert"></p></div></div>' + foot('שמירת התשלום') + '</form>';
+    } else if (kind === 'billpick') {
+      var bpY = ledgerYears()[arg.yi] || {}, bpH = ((bpY.halves || {})[arg.h]) || [];
+      h = '<div class="sheet-s">' + X + '<h2 class="fh"><span class="lt">דרישת תשלום · ' + HALF_NAME[arg.h] + (bpY.civil ? ' ' + bpY.civil : '') + '</span>' + esc(arg.store) + '</h2>' +
+        '<p class="fnote">הדרישה הזאת היא סך של ' + arg.idx.length + ' חיובים שהוזנו בחלון התשלום לחנות. בוחרים איזה מהם לפתוח:</p><div class="bp-list">' +
+        arg.idx.map(function (i) {
+          var b = bpH[i] || {};
+          return '<button type="button" class="bp-i" data-scr="lbp:' + arg.yi + ':' + arg.h + ':' + i + '"><span class="bp-t"><b>' + nis(b.billed || 0) + '</b>' + (b.ref ? '<i>קבלה ' + esc(b.ref) + '</i>' : '') + (b.notes ? '<i>' + esc(b.notes) + '</i>' : '') + '</span>' +
+            '<span class="tag t-' + billTone(b.status) + '">' + esc(b.status || '') + '</span><span class="bp-go">' + (b.legacy ? 'שיוך' : 'עריכה') + g('chev') + '</span></button>';
+        }).join('') + '</div></div><div class="sheet-f"><button type="button" class="btn btn-o" data-close>סגירה</button></div>';
     } else if (kind === 'ledger') {
       var le = arg.e || {}, lk = arg.kind === 'payment' ? 'payment' : 'charge', lst = storeLedgers().map(function (s) { return s.store; });
       h = '<form data-form="ledger" novalidate><div class="sheet-s">' + X + '<h2 class="fh"><span class="lt">כרטסת חנות</span>' + (arg.store ? esc(arg.store) : 'שורה לחנות אחרת') + '</h2><div class="dform">' +
@@ -862,6 +883,9 @@
     if (a === 'form') { openForm(v); return; }
     if (a === 'credit-back') { FORM.step = 1; openForm('credit'); return; }
     if (a === 'gview') { SC.grants.view = v; SC.grants.editPkg = false; if (S.soon !== 'grants') go('grants'); else scrDraw(); if (v === 'pay') scrollToEl($('.scr-bar', id('scr'))); return; }
+    // דרישת תשלום שמורכבת מכמה חיובים: בוחרים איזה לפתוח
+    if (a === 'lbs') { X = v.split(':'); st = ((ledgerYears()[+X[0]] || {}).halves || {})[X[1]] || []; openForm('billpick', { yi: +X[0], h: X[1], idx: X[2].split(',').map(Number), store: (st[+X[2].split(',')[0]] || {}).store || '' }); return; }
+    if (a === 'lbp') { closeAll(); scrAct('lb:' + v, el); return; }
     if (a === 'le-new') { X = v.split(':'); openForm('ledger', { kind: X[0], store: X.slice(1).join(':') }); return; }
     if (a === 'le') { st = ledgerData().manual.filter(function (m) { return String(m.id) === v; })[0]; if (st) openForm('ledger', { kind: st.kind, store: st.store, e: st }); return; }
     if (a === 'le-del') { X = ledgerData().manual; st = X.map(function (m) { return String(m.id); }).indexOf(v); if (st > -1) X.splice(st, 1); closeAll(); toast('השורה נמחקה', 'check'); scrDraw(); return; }
