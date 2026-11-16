@@ -228,12 +228,16 @@
   }
   // חשבון מצטבר לכל חנות, על פני כל שנות המענקים: צפי, בפועל לפי קבלות, שולם ונשאר לשלם, עם פירוט לפי שנה.
   // תשלום מהשיטה הקודמת נספר כאן כתשלום ששולם לחנות גם אם עוד לא שויך למחצית: בחשבון מצטבר המחצית לא משנה.
+  var CUM_FROM = 'תשפ"ה';
   function safeCum(archive, yearsAsc, allYears) {
     try { return buildCumulative(archive, yearsAsc, allYears); } catch (e) { warn('grants cumulative', e); return null; }
   }
   function buildCumulative(archive, yearsAsc, allYears) {
     var order = yearsOrder(), years = yearsAsc.slice(), stores = {}, names = [], legacyOpen = 0, legacyCount = 0;
     arr(archive.payments).forEach(function (p) { var y = p && str(p.year); if (y && years.indexOf(y) === -1) years.push(y); });
+    // לפי הלקוח: החשבון המצטבר מתחיל בתשפ"ה. נתונים של שנים קודמות לא נכנסים אליו (הם נשארים שמורים, ורק לא נספרים כאן)
+    var fromIdx = order.indexOf(CUM_FROM);
+    years = years.filter(function (y) { var i = order.indexOf(y); return fromIdx === -1 || i === -1 || i >= fromIdx; });
     years.sort(function (a, b) { return order.indexOf(a) - order.indexOf(b); });
     // כל שמות החנויות המוכרים, מכל השנים: תשלום ישן שנרשם בשם ארוך ("אווניו 13 ביתר") משויך לחנות שבתכולה ("אווניו 13")
     var known = [];
@@ -284,7 +288,7 @@
       return S;
     });
     ['expected', 'billed', 'paid', 'debt'].forEach(function (k) { total[k] = r2(total[k]); });
-    return { years: years, stores: list, total: total, legacyOpen: r2(legacyOpen), legacyCount: legacyCount };
+    return { from: CUM_FROM, years: years, stores: list, total: total, legacyOpen: r2(legacyOpen), legacyCount: legacyCount };
   }
   function emptyGrants() { return { year: campaignYear(), years: [], recipients: [], 'package': [], halves: emptyHalves(), noHalf: 0 }; }
 

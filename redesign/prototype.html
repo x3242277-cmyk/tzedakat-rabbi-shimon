@@ -3185,7 +3185,7 @@ window.TZ_DATA = (function () {
     // 3. חשבון מצטבר: כל שנות המענקים יחד, עם פירוט לפי שנה בלחיצה על חנות
     var C = X.cum, cumH = '', CC = 'minmax(0,1.3fr) repeat(4,minmax(0,1fr)) 30px';
     if (C && C.stores.length) {
-      cumH = '<div class="scr-sec">' + shH(C.years.length > 1 ? 'מ' + esc(C.years[0]) + ' עד ' + esc(C.years[C.years.length - 1]) + ', כל השנים יחד' : 'כל מה שנרשם עד היום', 'חשבון מצטבר לחנות') +
+      cumH = '<div class="scr-sec">' + shH(C.years.length > 1 ? 'מ' + esc(C.years[0]) + ' עד ' + esc(C.years[C.years.length - 1]) + ', כל השנים יחד' : 'מ' + esc(C.from || C.years[0] || '') + ' והלאה', 'חשבון מצטבר לחנות') +
         tlH(CC, ['חנות', 'צפי', 'בפועל לפי קבלות', 'שולם', 'נשאר לשלם', ''], C.stores.map(function (s) {
           var open = !!SC.grants.cumOpen[s.store];
           return '<button type="button" class="trow' + (open ? ' is-open' : '') + '" data-scr="cum:' + esc(s.store) + '" aria-expanded="' + open + '">' + tc('חנות', '<b>' + esc(s.store) + '</b><i>' + (s.byYear.length === 1 ? 'שנה אחת' : s.byYear.length + ' שנים') + '</i>') +
@@ -3196,7 +3196,7 @@ window.TZ_DATA = (function () {
             }).join('') : '');
         }).join(''), 'tl-bills tl-acc tl-cum') +
         '<div class="tl-sum" style="--cols:' + CC + '"><span><b>סך הכול</b></span><span><b>' + nis(C.total.expected) + '</b></span><span><b>' + nis(C.total.billed) + '</b></span><span><b>' + nis(C.total.paid) + '</b></span><span><b>' + nis(C.total.debt) + '</b></span><span></span></div>' +
-        '<p class="scr-note">לחיצה על חנות מציגה את הפירוט לפי שנה. בצפי המצטבר נספרים כל החתנים של כל שנה, גם מי שאין לו תאריך.' + (C.legacyOpen ? ' הסכומים כוללים ' + nis(C.legacyOpen) + ' מתשלומים שנרשמו בשיטה הקודמת ועוד לא שויכו למחצית (' + C.legacyCount + ' תשלומים): בחשבון המצטבר הם נספרים כתשלום ששולם לחנות.' : '') + '</p></div>';
+        '<p class="scr-note">לחיצה על חנות מציגה את הפירוט לפי שנה.' + (C.from ? ' החשבון מתחיל ב' + esc(C.from) + ': שנים קודמות לא נספרות בו.' : '') + ' בצפי המצטבר נספרים כל החתנים של כל שנה, גם מי שאין לו תאריך.' + (C.legacyOpen ? ' הסכומים כוללים ' + nis(C.legacyOpen) + ' מתשלומים שנרשמו בשיטה הקודמת ועוד לא שויכו למחצית (' + C.legacyCount + ' תשלומים): בחשבון המצטבר הם נספרים כתשלום ששולם לחנות.' : '') + '</p></div>';
     }
     return factsH([['₪' + num(T.expected), 'צפי לשנה', grooms + ' חתנים × עלות החבילה'], ['₪' + num(T.billed), 'בפועל לפי קבלות', T.expected ? pctOf(T.billed, T.expected) + '% מהצפי' : 'מה שהחנויות חייבו'],
         ['₪' + num(T.paid), 'שולם', T.billed ? pctOf(T.paid, T.billed) + '% מהחיובים' : 'עדיין לא שולם'], ['₪' + num(T.debt), 'נשאר לשלם', T.debt ? 'חיובים שממתינים לתשלום' : 'אין חיובים פתוחים']]) +
