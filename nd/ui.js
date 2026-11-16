@@ -872,7 +872,8 @@ window.TZ_BODY="<svg width=\"0\" height=\"0\" style=\"position:absolute\" aria-h
           var d = dk && Math.floor(dk / 10000) === cy && dk < nominal ? dk : nominal;   // הדרישה לא מופיעה אחרי התשלום שלה
           var info = [b.ref ? 'קבלה ' + b.ref : '', b.notes || '', b.legacy ? 'נרשם בשיטה הקודמת' : ''];
           add(b.store, { k: 'charge', d: d, per: HALF_NAME[h], amt: +b.billed || 0, info: info, act: act, edit: b.legacy ? 'שיוך' : 'עריכה' });
-          if (paid) add(b.store, { k: 'payment', d: dk || d, date: b.paidOn, amt: +b.billed || 0, info: [b.method || '', 'עבור ' + HALF_NAME[h]], act: act, edit: b.legacy ? 'שיוך' : 'עריכה' });
+          // התשלום נשאר בשנה של החיוב (גם אם שולם בשנה הבאה), כדי שהיתרה של כל שנה תהיה נכונה. התאריך האמיתי מוצג בשורה
+          if (paid) add(b.store, { k: 'payment', d: dk && Math.floor(dk / 10000) === cy && dk >= d ? dk : d, date: b.paidOn, amt: +b.billed || 0, info: [b.method || '', 'עבור ' + HALF_NAME[h]], act: act, edit: b.legacy ? 'שיוך' : 'עריכה' });
         });
       });
       (Y.loose || []).forEach(function (l, i) {
@@ -884,9 +885,11 @@ window.TZ_BODY="<svg width=\"0\" height=\"0\" style=\"position:absolute\" aria-h
     // דרישת תשלום שנוספה בכרטסת שייכת לשנה ולתקופה שנבחרו (כמו חיוב מחלון התשלום); תשלום נרשם לפי התאריך שלו
     L.manual.forEach(function (m) {
       if (!m || !m.store) return;
-      var pay = m.kind === 'payment', cy = !pay && m.year && HALF_END[m.half] ? civilOfYear(m.year) : 0;
+      // תשלום שנבחרה לו שנה נרשם בשנה הזאת (בתאריך שלו אם הוא בתוכה, אחרת בסופה)
+      var pay = m.kind === 'payment', cy = m.year && (pay || HALF_END[m.half]) ? civilOfYear(m.year) : 0, dk = dkeyOf(m.date);
       if (cy && !heb[cy]) heb[cy] = m.year;
-      add(m.store, { k: pay ? 'payment' : 'charge', d: cy ? cy * 10000 + HALF_END[m.half] : dkeyOf(m.date), per: cy ? HALF_NAME[m.half] : '', date: m.date, amt: +m.amount || 0,
+      add(m.store, { k: pay ? 'payment' : 'charge', d: !cy ? dk : pay ? (dk && Math.floor(dk / 10000) === cy ? dk : cy * 10000 + 1231) : cy * 10000 + HALF_END[m.half],
+        per: cy && !pay ? HALF_NAME[m.half] : '', date: m.date, amt: +m.amount || 0,
         info: [pay ? m.method || '' : '', m.ref || '', m.note || ''], act: 'le:' + m.id, edit: 'עריכה' });
     });
     return order.map(function (name) {
@@ -1299,6 +1302,7 @@ window.TZ_BODY="<svg width=\"0\" height=\"0\" style=\"position:absolute\" aria-h
         fldH('שנה', '<select id="' + P + 'le-year">' + ledgerYearOpts().map(function (o) { return '<option value="' + esc(o[0]) + '"' + (o[0] === (le.year || D.grantsX.year) ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select>' + g('down'), 'chg-only' + (lk === 'charge' ? '' : ' is-off'), 'le-year') +
         fldH('תקופה', '<select id="' + P + 'le-half">' + [['ב', HALF_NAME['ב']], ['א', HALF_NAME['א']]].map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === (le.half || 'ב') ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>' + g('down'), 'chg-only' + (lk === 'charge' ? '' : ' is-off'), 'le-half') +
         fldH('תאריך התשלום', inH('le-date', le.date || D.settings.todayLabel, 'inputmode="numeric" dir="ltr" style="text-align:right"') + g('calendar'), 'pay-only' + (lk === 'payment' ? '' : ' is-off'), 'le-date') +
+        fldH('עבור שנה', '<select id="' + P + 'le-pyear"><option value="">לפי תאריך התשלום</option>' + ledgerYearOpts().map(function (o) { return '<option value="' + esc(o[0]) + '"' + (lk === 'payment' && o[0] === le.year ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select>' + g('down'), 'pay-only' + (lk === 'payment' ? '' : ' is-off'), 'le-pyear') +
         '<div class="fld amt"><label for="' + P + 'le-amt">סכום</label><div class="uin" dir="ltr"><span class="pre">₪</span><input id="' + P + 'le-amt" type="text" inputmode="decimal" value="' + (le.amount ? esc(le.amount) : '') + '" placeholder="0" autocomplete="off" style="text-align:left"></div></div>' +
         fldH('אמצעי תשלום', optH('le-method', ['העברה בנקאית', 'צ׳ק', 'מזומן', 'אשראי', 'אחר'], le.method || 'העברה בנקאית'), 'pay-only' + (lk === 'payment' ? '' : ' is-off'), 'le-method') +
         fldH('מס׳ קבלה / אסמכתה', inH('le-ref', le.ref || '', 'placeholder="לא חובה"'), '', 'le-ref') +
@@ -1456,7 +1460,7 @@ window.TZ_BODY="<svg width=\"0\" height=\"0\" style=\"position:absolute\" aria-h
       if (lpay && !isDate(ldate)) return formErr('התאריך צריך להיות בצורה יום/חודש/שנה');
       if (!lpay && (!val('le-year') || !val('le-half'))) return formErr('צריך לבחור שנה ותקופה');
       if (!(lamt > 0)) return formErr('צריך להזין סכום גדול מאפס');
-      var lent = { id: la.e ? la.e.id : '', store: lstore, kind: lk2, date: lpay ? ldate : '', year: lpay ? '' : val('le-year'), half: lpay ? '' : val('le-half'),
+      var lent = { id: la.e ? la.e.id : '', store: lstore, kind: lk2, date: lpay ? ldate : '', year: lpay ? val('le-pyear') : val('le-year'), half: lpay ? '' : val('le-half'),
         amount: lamt, method: lpay ? val('le-method') : '', ref: val('le-ref'), note: val('le-note') };
       if (HOST()) {
         hr = hcall('saveLedgerEntry', lent);

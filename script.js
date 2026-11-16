@@ -4790,6 +4790,12 @@ window.openStoreBillModal = function(billId, storeName = "") {
   storeBillFileCleared = false;
   setValue("store-bill-id", bill ? bill.bid : "");
   setValue("store-bill-store", bill ? bill.store : storeName);
+  // שנת המענקים של החיוב: אפשר להעביר חיוב שנרשם בשנה הלא נכונה לשנה אחרת
+  const yearSel = document.getElementById("store-bill-year");
+  if (yearSel) {
+    yearSel.innerHTML = getSortedGrantYears(archive).slice().reverse().map(y => `<option value="${escapeHtml(y)}">${escapeHtml(y)}</option>`).join("");
+    yearSel.value = year;
+  }
   setValue("store-bill-half", bill ? bill.half : (state.billsHalf || "א"));
   setValue("store-bill-amount", bill ? bill.amount : "");
   setValue("store-bill-ref", bill ? (bill.reference || "") : "");
@@ -4894,10 +4900,18 @@ window.saveStoreBill = async function() {
     receipt, createdAt: existing ? existing.createdAt : new Date().toISOString(), createdBy: existing ? existing.createdBy : (state.currentUser || ""),
     updatedAt: new Date().toISOString(), updatedBy: state.currentUser || "",
   };
+  // שנת המענקים שנבחרה בחלון. אם השתנתה, החיוב עובר לשנה החדשה ויוצא מהשנה הקודמת
+  const chosenYear = getValue("store-bill-year");
+  const toYear = chosenYear && getGrantsArchive().years[chosenYear] ? chosenYear : year;
   const p = mutateGrantsArchive(archive => {
-    if (!archive.years[year]) archive.years[year] = { recipients: [] };
-    if (!Array.isArray(archive.years[year].storeBills)) archive.years[year].storeBills = [];
-    const list = archive.years[year].storeBills;
+    Object.keys(archive.years || {}).forEach(y => {
+      if (y === toYear || !Array.isArray(archive.years[y].storeBills)) return;
+      const j = archive.years[y].storeBills.findIndex(b => b.bid === bid);
+      if (j !== -1) archive.years[y].storeBills.splice(j, 1);
+    });
+    if (!archive.years[toYear]) archive.years[toYear] = { recipients: [] };
+    if (!Array.isArray(archive.years[toYear].storeBills)) archive.years[toYear].storeBills = [];
+    const list = archive.years[toYear].storeBills;
     const i = list.findIndex(b => b.bid === bid);
     if (i === -1) list.push({ ...bill }); else list[i] = { ...bill };
   });
@@ -4906,8 +4920,8 @@ window.saveStoreBill = async function() {
   renderGrantsArchive();
   saveBtn.disabled = false; saveBtn.textContent = "שמור";
   const saved = await p;
-  reportSave(saved, existing ? "התשלום עודכן" : "התשלום לחנות נשמר");
-  logAudit(existing ? "update" : "create", "store-bill", bid, { year, half: bill.half, store, amount, paid, reference: bill.reference });
+  reportSave(saved, toYear !== year ? `התשלום הועבר לשנת ${toYear}` : existing ? "התשלום עודכן" : "התשלום לחנות נשמר");
+  logAudit(existing ? "update" : "create", "store-bill", bid, { year: toYear, ...(toYear !== year ? { fromYear: year } : {}), half: bill.half, store, amount, paid, reference: bill.reference });
   if (existing && existing.paid !== paid && paid) logAudit("paid", "store-bill", bid, { store, amount, method: bill.method, date: bill.paidDate });
   if (oldPath && (!receipt || receipt.path !== oldPath) && saved) SB.deleteReceipt(oldPath).catch(() => {});
 };

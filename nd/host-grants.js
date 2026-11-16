@@ -172,6 +172,18 @@
     window.renderGrantsArchive = function () { var r = f.apply(this, arguments); later(); return r; };
   })();
 
+  // חלון התשלום לחנות: כשבוחרים שנה אחרת, התוויות של המחציות מתעדכנות לשנים של אותה שנת מענקים
+  (function () {
+    var sel = _.el('store-bill-year');
+    if (!sel) return;
+    sel.addEventListener('change', function () {
+      try {
+        var y = str(sel.value), order = typeof HEBREW_YEARS_ORDER !== 'undefined' && Array.isArray(HEBREW_YEARS_ORDER) ? HEBREW_YEARS_ORDER : [], i = order.indexOf(y);
+        labelHalves(y, i > -1 ? order[i + 1] || '' : '');
+      } catch (e) { log(e); }
+    });
+  })();
+
   // חלונות של המנוע שנפתחים מעל העיצוב החדש חייבים להיות מחוץ למסך הישן (שמוסתר)
   ['store-bill-modal', 'legacy-assign-modal'].forEach(function (id) {
     var m = _.el(id);
@@ -483,7 +495,7 @@
       amount = Math.round(num(o.amount) * 100) / 100;
       if (!(amount > 0)) return no('צריך להזין סכום גדול מאפס');
       // דרישת תשלום שייכת לשנת מענקים ולתקופה (half: 'ב' = תשרי–אדר, 'א' = ניסן–אלול); תשלום נרשם לפי תאריך
-      year = kind === 'charge' ? str(o.year).trim() : '';
+      year = str(o.year).trim();   // בתשלום: רשות ("עבור שנה"); ריק = לפי תאריך התשלום
       half = kind === 'charge' && (o.half === 'א' || o.half === 'ב') ? o.half : '';
       if (kind === 'charge') {
         if (!year || !half) return no('צריך לבחור שנה ותקופה');
@@ -509,7 +521,7 @@
       if (p && typeof p.then === 'function') p.then(function (saved) {
         try {
           if (_.fn('reportSave')) window.reportSave(saved, old ? 'השורה עודכנה' : 'השורה נוספה לכרטסת');
-          if (_.fn('logAudit')) window.logAudit(old ? 'update' : 'create', 'store-ledger', id, { חנות: store, סוג: kind === 'payment' ? 'תשלום' : 'דרישת תשלום', תאריך: date, שנה: year, תקופה: half ? (half === 'א' ? 'ניסן–אלול' : 'תשרי–אדר') : '', סכום: amount });
+          if (_.fn('logAudit')) window.logAudit(old ? 'update' : 'create', 'store-ledger', id, { חנות: store, סוג: kind === 'payment' ? 'תשלום' : 'דרישת תשלום', תאריך: date, שנה: year || '', תקופה: half ? (half === 'א' ? 'ניסן–אלול' : 'תשרי–אדר') : '', סכום: amount });
         } catch (e) { log(e); }
       }, function () {});
       _.sync();

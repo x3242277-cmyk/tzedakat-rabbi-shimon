@@ -287,12 +287,12 @@
       ['א', 'ב'].forEach(function (half) {
         arr(window.getLegacyBillsForHalf(archive, selYear, half, storeNames)).forEach(function (b) { if (b) addBill(b.store, b.amount, true); });
       });
-      // שורות שנוספו ישירות בכרטסת החנות: דרישת תשלום נספרת בשנה שנבחרה לה; תשלום בשנת המענקים שהתאריך שלו נמצא בה
+      // שורות שנוספו ישירות בכרטסת החנות: נספרות בשנה שנבחרה להן; תשלום בלי שנה נספר בשנת המענקים שהתאריך שלו נמצא בה
       arr(archive.storeLedger).forEach(function (e) {
         if (!e || typeof e !== 'object') return;
         var s = trim(e.store), d = parseDate(e.date);
         if (!s) return;
-        if (e.kind !== 'payment' && e.year) { if (e.year !== selYear) return; }
+        if (e.year) { if (e.year !== selYear) return; }
         else if (!d || !isFn(window.getGrantHalf) || !window.getGrantHalf(d, selYear)) return;
         if (!(s in costPer) && extra.indexOf(s) === -1) extra.push(s);
         if (e.kind === 'payment') paid[s] = (paid[s] || 0) + num(e.amount);
