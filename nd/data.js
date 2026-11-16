@@ -491,10 +491,12 @@
       });
     }, []);
 
-    /* בחורים: תמיד לפי שנת הקמפיין, כמו רשימת הבחורים במערכת הקיימת */
+    /* בחורים: לפי השנה שנבחרה (ברירת המחדל היא שנת הקמפיין). כך הפקדות שנרשמו לשנה קודמת נראות ברשימה כשבוחרים את אותה שנה */
+    var listRows = selYear === campaignYear ? campaignRows
+      : safe('buildMemberSummaries ' + selYear, function () { return arr(window.buildMemberSummaries(selYear)); }, campaignRows);
     var rowById = dict();
     var members = safe('members', function () {
-      return campaignRows.map(function (r) {
+      return listRows.map(function (r) {
         var id = str(r.id), tKey = rowType(r), sLabel = shiurLabel(tKey, r.currentYearShiur);
         var collected = r2(r.collectedThisYear), base = r2(r.currentYearTarget), debt = r2(r.totalDebtFromPast);
         var required = r2(r.totalRequiredThisYear), gap = r2(r.missingAmount);

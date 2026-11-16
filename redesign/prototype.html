@@ -1582,6 +1582,10 @@
 .tz-b1 .tl-cum .trow-y{background:var(--grey-2);box-shadow:none;min-height:0;padding-block:8px;margin-inline-start:22px;font-size:14.5px}
 .tz-b1 .tl-cum .trow-y b{font-weight:700}
 
+/* ---------- בחורים: בחירת שנה ברשימה ---------- */
+.tz-b1 .yr-warn{display:inline-flex;align-items:center;gap:12px;padding:8px 16px;border-radius:999px;background:var(--bad-bg);color:var(--bad-ink);font-weight:700;font-size:14px}
+.tz-b1 .yr-warn .lnk{font-size:14px;color:var(--ink)}
+
 </style>
 <div class="tz-b1" id="tz-b1" dir="rtl" lang="he">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
@@ -2471,7 +2475,7 @@ window.TZ_DATA = (function () {
       (HOST() ? '<button type="button" class="pop-i" data-act="classic">' + g('list') + 'המסך הקודם</button>' : '') +
       '<button type="button" class="pop-i" data-act="logout">' + g('logout') + 'התנתקות</button>';
     var years = D.years && D.years.length ? D.years.slice() : D.yearly.map(function (y) { return y.year; }).reverse();
-    id('yearpop').innerHTML = '<div class="pop-h"><b>שנת הקמפיין</b>' + (HOST() ? 'מספרי לוח הבקרה מוצגים לפי השנה שנבחרה' : 'כל המספרים מוצגים לפי השנה שנבחרה') + '</div>' +
+    id('yearpop').innerHTML = '<div class="pop-h"><b>שנת הקמפיין</b>' + (HOST() ? 'לוח הבקרה ורשימת הבחורים מוצגים לפי השנה שנבחרה' : 'כל המספרים מוצגים לפי השנה שנבחרה') + '</div>' +
       (HOST() ? '' : '<button type="button" class="pop-i" data-yr="' + esc(D.settings.todayHebrewYear) + '">' + esc(D.settings.todayHebrewYear) + '<small>שנה חדשה</small></button>') +
       years.map(function (y) { return '<button type="button" class="pop-i' + (y === S.year ? ' is-on' : '') + '" data-yr="' + esc(y) + '">' + esc(y) + (y === D.settings.campaignYear ? '<small>קמפיין נוכחי</small>' : '') + '</button>'; }).join('');
     var tb = [['dashboard', 'grid', 'לוח בקרה'], ['members', 'user', 'בחורים'], ['transactions', 'list', 'תנועות'], ['grants', 'checkc', 'מענקים'], ['more', 'dots', 'עוד']];
@@ -2743,7 +2747,12 @@ window.TZ_DATA = (function () {
       return '<span class="sel' + (S[key] ? ' is-set' : '') + '"><select aria-label="' + label + '" data-sel="' + key + '"><option value="">' + label + ': הכול</option>' +
         opts.map(function (o) { return '<option' + (S[key] === o ? ' selected' : '') + '>' + esc(o) + '</option>'; }).join('') + '</select>' + g('down') + '</span>';
     }
-    id('filt2').innerHTML = sel('yeshiva', 'ישיבה', uniq('yeshiva')) + sel('city', 'עיר', uniq('city')) + sel('type', 'מסגרת', uniq('type')) +
+    var ysel = '';
+    if (HOST() && D.years && D.years.length) {
+      ysel = '<span class="sel is-set sel-year"><select aria-label="שנה" data-sel="year">' + D.years.map(function (y) { return '<option value="' + esc(y) + '"' + (y === S.year ? ' selected' : '') + '>שנה: ' + esc(y) + (y === D.settings.campaignYear ? ' (שנת הקמפיין)' : '') + '</option>'; }).join('') + '</select>' + g('down') + '</span>' +
+        (S.year !== D.settings.campaignYear ? '<span class="yr-warn">מוצגים נתוני ' + esc(S.year) + ', לא שנת הקמפיין<button type="button" class="lnk" data-yr="' + esc(D.settings.campaignYear) + '"><span>חזרה ל' + esc(D.settings.campaignYear) + '</span></button></span>' : '');
+    }
+    id('filt2').innerHTML = ysel + sel('yeshiva', 'ישיבה', uniq('yeshiva')) + sel('city', 'עיר', uniq('city')) + sel('type', 'מסגרת', uniq('type')) +
       '<label class="tog"><input type="checkbox" id="' + P + 'married"' + (S.married ? ' checked' : '') + '><span class="sw"></span>הצג נשואים</label>' +
       '<span class="sp" id="' + P + 'shown"></span>';
     var H = [['', ''], ['name', 'בחור'], ['yeshiva', 'ישיבה ושיעור'], ['collected', 'נאסף מתוך נדרש'], ['gap', 'פער'], ['pct', 'התקדמות'], ['status', 'סטטוס'], ['', '']];
@@ -2847,7 +2856,7 @@ window.TZ_DATA = (function () {
       '<p>' + (m.father ? 'בן ' + esc(m.father) + ' · ' : '') + '<b>' + esc(m.yeshiva || 'ללא ישיבה') + '</b> · ' + esc(m.frame) + (m.married ? ' · נשוי' : '') + '</p><div class="mh-tags">' + tags + '</div></div></div>' +
       '<div class="m-grid"><div class="m-col">' +
         '<div class="m-box"><div class="m-big"><span class="n" dir="ltr"><small>₪</small><span data-n="' + m.collected + '">' + num(m.collected) + '</span></span>' +
-          '<span class="l">נאסף השנה' + (m.hasTarget ? '<br><b>' + m.pct + '%</b> מתוך ' + nis(m.required) : '<br><b>ללא יעד</b>') + '</span></div>' +
+          '<span class="l">' + (HOST() && S.year !== D.settings.campaignYear ? 'נאסף ב' + esc(S.year) : 'נאסף השנה') + (m.hasTarget ? '<br><b>' + m.pct + '%</b> מתוך ' + nis(m.required) : '<br><b>ללא יעד</b>') + '</span></div>' +
           '<div class="trk" style="--p:' + Math.min(100, m.collected / scale * 100).toFixed(1) + '" role="img" aria-label="התקדמות ואבני דרך למתנות"><i></i>' +
           (m.hasTarget ? '<span class="rq" style="--x:' + (m.required / scale * 100).toFixed(1) + '" data-tip="סה״כ נדרש|₪' + num(m.required) + '"></span>' : '') + ms + '</div></div>' +
         '<div class="m-box"><h4>איך מחושב הנדרש</h4><div class="eq">' + eq + '</div>' + why + '</div>' +
@@ -2867,7 +2876,7 @@ window.TZ_DATA = (function () {
     var years = yearOpts();
     return '<h2><span class="lt">קופת הקמפיין</span>רישום הפקדה</h2><form class="dform" id="' + P + 'dform" novalidate>' +
       '<div class="fld"><label for="' + P + 'f-date">תאריך</label><div class="uin"><input id="' + P + 'f-date" type="text" inputmode="numeric" value="' + D.settings.todayLabel + '" dir="ltr" style="text-align:right">' + g('calendar') + '</div></div>' +
-      '<div class="fld"><label for="' + P + 'f-year">שייך לשנת</label><div class="uin"><select id="' + P + 'f-year">' + years.map(function (y) { return '<option>' + esc(y) + '</option>'; }).join('') + '</select>' + g('down') + '</div></div>' +
+      '<div class="fld"><label for="' + P + 'f-year">שייך לשנת</label><div class="uin"><select id="' + P + 'f-year">' + years.map(function (y) { return '<option' + (HOST() && y === S.year ? ' selected' : '') + '>' + esc(y) + '</option>'; }).join('') + '</select>' + g('down') + '</div></div>' +
       '<div class="fld w2" id="' + P + 'fld-m"><label for="' + P + 'f-member">בחור</label><div class="uin"><input id="' + P + 'f-member" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="' + P + 'ac" placeholder="מקלידים שם או ישיבה" autocomplete="off">' + g('search') + '</div><div class="ac" id="' + P + 'ac" role="listbox" hidden></div></div>' +
       '<div class="fld"><span class="lb" id="' + P + 'lb-method">אמצעי</span><div class="seg" role="radiogroup" aria-labelledby="' + P + 'lb-method">' +
         '<label><input type="radio" name="' + P + 'method" value="מזומן" checked>' + BRUSH + '<span>מזומן</span></label><label><input type="radio" name="' + P + 'method" value="אשראי">' + BRUSH + '<span>אשראי</span></label></div></div>' +
@@ -4275,7 +4284,8 @@ window.TZ_DATA = (function () {
     });
     root.addEventListener('change', function (e) {
       var t = e.target, k = t.getAttribute && t.getAttribute('data-sel');
-      if (k) { S[k] = t.value; renderFilters(); renderList(true); }
+      if (k === 'year') { if (t.value !== S.year) setYear(t.value); }
+      else if (k) { S[k] = t.value; renderFilters(); renderList(true); }
       else if (t.id === P + 'married') { S.married = t.checked; if (HOST()) { renderFilters(); renderList(true); } else if (t.checked) toast('בנתוני ההדגמה אין בחורים נשואים', 'info'); }
     });
     root.addEventListener('keydown', function (e) {

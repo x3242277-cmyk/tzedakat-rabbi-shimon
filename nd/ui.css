@@ -1572,3 +1572,7 @@ img{max-width:100%}
 .tz-b1 .tl-cum .trow.is-open > .g{transform:rotate(180deg)}
 .tz-b1 .tl-cum .trow-y{background:var(--grey-2);box-shadow:none;min-height:0;padding-block:8px;margin-inline-start:22px;font-size:14.5px}
 .tz-b1 .tl-cum .trow-y b{font-weight:700}
+
+/* ---------- בחורים: בחירת שנה ברשימה ---------- */
+.tz-b1 .yr-warn{display:inline-flex;align-items:center;gap:12px;padding:8px 16px;border-radius:999px;background:var(--bad-bg);color:var(--bad-ink);font-weight:700;font-size:14px}
+.tz-b1 .yr-warn .lnk{font-size:14px;color:var(--ink)}
