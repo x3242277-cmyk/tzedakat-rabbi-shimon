@@ -222,75 +222,56 @@
     halves['ב'].period = 'תשרי–אדר' + (next ? ' ' + next : ' של השנה שאחריה');
     halves['א'].label = 'מחצית א׳ · ' + halves['א'].period;
     halves['ב'].label = 'מחצית ב׳ · ' + halves['ב'].period;
-    return { year: year, nextYear: next, years: yearsAsc.slice().reverse(), recipients: recipients, 'package': pkg, halves: halves,
-      noHalf: counts.none,
-      cum: opts && opts.noCum ? null : safeCum(archive, yearsAsc, allYears) };   // חתנים בלי תאריך בשנה הזו: לא נכללים בצפי של אף מחצית
+    return { year: year, civil: civilOf(year), nextYear: next, years: yearsAsc.slice().reverse(), recipients: recipients, 'package': pkg, halves: halves,
+      noHalf: counts.none,   // חתנים בלי תאריך בשנה הזו: לא נכללים באף מחצית
+      ledger: opts && opts.noLedger ? null : safeLedger(archive, yearsAsc, allYears) };
   }
-  // חשבון מצטבר לכל חנות, על פני כל שנות המענקים: צפי, בפועל לפי קבלות, שולם ונשאר לשלם, עם פירוט לפי שנה.
-  // תשלום מהשיטה הקודמת נספר כאן כתשלום ששולם לחנות גם אם עוד לא שויך למחצית: בחשבון מצטבר המחצית לא משנה.
-  var CUM_FROM = 'תשפ"ה';
-  function safeCum(archive, yearsAsc, allYears) {
-    try { return buildCumulative(archive, yearsAsc, allYears); } catch (e) { warn('grants cumulative', e); return null; }
+  // השנה הלועזית של שנת מענקים: תשפ"ו -> 2026 (5786 פחות 3760). תווית שאינה שנה מוכרת -> 0
+  function civilOf(year) {
+    var n = 0;
+    try { if (typeof hebrewYearLabelToNumber === 'function') n = num(hebrewYearLabelToNumber(year)); } catch (e) { n = 0; }
+    if (!n) { var i = YEARS_FALLBACK.indexOf(year); n = i > -1 ? 5775 + i : 0; }
+    return n ? n - 3760 : 0;
   }
-  function buildCumulative(archive, yearsAsc, allYears) {
-    var order = yearsOrder(), years = yearsAsc.slice(), stores = {}, names = [], legacyOpen = 0, legacyCount = 0;
+  // חומר הגלם של הכרטסת לחנות: לכל שנת מענקים (מ-LEDGER_FROM והלאה) החיובים של שתי התקופות,
+  // ותשלומים מהשיטה הקודמת שעוד לא שויכו לתקופה. הכרטסת עצמה (סדר, יתרה מצטברת, שנה לועזית) נבנית במסך.
+  var LEDGER_FROM = 'תשפ"ה';   // לפי הלקוח: החשבון לחנות מתחיל בתשפ"ה. נתונים של שנים קודמות נשארים שמורים, ורק לא מוצגים בו
+  function safeLedger(archive, yearsAsc, allYears) {
+    try { return buildLedger(archive, yearsAsc, allYears); } catch (e) { warn('grants ledger', e); return null; }
+  }
+  function buildLedger(archive, yearsAsc, allYears) {
+    var order = yearsOrder(), years = yearsAsc.slice(), known = [];
     arr(archive.payments).forEach(function (p) { var y = p && str(p.year); if (y && years.indexOf(y) === -1) years.push(y); });
-    // לפי הלקוח: החשבון המצטבר מתחיל בתשפ"ה. נתונים של שנים קודמות לא נכנסים אליו (הם נשארים שמורים, ורק לא נספרים כאן)
-    var fromIdx = order.indexOf(CUM_FROM);
+    var fromIdx = order.indexOf(LEDGER_FROM);
     years = years.filter(function (y) { var i = order.indexOf(y); return fromIdx === -1 || i === -1 || i >= fromIdx; });
     years.sort(function (a, b) { return order.indexOf(a) - order.indexOf(b); });
     // כל שמות החנויות המוכרים, מכל השנים: תשלום ישן שנרשם בשם ארוך ("אווניו 13 ביתר") משויך לחנות שבתכולה ("אווניו 13")
-    var known = [];
     years.forEach(function (y) { try { Object.keys(storeCosts(archive, y)).forEach(function (n) { if (known.indexOf(n) === -1) known.push(n); }); } catch (e) {} });
-    years.forEach(function (y) {
-      var m = map0(), own;
+    var out = years.map(function (y) {
+      var halves = { 'א': [], 'ב': [] }, loose = [], names = [];
       if (allYears[y]) {
-        var g = buildGrants({ grantsYear: y, noCum: true });
+        var g = buildGrants({ grantsYear: y, noLedger: true });
         ['א', 'ב'].forEach(function (h) {
           arr(g.halves[h].bills).forEach(function (b) {
-            var s = m[b.store] || (m[b.store] = { expected: 0, billed: 0, paid: 0, legacy: 0 });
-            s.expected += num(b.expected);
-            if (b.status === 'טרם הוזן חיוב') return;
-            s.billed += num(b.billed); if (b.status === 'שולם') s.paid += num(b.billed);
-            if (b.legacy) s.legacy += num(b.billed);
+            if (names.indexOf(b.store) === -1) names.push(b.store);
+            if (b.status !== 'טרם הוזן חיוב') halves[h].push(b);
           });
         });
       }
-      // חתנים בלי תאריך (או עם תאריך שמחוץ לשנת המענקים) לא נספרים בצפי של אף מחצית, אבל בחשבון השנתי הם כן קיבלו חבילה
-      if (allYears[y] && g.noHalf) {
-        var cs = storeCosts(archive, y);
-        Object.keys(cs).forEach(function (name) { var s = m[name] || (m[name] = { expected: 0, billed: 0, paid: 0, legacy: 0 }); s.expected += num(cs[name]) * g.noHalf; });
-      }
-      own = Object.keys(m);
       try {
         if (typeof getGrantPaymentsForYear === 'function' && typeof getLegacyPaymentHalf === 'function') {
           arr(getGrantPaymentsForYear(archive, y)).forEach(function (p) {
-            if (!p || getLegacyPaymentHalf(archive, y, p)) return;       // המשויכים כבר נספרו בשורות המחצית
-            var name = typeof matchLegacyStoreName === 'function' ? matchLegacyStoreName(p.store, own.concat(names, known)) : str(p.store).trim(), amt = num(p.amount);
-            var s = m[name] || (m[name] = { expected: 0, billed: 0, paid: 0, legacy: 0 });
-            s.billed += amt; s.paid += amt; s.legacy += amt; legacyOpen += amt; legacyCount++;
+            if (!p || getLegacyPaymentHalf(archive, y, p)) return;       // המשויכים כבר נמצאים בשורות של התקופה
+            var name = typeof matchLegacyStoreName === 'function' ? matchLegacyStoreName(p.store, names.concat(known)) : str(p.store).trim();
+            loose.push({ id: typeof legacyPaymentKey === 'function' ? str(legacyPaymentKey(p)) : '', store: name, date: fmtDate(p.date), description: str(p.description), method: str(p.method), amount: r2(p.amount) });
           });
         }
-      } catch (e) { warn('grants cumulative legacy ' + y, e); }
-      Object.keys(m).forEach(function (name) {
-        var v = m[name], S = stores[name];
-        if (!v.expected && !v.billed) return;
-        if (!S) { S = stores[name] = { store: name, expected: 0, billed: 0, paid: 0, legacy: 0, byYear: [] }; names.push(name); }
-        S.expected += v.expected; S.billed += v.billed; S.paid += v.paid; S.legacy += v.legacy;
-        S.byYear.push({ year: y, expected: r2(v.expected), billed: r2(v.billed), paid: r2(v.paid), debt: r2(Math.max(0, v.billed - v.paid)), legacy: r2(v.legacy) });
-      });
+      } catch (e) { warn('grants ledger legacy ' + y, e); }
+      return { year: y, civil: civilOf(y), halves: halves, loose: loose };
     });
-    var total = { expected: 0, billed: 0, paid: 0, debt: 0 };
-    var list = names.map(function (name) {
-      var S = stores[name];
-      S.expected = r2(S.expected); S.billed = r2(S.billed); S.paid = r2(S.paid); S.legacy = r2(S.legacy); S.debt = r2(Math.max(0, S.billed - S.paid));
-      total.expected += S.expected; total.billed += S.billed; total.paid += S.paid; total.debt += S.debt;
-      return S;
-    });
-    ['expected', 'billed', 'paid', 'debt'].forEach(function (k) { total[k] = r2(total[k]); });
-    return { from: CUM_FROM, years: years, stores: list, total: total, legacyOpen: r2(legacyOpen), legacyCount: legacyCount };
+    return { from: LEDGER_FROM, years: out };
   }
-  function emptyGrants() { return { year: campaignYear(), years: [], recipients: [], 'package': [], halves: emptyHalves(), noHalf: 0 }; }
+  function emptyGrants() { var y = campaignYear(); return { year: y, civil: civilOf(y), years: [], recipients: [], 'package': [], halves: emptyHalves(), noHalf: 0, ledger: null }; }
 
   /* ---------- כתובות פורים ---------- */
   // 4 השנים האחרונות עד שנת הפעילות (כמו getPurimYearsToShow במצב הרגיל)

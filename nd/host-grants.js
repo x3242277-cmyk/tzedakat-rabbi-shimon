@@ -423,11 +423,19 @@
     /* --- תשלומים לחנויות: החלונות הקיימים --- */
     // { id } חיוב קיים · { store, half } חיוב חדש לחנות במחצית · { half } חנות אחרת · { legacyId } שיוך תשלום ישן למחצית
     openBill: safe(function (arg) {
-      var year, a, id, key, res, modal;
+      var year, a, id, key, res, modal, order;
       arg = arg && typeof arg === 'object' ? arg : {};
       if (!_.canEdit()) return no(NO_EDIT);
       if (!has('openStoreBillModal', 'openLegacyAssign', 'legacyPaymentKey', 'getGrantPaymentsForYear')) return no();
       year = useYear(); a = archive();
+      // הכרטסת מציגה חיובים מכל השנים: חיוב של שנה אחרת נפתח בחלון הקיים על השנה שלו, בלי להחליף את השנה שהמסך מציג.
+      // הפעולה הבאה מחזירה את המנוע לשנה המוצגת (useYear).
+      if (arg.year != null && arg.year !== '' && String(arg.year) !== year && a.years[String(arg.year)]) {
+        year = String(arg.year);
+        if (_.fn('selectGrantsArchiveYear')) window.selectGrantsArchiveYear(year); else st().grantsArchiveYear = year;
+      }
+      // התוויות של המחציות בחלון: תמיד של השנה שהחלון נפתח עליה (גם אחרי חלון קודם של שנה אחרת שנסגר בלי שמירה)
+      try { order = typeof HEBREW_YEARS_ORDER !== 'undefined' && Array.isArray(HEBREW_YEARS_ORDER) ? HEBREW_YEARS_ORDER : []; labelHalves(year, order.indexOf(year) > -1 ? order[order.indexOf(year) + 1] || '' : ''); } catch (e) { log(e); }
       key = arg.legacyId != null && arg.legacyId !== '' ? String(arg.legacyId) : null;
       id = arg.id != null && arg.id !== '' ? String(arg.id) : null;
       if (!key && id && !findBill(a, year, id) && findLegacy(a, year, id)) { key = id; id = null; }   // שורה מהשיטה הקודמת שנשלחה עם id

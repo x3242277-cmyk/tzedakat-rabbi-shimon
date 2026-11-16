@@ -1526,7 +1526,7 @@ img{max-width:100%}
 .tz-b1 .gi-tb .gi-more{display:block;background:none;color:var(--mute)}
 @media (max-width:640px){.tz-b1 .gi-tb > div{grid-template-columns:minmax(0,1fr) auto;row-gap:0}}
 
-/* ---------- מענקים: שנת המענקים, קיבוץ לפי מחצית, וחשבון לכל חנות ---------- */
+/* ---------- מענקים: שנת המענקים, קיבוץ לפי מחצית, וסיכום לפי חנות ---------- */
 .tz-b1 .g-span{display:flex;flex-wrap:wrap;align-items:center;gap:8px 22px;margin:0 0 22px;padding:12px 20px;border-radius:18px;background:var(--y-mist);border:1.5px solid var(--y-pale);font-size:14.5px;color:var(--ink-2)}
 .tz-b1 .g-span > b{font-size:16px;font-weight:800;color:var(--ink)}
 .tz-b1 .g-span span b{font-weight:700;color:var(--ink)}
@@ -1539,39 +1539,50 @@ img{max-width:100%}
 .tz-b1 .pos{color:var(--good-ink)}
 .tz-b1 .st-list{display:grid;gap:18px}
 .tz-b1 .st{padding:22px clamp(16px,2.4vw,28px) 18px}
-.tz-b1 .st .panel-h{align-items:center;margin-bottom:10px}
-.tz-b1 .st-r{display:grid;grid-template-columns:minmax(0,1.5fr) repeat(4,minmax(0,1fr)) 150px;gap:12px;align-items:center;padding:11px 10px;border-top:1.5px solid var(--line)}
-.tz-b1 .st-h{border-top:0;padding-bottom:6px;font-size:12.5px;font-weight:700;color:var(--mute)}
-.tz-b1 .st-t{border-top:2px solid var(--ink);background:var(--grey-2);border-radius:0 0 14px 14px}
-.tz-b1 .st-p{display:flex;flex-direction:column;gap:1px}
-.tz-b1 .st-p b{font-size:16px;font-weight:800}
-.tz-b1 .st-p i{font-size:13px;color:var(--mute)}
-.tz-b1 .st-c{font-size:15.5px}
-.tz-b1 .st-c i{color:var(--mute)}
-.tz-b1 .st-a{display:flex;justify-content:flex-end}
-.tz-b1 .st-bills{display:grid;gap:4px;padding:0 10px 12px;margin-inline-start:14px;border-inline-start:3px solid var(--y-pale)}
-.tz-b1 .st-bill{display:grid;grid-template-columns:minmax(0,1.6fr) auto minmax(0,1.2fr) minmax(0,1.2fr) auto;gap:12px;align-items:center;width:100%;padding:7px 12px;border-radius:12px;background:var(--grey-2);font-size:14px;text-align:start}
-.tz-b1 button.st-bill{cursor:pointer;transition:background .2s}
-.tz-b1 button.st-bill:hover,.tz-b1 button.st-bill:focus-visible{background:var(--y-mist)}
-.tz-b1 .st-b1{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px}
-.tz-b1 .st-b1 i,.tz-b1 .st-b2,.tz-b1 .st-b3{color:var(--mute);font-size:13px}
-.tz-b1 .st-b4{display:inline-flex;align-items:center;gap:4px;font-weight:700;font-size:13px;white-space:nowrap}
-.tz-b1 .st-b4 .g{width:14px;height:14px}
-@media (max-width:860px){
-  .tz-b1 .st-h{display:none}
-  .tz-b1 .st-r{grid-template-columns:repeat(2,minmax(0,1fr));row-gap:8px}
-  .tz-b1 .st-r .st-p,.tz-b1 .st-r .st-a{grid-column:1 / -1}
-  .tz-b1 .st-a{justify-content:flex-start}
-  .tz-b1 .st-c::before{content:attr(data-l);display:block;font-size:12px;font-weight:700;color:var(--mute)}
-  .tz-b1 .st-bill{grid-template-columns:minmax(0,1fr) auto}
-  .tz-b1 .st-b2,.tz-b1 .st-b3{grid-column:1 / -1}
-}
+.tz-b1 .st .panel-h{align-items:center;justify-content:flex-start;margin-bottom:10px}
+.tz-b1 .st .panel-h h3{margin-inline-end:auto}
+.tz-b1 .tl-acc .trow > .g{width:18px;height:18px;justify-self:end;transform:rotate(0)}
 
-/* ---------- מענקים: חשבון מצטבר לחנות ---------- */
-.tz-b1 .tl-cum .trow > .g{width:18px;height:18px;justify-self:end;transition:transform .25s}
-.tz-b1 .tl-cum .trow.is-open > .g{transform:rotate(180deg)}
-.tz-b1 .tl-cum .trow-y{background:var(--grey-2);box-shadow:none;min-height:0;padding-block:8px;margin-inline-start:22px;font-size:14.5px}
-.tz-b1 .tl-cum .trow-y b{font-weight:700}
+/* ---------- מענקים: כרטסת לחנות (חיוב, תשלום ויתרה מצטברת, לפי שנה לועזית) ---------- */
+.tz-b1 .lg-r{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,2.1fr) repeat(3,minmax(0,1fr)) 132px;gap:12px;align-items:center;min-height:52px;padding:8px 12px;border-top:1.5px solid var(--line);font-size:15.5px}
+.tz-b1 .lg-h{min-height:0;border-top:0;padding-block:4px 6px;font-size:12.5px;font-weight:700;color:var(--mute)}
+.tz-b1 .lg-y{display:flex;align-items:baseline;gap:10px;margin-top:12px;padding:7px 14px;border-radius:12px;background:var(--y-mist)}
+.tz-b1 .lg-y b{font-size:18px;font-weight:800}
+.tz-b1 .lg-y i{font-size:13.5px;color:var(--mute)}
+.tz-b1 .lg-y + .lg-r{border-top:0}
+.tz-b1 .lg-d{font-size:14.5px;color:var(--ink-2)}
+.tz-b1 .lg-d b{font-weight:800;color:var(--ink)}
+.tz-b1 .lg-d i,.tz-b1 .lg-none{color:var(--mute)}
+.tz-b1 .lg-x{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 12px}
+.tz-b1 .lg-x b{font-weight:700}
+.tz-b1 .lg-x i{font-size:13px;color:var(--mute)}
+.tz-b1 .lg-x i.neg{color:var(--bad-ink);font-weight:700}
+.tz-b1 .lg-c b{font-weight:800}
+.tz-b1 .lg-cr i{font-size:12.5px;color:var(--mute)}
+.tz-b1 .lg-pay .lg-x b,.tz-b1 .lg-both .lg-x b{font-weight:500}
+.tz-b1 .lg-a{display:flex;justify-content:flex-end}
+.tz-b1 .lg-a .btn-s{min-height:36px;padding:0 14px;font-size:13.5px;white-space:nowrap}
+.tz-b1 .lg-go{display:inline-flex;align-items:center;gap:4px;min-height:36px;padding:0 6px;font-size:13.5px;font-weight:700;white-space:nowrap;cursor:pointer}
+.tz-b1 .lg-go .g{width:14px;height:14px}
+.tz-b1 .lg-go:hover,.tz-b1 .lg-go:focus-visible{text-decoration:underline}
+.tz-b1 .lg-open,.tz-b1 .lg-sub{min-height:40px;font-size:14.5px;color:var(--ink-2)}
+.tz-b1 .lg-sub{border-top:1.5px dashed var(--line)}
+.tz-b1 .lg-sub .lg-c,.tz-b1 .lg-sub .lg-x b{font-weight:700}
+.tz-b1 .lg-tot{margin-top:12px;border-top:2px solid var(--ink);background:var(--grey-2);border-radius:0 0 14px 14px}
+.tz-b1 .lg-add{min-height:36px;padding:0 14px;font-size:13.5px}
+.tz-b1 .lg-none{margin:6px 12px 4px;font-size:15px}
+@media (max-width:860px){
+  .tz-b1 .lg-h{display:none}
+  .tz-b1 .lg-r{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px 12px;padding:10px 8px;min-height:0}
+  .tz-b1 .lg-d{grid-column:1 / 2}
+  .tz-b1 .lg-x{grid-column:2 / -1}
+  .tz-b1 .lg-d:empty{display:none}
+  .tz-b1 .lg-d:empty + .lg-x{grid-column:1 / -1}
+  .tz-b1 .lg-c::before{content:attr(data-l);display:block;font-size:12px;font-weight:700;color:var(--mute)}
+  .tz-b1 .lg-c:empty::before{content:none}
+  .tz-b1 .lg-a{grid-column:1 / -1;justify-content:flex-start}
+  .tz-b1 .lg-a:empty{display:none}
+}
 
 /* ---------- בחורים: בחירת שנה ברשימה ---------- */
 .tz-b1 .yr-warn{display:inline-flex;align-items:center;gap:12px;padding:8px 16px;border-radius:999px;background:var(--bad-bg);color:var(--bad-ink);font-weight:700;font-size:14px}
