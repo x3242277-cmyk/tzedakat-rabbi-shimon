@@ -141,7 +141,7 @@
           (st.editPkg ? '<label class="uin uin-s" dir="ltr"><span class="pre">₪</span><input type="text" inputmode="numeric" value="' + it.value + '" data-scrin="pkg:' + pi + ':' + ii + '" aria-label="שווי ' + esc(it.name) + '"></label>' : '<span>' + nis(it.value) + '</span>') + '</div>';
       }).join('') + '</div>';
     }).join('');
-    return '<div class="scr-2"><div>' + shH('מי קיבל השנה', 'מקבלי המענק', live && canE && has('importGrooms') ? '<button type="button" class="btn btn-s btn-o sh-btn" data-scr="form:gimport">' + g('list') + 'הדבקה מאקסל</button>' : '') +
+    return '<div class="scr-2"><div>' + shH('מי קיבל השנה', 'מקבלי המענק') +
       tlH('44px minmax(0,1.5fr) minmax(0,.9fr) minmax(0,1.1fr) minmax(0,.9fr) 96px ' + (live ? '80px' : '40px'), ['מס׳', 'שם ומשפחה', 'תעודת זהות', 'טלפון', 'תאריך', 'מחצית', ''], rows, 'tl-grooms') +
       '<p class="ml-foot">' + (X.recipients.length ? X.recipients.length + ' חתנים בשנת ' + esc(X.year) : 'עדיין לא נרשמו חתנים בשנת ' + esc(X.year)) + '</p></div>' +
       '<aside class="feed pkg-box"><div class="feed-h"><h3><span class="lt">שווי חבילה לחתן ' + nis(total) + '</span>מה מקבלים</h3>' +
@@ -538,14 +538,24 @@
   var SCREENS = {
     grants: {
       hero: function () { var gr = D.grants; return { slot: 'maanakim', sub: 'חבילת החתן, מי קיבל אותה, והתשלומים לחנויות.', stamp: [['מענקי חתנים', 'קמפיין ' + S.year, 'עזרת חתנים'], String(gr.grooms), 'חתנים'],
-        cta: '<button type="button" class="btn btn-k" data-scr="form:groom">הוספת חתן' + g('chev2') + '</button><button type="button" class="lnk" data-scr="gview:pay"><span>לתשלומים לחנויות</span>' + g('chev') + '</button>' }; },
+        cta: '<button type="button" class="btn btn-k" data-scr="form:groom">הוספת חתן' + g('chev2') + '</button><button type="button" class="lnk" data-go="payments"><span>לתשלומים לחנויות</span>' + g('chev') + '</button>' }; },
       body: function () {
         var st = SC.grants, gr = D.grants;
         return factsH([[D.grantsX.recipients.length, 'חתנים השנה', 'קיבלו חבילת חתן'], ['₪' + num(gr.packageValue), 'שווי חבילה', 'ביגוד, נעליים, מצעים וכלי בית'], ['₪' + num(gr.cost), 'עלות המענקים', gr.stores.length + ' חנויות בהסדר']]) +
-          '<div class="scr-bar">' + tabsH([['give', 'נתינת המענק'], ['pay', 'תשלומים לחנויות']], st.view, 'gview', 'תצוגה') + '<span class="scr-sp"></span>' +
+          '<div class="scr-bar"><span class="scr-sp"></span>' +
           selH('שנה', (D.grantsX.years.indexOf(D.grantsX.year) < 0 ? [D.grantsX.year] : []).concat(D.grantsX.years).map(function (y) { return [y, 'שנה: ' + y]; }), D.grantsX.year, 'gyear', true) +
           (HOST() && has('addGrantsYear') && D.grantsX.canEdit !== false ? rbtnH('form:gyear', 'הוספת שנת מענקים', g('plus')) : '') + rbtnH('demo:הקובץ מוכן להורדה (הדגמה)', 'ייצוא לקובץ', G_DOWNLOAD) + rbtnH('demo:הדף נשלח להדפסה (הדגמה)', 'הדפסה', G_PRINT) + '</div>' +
-          (st.view === 'give' ? grantSpan() + grantsGive() : grantsPay());
+          grantSpan() + grantsGive();
+      }
+    },
+    payments: {
+      hero: function () {
+        var X = D.grantsX, n = storeLedgers().length, add = (!HOST() || X.canEdit !== false) && (!HOST() || has('saveLedgerEntry'));
+        return { slot: 'coins', sub: 'כרטסת לכל חנות: דרישות תשלום, תשלומים ויתרה לכל שנה.', stamp: [['תשלומים לחנויות', 'קמפיין ' + S.year, 'עזרת חתנים'], String(n), 'חנויות'],
+          cta: (add ? '<button type="button" class="btn btn-k" data-scr="le-new:charge:">שורה חדשה בכרטסת' + g('chev2') + '</button>' : '') + '<button type="button" class="lnk" data-go="grants"><span>למענקים</span>' + g('chev') + '</button>' };
+      },
+      body: function () {
+        return '<div class="scr-bar"><span class="scr-sp"></span>' + rbtnH('demo:הקובץ מוכן להורדה (הדגמה)', 'ייצוא לקובץ', G_DOWNLOAD) + rbtnH('demo:הדף נשלח להדפסה (הדגמה)', 'הדפסה', G_PRINT) + '</div>' + grantsPay();
       }
     },
     purim: {
@@ -887,7 +897,7 @@
     if (a === 'demo') { toast(esc(v), 'check'); return; }
     if (a === 'form') { openForm(v); return; }
     if (a === 'credit-back') { FORM.step = 1; openForm('credit'); return; }
-    if (a === 'gview') { SC.grants.view = v; SC.grants.editPkg = false; if (S.soon !== 'grants') go('grants'); else scrDraw(); if (v === 'pay') scrollToEl($('.scr-bar', id('scr'))); return; }
+    if (a === 'gview') { SC.grants.editPkg = false; if (v === 'pay') { go('payments'); return; } SC.grants.view = 'give'; if (S.soon !== 'grants') go('grants'); else scrDraw(); return; }
     if (a === 'le-new') { X = v.split(':'); openForm('ledger', { kind: X[0], store: X.slice(1).join(':') }); return; }
     if (a === 'le') { st = ledgerData().manual.filter(function (m) { return String(m.id) === v; })[0]; if (st) openForm('ledger', { kind: st.kind, store: st.store, e: st }); return; }
     if (a === 'le-del') { X = ledgerData().manual; st = X.map(function (m) { return String(m.id); }).indexOf(v); if (st > -1) X.splice(st, 1); closeAll(); toast('השורה נמחקה', 'check'); scrDraw(); return; }
@@ -911,8 +921,8 @@
   // ייצוא והדפסה של המסך המוצג
   function hostTool(scr, print) {
     var st, X, gr;
-    if (scr === 'grants') {
-      st = SC.grants; X = D.grantsX;
+    if (scr === 'grants' || scr === 'payments') {
+      st = { view: scr === 'payments' ? 'pay' : 'give' }; X = D.grantsX;
       var both = ['א', 'ב'].reduce(function (all, h) { return all.concat(((X.halves[h] || {}).bills || []).map(function (b) { var c = {}, k; for (k in b) c[k] = b[k]; c.store = b.store + ' · מחצית ' + h + '׳'; return c; })); }, []);
       if (print) hdo('printReport', 'grants', { year: X.year, view: st.view, recipients: X.recipients, bills: both, halfLabel: halfPeriod(X.halves['א']) + ' · ' + halfPeriod(X.halves['ב']) });
       else if (st.view === 'give') hdo('exportGrants', 'recipients');

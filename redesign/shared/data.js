@@ -243,6 +243,7 @@ window.TZ_DATA = (function () {
     { key: 'dashboard', label: 'לוח בקרה', group: 'ראשי' },
     { key: 'members', label: 'בחורים', group: 'ניהול' },
     { key: 'grants', label: 'מענקים', group: 'ניהול' },
+    { key: 'payments', label: 'תשלומים לחנויות', group: 'ניהול' },
     { key: 'purim', label: 'כתובות פורים', group: 'ניהול' },
     { key: 'transactions', label: 'דו״ח תנועות', group: 'כספים' },
     { key: 'expenses', label: 'סיכום הוצאות', group: 'כספים' },

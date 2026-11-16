@@ -22,7 +22,7 @@
 
   var MAP = {
     dashboard: 'dashboard-screen', members: 'members-screen', transactions: 'daily-report-screen', expenses: 'expenses-summary-screen',
-    purim: 'purim-registration-screen', grants: 'grants-screen', rules: 'rules-screen', settings: 'settings-screen'
+    purim: 'purim-registration-screen', payments: 'grants-screen', grants: 'grants-screen', rules: 'rules-screen', settings: 'settings-screen'
   };
   var REV = {}; Object.keys(MAP).forEach(function (k) { REV[MAP[k]] = k; });
   var SET_TAB = { targets: 'targets', cats: 'categories', health: 'health', backup: 'backup', users: 'users', purim: 'purim-sums', audit: 'audit' };
@@ -286,6 +286,8 @@
       try {
         if (view === 'settings' && SET_TAB[hint] && fn('openSettingsTab')) window.openSettingsTab(SET_TAB[hint]);
         else window.switchScreen(MAP[view] || 'dashboard-screen', true);
+        // תשלומים לחנויות הם לשונית במסך המענקים הקודם
+        if (view === 'payments' && fn('switchGrantsView')) window.switchGrantsView('payments');
       } catch (e) {} finally { inGo = false; }
       try { window.scrollTo(0, 0); } catch (e) {}
       if (orig.showToast) orig.showToast('הפעולה הזאת עדיין נעשית במסך הקודם. לחזרה: הכפתור "לעיצוב החדש" בתחתית', 'success');

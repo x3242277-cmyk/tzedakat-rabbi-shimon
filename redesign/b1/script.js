@@ -285,7 +285,7 @@
       h = '<p class="rows-h"><b>' + gr.grooms + ' חתנים</b> קיבלו השנה חבילה בשווי ' + nis(gr.packageValue) + ' · עלות כוללת <b>' + nis(gr.cost) + '</b></p>' +
         gr.stores.map(function (s, i) {
           var p = Math.min(100, pc(s.paid, s.expected));
-          return srow('data-go="grants"', p + '<small>%</small>', p === 100 ? 'good' : p === 0 ? 'bad' : 'warn', esc(s.store), esc(s.status) + ' · ' + nis(s.paid) + ' מתוך ' + nis(s.expected), i);
+          return srow('data-go="payments"', p + '<small>%</small>', p === 100 ? 'good' : p === 0 ? 'bad' : 'warn', esc(s.store), esc(s.status) + ' · ' + nis(s.paid) + ' מתוך ' + nis(s.expected), i);
         }).join('');
       if (!gr.grooms && !gr.stores.length) h = '<p class="rows-h"><b>עדיין אין חתנים השנה.</b> כשיירשם חתן ראשון, התשלומים לחנויות יופיעו כאן.</p>';
     } else if (k === 'yeshivas') {

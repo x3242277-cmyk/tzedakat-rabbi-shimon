@@ -33,6 +33,7 @@
     { key: 'dashboard', label: 'לוח בקרה', group: 'ראשי' },
     { key: 'members', label: 'בחורים', group: 'ניהול' },
     { key: 'grants', label: 'מענקים', group: 'ניהול' },
+    { key: 'payments', label: 'תשלומים לחנויות', group: 'ניהול' },
     { key: 'purim', label: 'כתובות פורים', group: 'ניהול' },
     { key: 'transactions', label: 'דו״ח תנועות', group: 'כספים' },
     { key: 'expenses', label: 'סיכום הוצאות', group: 'כספים' },
@@ -615,7 +616,7 @@
       if (key === 'purim') return can.income;
       if (key === 'expenses') return can.expenses;
       if (key === 'transactions' || key === 'report') return can.income || can.expenses;
-      if (key === 'grants') return can.grants;
+      if (key === 'grants' || key === 'payments') return can.grants;
       if (key === 'settings') return can.admin;
       if (key === 'deposit' || key === 'member' || key === 'expense' || key === 'credit') return can.edit;
       return true;
