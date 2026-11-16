@@ -473,7 +473,7 @@
     // entry = { id? , store, kind: 'charge' (דרישת תשלום) | 'payment' (תשלום), date: 'dd/mm/yyyy', amount, method, ref, note }
     // נשמר דרך mutateGrantsArchive (מיזוג עם הגרסה שבשרת, תור כשאין חיבור). הפונקציה שבתוכה רצה פעמיים, ולכן מזהים לפי id.
     saveLedgerEntry: safe(function (o) {
-      var s = st(), id, old, rec, store, amount, date, kind, p, now, user;
+      var s = st(), id, old, rec, store, amount, date, kind, year, half, p, now, user;
       o = o && typeof o === 'object' ? o : {};
       if (!_.canEdit()) return no(NO_EDIT);
       if (!has('mutateGrantsArchive', 'generateId')) return no();
@@ -482,14 +482,23 @@
       kind = o.kind === 'payment' ? 'payment' : 'charge';
       amount = Math.round(num(o.amount) * 100) / 100;
       if (!(amount > 0)) return no('צריך להזין סכום גדול מאפס');
-      date = isoDate(o.date);
-      if (!date) return no(BAD_DATE);
+      // דרישת תשלום שייכת לשנת מענקים ולתקופה (half: 'ב' = תשרי–אדר, 'א' = ניסן–אלול); תשלום נרשם לפי תאריך
+      year = kind === 'charge' ? str(o.year).trim() : '';
+      half = kind === 'charge' && (o.half === 'א' || o.half === 'ב') ? o.half : '';
+      if (kind === 'charge') {
+        if (!year || !half) return no('צריך לבחור שנה ותקופה');
+        date = o.date ? isoDate(o.date) : '';
+        if (date === null) return no(BAD_DATE);
+      } else {
+        date = isoDate(o.date);
+        if (!date) return no(BAD_DATE);
+      }
       id = str(o.id);
       old = id ? ledgerOf(archive()).filter(function (e) { return str(e.id) === id; })[0] || null : null;
       if (id && !old) return no('השורה לא נמצאה. כדאי לרענן את הנתונים');
       if (!id) id = window.generateId('L');
       now = new Date().toISOString(); user = str(s.currentUser);
-      rec = { id: id, store: store, kind: kind, date: date, amount: amount, method: kind === 'payment' ? str(o.method).trim() : '', ref: str(o.ref).trim(), note: str(o.note).trim(),
+      rec = { id: id, store: store, kind: kind, date: date, year: year, half: half, amount: amount, method: kind === 'payment' ? str(o.method).trim() : '', ref: str(o.ref).trim(), note: str(o.note).trim(),
         createdAt: old ? str(old.createdAt) || now : now, createdBy: old ? str(old.createdBy) || user : user, updatedAt: now, updatedBy: user };
       p = window.mutateGrantsArchive(function (a) {
         if (!Array.isArray(a.storeLedger)) a.storeLedger = [];
@@ -500,7 +509,7 @@
       if (p && typeof p.then === 'function') p.then(function (saved) {
         try {
           if (_.fn('reportSave')) window.reportSave(saved, old ? 'השורה עודכנה' : 'השורה נוספה לכרטסת');
-          if (_.fn('logAudit')) window.logAudit(old ? 'update' : 'create', 'store-ledger', id, { חנות: store, סוג: kind === 'payment' ? 'תשלום' : 'דרישת תשלום', תאריך: date, סכום: amount });
+          if (_.fn('logAudit')) window.logAudit(old ? 'update' : 'create', 'store-ledger', id, { חנות: store, סוג: kind === 'payment' ? 'תשלום' : 'דרישת תשלום', תאריך: date, שנה: year, תקופה: half ? (half === 'א' ? 'ניסן–אלול' : 'תשרי–אדר') : '', סכום: amount });
         } catch (e) { log(e); }
       }, function () {});
       _.sync();

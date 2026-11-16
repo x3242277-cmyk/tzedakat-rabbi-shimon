@@ -844,6 +844,17 @@ window.TZ_BODY="<svg width=\"0\" height=\"0\" style=\"position:absolute\" aria-h
     return L;
   }
   function ledgerYears() { return ledgerData().years; }
+  // השנה הלועזית של שנת מענקים (תשפ"ו -> 2026)
+  function civilOfYear(label) {
+    var X = D.grantsX, m = X.yearsCivil || {}, hit = ledgerYears().filter(function (Y) { return Y.year === label; })[0];
+    return +(m[label] || (hit && hit.civil) || (label === X.year ? X.civil : 0)) || 0;
+  }
+  // השנים לבחירה בדרישת תשלום: כל שנות המענקים, מהחדשה לישנה
+  function ledgerYearOpts() {
+    var X = D.grantsX, list = (X.years && X.years.length ? X.years : [X.year]).slice();
+    if (list.indexOf(X.year) < 0) list.unshift(X.year);
+    return list.map(function (y) { var c = civilOfYear(y); return [y, c ? c + ' · ' + y : y]; });
+  }
   function storeLedgers() {
     var X = D.grantsX, L = ledgerData(), map = {}, order = [], seq = 0, heb = {};
     function S(name) { if (!map[name]) { map[name] = { store: name, e: [] }; order.push(name); } return map[name]; }
@@ -870,9 +881,13 @@ window.TZ_BODY="<svg width=\"0\" height=\"0\" style=\"position:absolute\" aria-h
         add(l.store, { k: 'payment', d: dk, date: l.date, amt: +l.amount || 0, info: [l.method || ''].concat(info), act: act, edit: 'שיוך' });
       });
     });
+    // דרישת תשלום שנוספה בכרטסת שייכת לשנה ולתקופה שנבחרו (כמו חיוב מחלון התשלום); תשלום נרשם לפי התאריך שלו
     L.manual.forEach(function (m) {
       if (!m || !m.store) return;
-      add(m.store, { k: m.kind === 'payment' ? 'payment' : 'charge', d: dkeyOf(m.date), date: m.date, amt: +m.amount || 0, info: [m.kind === 'payment' ? m.method || '' : '', m.ref || '', m.note || ''], act: 'le:' + m.id, edit: 'עריכה' });
+      var pay = m.kind === 'payment', cy = !pay && m.year && HALF_END[m.half] ? civilOfYear(m.year) : 0;
+      if (cy && !heb[cy]) heb[cy] = m.year;
+      add(m.store, { k: pay ? 'payment' : 'charge', d: cy ? cy * 10000 + HALF_END[m.half] : dkeyOf(m.date), per: cy ? HALF_NAME[m.half] : '', date: m.date, amt: +m.amount || 0,
+        info: [pay ? m.method || '' : '', m.ref || '', m.note || ''], act: 'le:' + m.id, edit: 'עריכה' });
     });
     return order.map(function (name) {
       var s = map[name], cur = null;
@@ -1281,7 +1296,9 @@ window.TZ_BODY="<svg width=\"0\" height=\"0\" style=\"position:absolute\" aria-h
       h = '<form data-form="ledger" novalidate><div class="sheet-s">' + X + '<h2 class="fh"><span class="lt">כרטסת חנות</span>' + (arg.store ? esc(arg.store) : 'שורה לחנות אחרת') + '</h2><div class="dform">' +
         '<div class="fld w2"><span class="lb">סוג השורה</span>' + segH('le-kind', [LE_KIND.charge, LE_KIND.payment], LE_KIND[lk]) + '</div>' +
         (arg.store ? '' : fldH('חנות', inH('le-store', '', 'list="' + P + 'le-stores" placeholder="שם החנות"') + '<datalist id="' + P + 'le-stores">' + lst.map(function (n) { return '<option value="' + esc(n) + '">'; }).join('') + '</datalist>', 'w2', 'le-store')) +
-        fldH('תאריך', inH('le-date', le.date || D.settings.todayLabel, 'inputmode="numeric" dir="ltr" style="text-align:right"') + g('calendar'), '', 'le-date') +
+        fldH('שנה', '<select id="' + P + 'le-year">' + ledgerYearOpts().map(function (o) { return '<option value="' + esc(o[0]) + '"' + (o[0] === (le.year || D.grantsX.year) ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select>' + g('down'), 'chg-only' + (lk === 'charge' ? '' : ' is-off'), 'le-year') +
+        fldH('תקופה', '<select id="' + P + 'le-half">' + [['ב', HALF_NAME['ב']], ['א', HALF_NAME['א']]].map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === (le.half || 'ב') ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>' + g('down'), 'chg-only' + (lk === 'charge' ? '' : ' is-off'), 'le-half') +
+        fldH('תאריך התשלום', inH('le-date', le.date || D.settings.todayLabel, 'inputmode="numeric" dir="ltr" style="text-align:right"') + g('calendar'), 'pay-only' + (lk === 'payment' ? '' : ' is-off'), 'le-date') +
         '<div class="fld amt"><label for="' + P + 'le-amt">סכום</label><div class="uin" dir="ltr"><span class="pre">₪</span><input id="' + P + 'le-amt" type="text" inputmode="decimal" value="' + (le.amount ? esc(le.amount) : '') + '" placeholder="0" autocomplete="off" style="text-align:left"></div></div>' +
         fldH('אמצעי תשלום', optH('le-method', ['העברה בנקאית', 'צ׳ק', 'מזומן', 'אשראי', 'אחר'], le.method || 'העברה בנקאית'), 'pay-only' + (lk === 'payment' ? '' : ' is-off'), 'le-method') +
         fldH('מס׳ קבלה / אסמכתה', inH('le-ref', le.ref || '', 'placeholder="לא חובה"'), '', 'le-ref') +
@@ -1434,11 +1451,13 @@ window.TZ_BODY="<svg width=\"0\" height=\"0\" style=\"position:absolute\" aria-h
       closeAll(); toast('התשלום ל' + esc(b.shop) + ' נשמר', 'check'); scrDraw();
     } else if (kind === 'ledger') {
       var la = FORM.arg || {}, lk2 = ($('input[name="' + P + 'le-kind"]:checked', id('fsheet')) || {}).value === LE_KIND.payment ? 'payment' : 'charge';
-      var lstore = la.store || val('le-store'), ldate = val('le-date'), lamt = Math.round(numIn(val('le-amt')) * 100) / 100;
+      var lstore = la.store || val('le-store'), ldate = val('le-date'), lamt = Math.round(numIn(val('le-amt')) * 100) / 100, lpay = lk2 === 'payment';
       if (!lstore) return formErr('צריך לכתוב את שם החנות');
-      if (!isDate(ldate)) return formErr('התאריך צריך להיות בצורה יום/חודש/שנה');
+      if (lpay && !isDate(ldate)) return formErr('התאריך צריך להיות בצורה יום/חודש/שנה');
+      if (!lpay && (!val('le-year') || !val('le-half'))) return formErr('צריך לבחור שנה ותקופה');
       if (!(lamt > 0)) return formErr('צריך להזין סכום גדול מאפס');
-      var lent = { id: la.e ? la.e.id : '', store: lstore, kind: lk2, date: ldate, amount: lamt, method: lk2 === 'payment' ? val('le-method') : '', ref: val('le-ref'), note: val('le-note') };
+      var lent = { id: la.e ? la.e.id : '', store: lstore, kind: lk2, date: lpay ? ldate : '', year: lpay ? '' : val('le-year'), half: lpay ? '' : val('le-half'),
+        amount: lamt, method: lpay ? val('le-method') : '', ref: val('le-ref'), note: val('le-note') };
       if (HOST()) {
         hr = hcall('saveLedgerEntry', lent);
         if (hr.classic) return true;
@@ -1575,7 +1594,11 @@ window.TZ_BODY="<svg width=\"0\" height=\"0\" style=\"position:absolute\" aria-h
       var t = e.target, a = t.getAttribute && (t.getAttribute('data-scrsel') || t.getAttribute('data-scrtog')), p, m;
       // תשלום לחנות: אמצעי ותאריך מוצגים רק כשמסמנים "שולם"
       if (t.getAttribute && t.getAttribute('data-plan') === 'mode') { planRead(); scrDraw(); return; }
-      if (t.name === P + 'le-kind') { $$('.pay-only', id('fsheet')).forEach(function (f) { f.classList.toggle('is-off', t.value !== LE_KIND.payment); }); return; }
+      if (t.name === P + 'le-kind') {
+        $$('.pay-only', id('fsheet')).forEach(function (f) { f.classList.toggle('is-off', t.value !== LE_KIND.payment); });
+        $$('.chg-only', id('fsheet')).forEach(function (f) { f.classList.toggle('is-off', t.value === LE_KIND.payment); });
+        return;
+      }
       if (t.name === P + 'b-paid') { $$('.paid-only', id('fsheet')).forEach(function (f) { f.classList.toggle('is-off', t.value !== 'שולם'); }); return; }
       if (!a) return;
       if (a === 'method') { SC.transactions.method = t.value; scrDraw(); }

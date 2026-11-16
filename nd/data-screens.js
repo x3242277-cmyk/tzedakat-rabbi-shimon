@@ -222,7 +222,9 @@
     halves['ב'].period = 'תשרי–אדר' + (next ? ' ' + next : ' של השנה שאחריה');
     halves['א'].label = 'מחצית א׳ · ' + halves['א'].period;
     halves['ב'].label = 'מחצית ב׳ · ' + halves['ב'].period;
-    return { year: year, civil: civilOf(year), nextYear: next, years: yearsAsc.slice().reverse(), recipients: recipients, 'package': pkg, halves: halves,
+    var yearsCivil = {};
+    yearsAsc.forEach(function (y) { yearsCivil[y] = civilOf(y); });
+    return { year: year, civil: civilOf(year), yearsCivil: yearsCivil, nextYear: next, years: yearsAsc.slice().reverse(), recipients: recipients, 'package': pkg, halves: halves,
       noHalf: counts.none,   // חתנים בלי תאריך בשנה הזו: לא נכללים באף מחצית
       ledger: opts && opts.noLedger ? null : safeLedger(archive, yearsAsc, allYears) };
   }
@@ -272,6 +274,7 @@
     // שורות שנוספו ישירות בכרטסת (דרישת תשלום או תשלום, עם תאריך). מוצגות כולן, בלי קשר לשנת המענקים
     var manual = arr(archive.storeLedger).filter(function (e) { return e && typeof e === 'object' && str(e.store).trim(); }).map(function (e) {
       return { id: str(e.id), store: str(e.store).trim(), kind: e.kind === 'payment' ? 'payment' : 'charge', date: fmtDate(e.date), amount: r2(e.amount),
+        year: str(e.year), half: e.half === 'א' || e.half === 'ב' ? e.half : '',
         method: str(e.method), ref: str(e.ref), note: str(e.note), by: str(e.updatedBy || e.createdBy) };
     });
     return { from: LEDGER_FROM, years: out, manual: manual };
