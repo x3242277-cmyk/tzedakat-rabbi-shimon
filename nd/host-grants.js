@@ -99,6 +99,16 @@
     return function () { if (raw) { e.value = ''; e.type = 'date'; } };
   }
 
+  // שנת המענקים רצה מניסן של השנה עד אדר של השנה שאחריה, ולכן לכל מחצית יש שנה משלה
+  function labelHalves(year, next) {
+    var pa = 'ניסן–אלול ' + year, pb = 'תשרי–אדר' + (next ? ' ' + next : ''), sel = _.el('store-bill-half'), tg, lg;
+    if (sel && sel.options.length >= 2) { sel.options[0].textContent = "מחצית א' · " + pa; sel.options[1].textContent = "מחצית ב' · " + pb; }
+    tg = document.querySelectorAll('#bills-half-toggle .grants-view-btn');
+    if (tg.length >= 2) { tg[0].textContent = "מחצית א' · " + pa; tg[1].textContent = "מחצית ב' · " + pb; }
+    lg = document.querySelectorAll('.legacy-assign-option[data-half] span');
+    if (lg.length >= 2) { lg[0].textContent = pa; lg[1].textContent = pb; }
+  }
+
   /* ---------- ייבוא רשימה ---------- */
   function digitsOf(v) { return str(v).replace(/\D/g, ''); }
   function nameKey(v) { return str(v).replace(/["'׳״.\-]/g, '').replace(/\s+/g, ' ').trim(); }
@@ -187,6 +197,9 @@
 
     // מי רשאי לערוך: אותו תנאי של המסך הישן
     X.canEdit = _.canEdit();
+
+    // התוויות של המחציות בחלונות הקיימים (תשלום לחנות, שיוך תשלום ישן, המסך הקודם): עם השנים של שנת המענקים המוצגת
+    try { labelHalves(year, X.nextYear); } catch (e) { log(e); }
 
     // תשלומים מהשיטה הקודמת שעוד לא שויכו למחצית (הלוח "תשלומים שנרשמו בשיטה הקודמת")
     X.legacy = [];

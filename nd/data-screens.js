@@ -216,7 +216,13 @@
       halves[half].bills = rows;
     });
 
-    return { year: year, years: yearsAsc.slice().reverse(), recipients: recipients, 'package': pkg, halves: halves,
+    // שנת המענקים נקראת על שם השנה שבה היא מתחילה, ונמשכת מניסן שלה עד אדר של השנה שאחריה
+    var order = yearsOrder(), yi = order.indexOf(year), next = yi > -1 && order[yi + 1] ? order[yi + 1] : '';
+    halves['א'].period = 'ניסן–אלול ' + year;
+    halves['ב'].period = 'תשרי–אדר' + (next ? ' ' + next : ' של השנה שאחריה');
+    halves['א'].label = 'מחצית א׳ · ' + halves['א'].period;
+    halves['ב'].label = 'מחצית ב׳ · ' + halves['ב'].period;
+    return { year: year, nextYear: next, years: yearsAsc.slice().reverse(), recipients: recipients, 'package': pkg, halves: halves,
       noHalf: counts.none };   // חתנים בלי תאריך בשנה הזו: לא נכללים בצפי של אף מחצית
   }
   function emptyGrants() { return { year: campaignYear(), years: [], recipients: [], 'package': [], halves: emptyHalves(), noHalf: 0 }; }

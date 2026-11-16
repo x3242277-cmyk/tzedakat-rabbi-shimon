@@ -1525,3 +1525,44 @@ img{max-width:100%}
 .tz-b1 .gi-tb > div{display:grid;grid-template-columns:minmax(0,1.5fr) 110px 100px 110px;gap:12px;padding:5px 12px;border-radius:10px;background:var(--grey-2)}
 .tz-b1 .gi-tb .gi-more{display:block;background:none;color:var(--mute)}
 @media (max-width:640px){.tz-b1 .gi-tb > div{grid-template-columns:minmax(0,1fr) auto;row-gap:0}}
+
+/* ---------- מענקים: שנת המענקים, קיבוץ לפי מחצית, וחשבון לכל חנות ---------- */
+.tz-b1 .g-span{display:flex;flex-wrap:wrap;align-items:center;gap:8px 22px;margin:0 0 22px;padding:12px 20px;border-radius:18px;background:var(--y-mist);border:1.5px solid var(--y-pale);font-size:14.5px;color:var(--ink-2)}
+.tz-b1 .g-span > b{font-size:16px;font-weight:800;color:var(--ink)}
+.tz-b1 .g-span span b{font-weight:700;color:var(--ink)}
+.tz-b1 .trow-g{display:flex;align-items:baseline;gap:12px;padding:16px 14px 6px;font-size:14px;color:var(--mute)}
+.tz-b1 .trow-g b{font-size:16px;font-weight:800;color:var(--ink)}
+.tz-b1 .trow-g i{margin-inline-start:auto;font-weight:700}
+.tz-b1 .tl-l > .trow-g:first-child{padding-top:4px}
+.tz-b1 .tl-acc .trow{cursor:pointer}
+.tz-b1 .neg{color:var(--bad-ink)}
+.tz-b1 .pos{color:var(--good-ink)}
+.tz-b1 .st-list{display:grid;gap:18px}
+.tz-b1 .st{padding:22px clamp(16px,2.4vw,28px) 18px}
+.tz-b1 .st .panel-h{align-items:center;margin-bottom:10px}
+.tz-b1 .st-r{display:grid;grid-template-columns:minmax(0,1.5fr) repeat(4,minmax(0,1fr)) 150px;gap:12px;align-items:center;padding:11px 10px;border-top:1.5px solid var(--line)}
+.tz-b1 .st-h{border-top:0;padding-bottom:6px;font-size:12.5px;font-weight:700;color:var(--mute)}
+.tz-b1 .st-t{border-top:2px solid var(--ink);background:var(--grey-2);border-radius:0 0 14px 14px}
+.tz-b1 .st-p{display:flex;flex-direction:column;gap:1px}
+.tz-b1 .st-p b{font-size:16px;font-weight:800}
+.tz-b1 .st-p i{font-size:13px;color:var(--mute)}
+.tz-b1 .st-c{font-size:15.5px}
+.tz-b1 .st-c i{color:var(--mute)}
+.tz-b1 .st-a{display:flex;justify-content:flex-end}
+.tz-b1 .st-bills{display:grid;gap:4px;padding:0 10px 12px;margin-inline-start:14px;border-inline-start:3px solid var(--y-pale)}
+.tz-b1 .st-bill{display:grid;grid-template-columns:minmax(0,1.6fr) auto minmax(0,1.2fr) minmax(0,1.2fr) auto;gap:12px;align-items:center;width:100%;padding:7px 12px;border-radius:12px;background:var(--grey-2);font-size:14px;text-align:start}
+.tz-b1 button.st-bill{cursor:pointer;transition:background .2s}
+.tz-b1 button.st-bill:hover,.tz-b1 button.st-bill:focus-visible{background:var(--y-mist)}
+.tz-b1 .st-b1{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px}
+.tz-b1 .st-b1 i,.tz-b1 .st-b2,.tz-b1 .st-b3{color:var(--mute);font-size:13px}
+.tz-b1 .st-b4{display:inline-flex;align-items:center;gap:4px;font-weight:700;font-size:13px;white-space:nowrap}
+.tz-b1 .st-b4 .g{width:14px;height:14px}
+@media (max-width:860px){
+  .tz-b1 .st-h{display:none}
+  .tz-b1 .st-r{grid-template-columns:repeat(2,minmax(0,1fr));row-gap:8px}
+  .tz-b1 .st-r .st-p,.tz-b1 .st-r .st-a{grid-column:1 / -1}
+  .tz-b1 .st-a{justify-content:flex-start}
+  .tz-b1 .st-c::before{content:attr(data-l);display:block;font-size:12px;font-weight:700;color:var(--mute)}
+  .tz-b1 .st-bill{grid-template-columns:minmax(0,1fr) auto}
+  .tz-b1 .st-b2,.tz-b1 .st-b3{grid-column:1 / -1}
+}
