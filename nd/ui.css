@@ -1546,13 +1546,6 @@ img{max-width:100%}
 /* ---------- מענקים: כרטסת לחנות (דרישת תשלום, תשלום, ויתרה בסוף) ---------- */
 .tz-b1 .st-list{max-width:940px}
 .tz-b1 .lg-adds{display:flex;flex-wrap:wrap;gap:8px}
-.tz-b1 .bp-list{display:grid;gap:8px;margin-top:16px}
-.tz-b1 .bp-i{display:flex;align-items:center;gap:12px;width:100%;padding:12px 16px;border-radius:14px;background:var(--grey-2);font-size:15.5px;text-align:start;cursor:pointer;transition:background .2s}
-.tz-b1 .bp-i:hover,.tz-b1 .bp-i:focus-visible{background:var(--y-mist)}
-.tz-b1 .bp-t{flex:1;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px}
-.tz-b1 .bp-t i{font-size:13.5px;color:var(--mute)}
-.tz-b1 .bp-go{display:inline-flex;align-items:center;gap:4px;font-size:13.5px;font-weight:700;white-space:nowrap}
-.tz-b1 .bp-go .g{width:14px;height:14px}
 .tz-b1 .lg-adds .btn-s{min-height:38px;padding:0 14px;font-size:14px;gap:8px}
 .tz-b1 .lg-r{display:grid;grid-template-columns:130px minmax(0,1fr) 150px 96px;gap:14px;align-items:center;min-height:48px;padding:7px 12px;border-top:1.5px solid var(--line);font-size:15.5px}
 .tz-b1 .lg-h{min-height:0;border-top:0;padding-block:4px 6px;font-size:12.5px;font-weight:700;color:var(--mute)}
@@ -1573,11 +1566,11 @@ img{max-width:100%}
 .tz-b1 .lg-go{display:inline-flex;align-items:center;gap:4px;min-height:36px;padding:0 6px;font-size:13.5px;font-weight:700;white-space:nowrap;cursor:pointer}
 .tz-b1 .lg-go .g{width:14px;height:14px}
 .tz-b1 .lg-go:hover,.tz-b1 .lg-go:focus-visible{text-decoration:underline}
-.tz-b1 .lg-tot{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:10px 34px;margin-top:12px;padding:14px 16px;border-top:2px solid var(--ink);background:var(--grey-2);border-radius:0 0 14px 14px}
+.tz-b1 .lg-tot{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:10px 34px;margin:4px 0 10px;padding:10px 16px;border-top:2px solid var(--ink);background:var(--grey-2);border-radius:0 0 14px 14px}
 .tz-b1 .lg-tot span{display:flex;flex-direction:column;align-items:flex-end;gap:1px}
 .tz-b1 .lg-tot i{font-size:12.5px;font-weight:700;color:var(--mute)}
 .tz-b1 .lg-tot b{font-size:17px;font-weight:800}
-.tz-b1 .lg-tot .lg-bal b{font-size:21px}
+.tz-b1 .lg-tot .lg-bal b{font-size:19px}
 .tz-b1 .lg-none{margin:6px 12px 4px;font-size:15px}
 .tz-b1 .sheet-f .le-del{margin-inline-start:auto;color:var(--bad-ink);box-shadow:inset 0 0 0 1.5px var(--bad-ink)}
 @media (max-width:860px){
