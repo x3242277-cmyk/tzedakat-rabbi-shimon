@@ -25,7 +25,7 @@
   var PERMS = [['canEdit', 'הוספה ועריכה'], ['canViewIncome', 'הכנסות ופורים'], ['canViewExpenses', 'הוצאות'], ['canViewGrants', 'מענקים'], ['canViewHistory', 'היסטוריית זכאות']];
   var ACTIONS = { create: 'הוספה', update: 'עדכון', 'delete': 'מחיקה', 'import': 'ייבוא', paid: 'סימון תשלום', upload: 'העלאת קבלה' };
   var ENTITIES = { member: 'בחור', donation: 'הפקדה', expense: 'הוצאה', purim: 'כתובות פורים', settings: 'הגדרות', 'expense-category': 'קטגוריית הוצאה',
-    'grant-recipient': 'מקבל מענק', 'grant-package': 'תכולת מענק', 'grant-year': 'שנת מענקים', 'store-bill': 'תשלום לחנות', backup: 'גיבוי', profile: 'הרשאות משתמש' };
+    'grant-recipient': 'מקבל מענק', 'grant-package': 'תכולת מענק', 'grant-year': 'שנת מענקים', 'store-bill': 'תשלום לחנות', 'store-ledger': 'כרטסת חנות', backup: 'גיבוי', profile: 'הרשאות משתמש' };
   var SHIURIM = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח', 'ט'];
 
   /* ---------- עזרים כלליים ---------- */
@@ -269,7 +269,12 @@
       } catch (e) { warn('grants ledger legacy ' + y, e); }
       return { year: y, civil: civilOf(y), halves: halves, loose: loose };
     });
-    return { from: LEDGER_FROM, years: out };
+    // שורות שנוספו ישירות בכרטסת (דרישת תשלום או תשלום, עם תאריך). מוצגות כולן, בלי קשר לשנת המענקים
+    var manual = arr(archive.storeLedger).filter(function (e) { return e && typeof e === 'object' && str(e.store).trim(); }).map(function (e) {
+      return { id: str(e.id), store: str(e.store).trim(), kind: e.kind === 'payment' ? 'payment' : 'charge', date: fmtDate(e.date), amount: r2(e.amount),
+        method: str(e.method), ref: str(e.ref), note: str(e.note), by: str(e.updatedBy || e.createdBy) };
+    });
+    return { from: LEDGER_FROM, years: out, manual: manual };
   }
   function emptyGrants() { var y = campaignYear(); return { year: y, civil: civilOf(y), years: [], recipients: [], 'package': [], halves: emptyHalves(), noHalf: 0, ledger: null }; }
 

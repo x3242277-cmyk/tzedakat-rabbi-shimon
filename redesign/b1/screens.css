@@ -219,7 +219,7 @@
   .cframe b{font-size:19px;font-weight:800}
   .cframe i{font-size:14.5px;font-weight:300;max-width:42ch}
   .upl{align-self:flex-start;margin-top:8px}
-  .paid-only.is-off{display:none}
+  .paid-only.is-off,.pay-only.is-off{display:none}
   .fsheet > .sheet-s{flex:1;min-height:0}
   .route{margin-top:20px;gap:10px}
   .route li{grid-template-columns:44px minmax(0,1fr);font-size:14.5px;color:var(--ink-2)}
@@ -518,45 +518,45 @@
 .tz-b1 .st .panel-h h3{margin-inline-end:auto}
 .tz-b1 .tl-acc .trow > .g{width:18px;height:18px;justify-self:end;transform:rotate(0)}
 
-/* ---------- מענקים: כרטסת לחנות (חיוב, תשלום ויתרה מצטברת, לפי שנה לועזית) ---------- */
-.tz-b1 .lg-r{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,2.1fr) repeat(3,minmax(0,1fr)) 132px;gap:12px;align-items:center;min-height:52px;padding:8px 12px;border-top:1.5px solid var(--line);font-size:15.5px}
+/* ---------- מענקים: כרטסת לחנות (דרישת תשלום, תשלום, ויתרה בסוף) ---------- */
+.tz-b1 .lg-adds{display:flex;flex-wrap:wrap;gap:8px}
+.tz-b1 .lg-adds .btn-s{min-height:38px;padding:0 14px;font-size:14px;gap:8px}
+.tz-b1 .lg-r{display:grid;grid-template-columns:130px minmax(0,1fr) 150px 96px;gap:14px;align-items:center;min-height:48px;padding:7px 12px;border-top:1.5px solid var(--line);font-size:15.5px}
 .tz-b1 .lg-h{min-height:0;border-top:0;padding-block:4px 6px;font-size:12.5px;font-weight:700;color:var(--mute)}
-.tz-b1 .lg-y{display:flex;align-items:baseline;gap:10px;margin-top:12px;padding:7px 14px;border-radius:12px;background:var(--y-mist)}
-.tz-b1 .lg-y b{font-size:18px;font-weight:800}
+.tz-b1 .lg-h span:nth-child(3){text-align:end}
+.tz-b1 .lg-y{display:flex;align-items:baseline;gap:10px;margin-top:12px;padding:6px 14px;border-radius:12px;background:var(--y-mist)}
+.tz-b1 .lg-y b{font-size:17px;font-weight:800}
 .tz-b1 .lg-y i{font-size:13.5px;color:var(--mute)}
 .tz-b1 .lg-y + .lg-r{border-top:0}
 .tz-b1 .lg-d{font-size:14.5px;color:var(--ink-2)}
-.tz-b1 .lg-d b{font-weight:800;color:var(--ink)}
+.tz-b1 .lg-d b{font-weight:700;color:var(--ink)}
 .tz-b1 .lg-d i,.tz-b1 .lg-none{color:var(--mute)}
 .tz-b1 .lg-x{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 12px}
-.tz-b1 .lg-x b{font-weight:700}
 .tz-b1 .lg-x i{font-size:13px;color:var(--mute)}
-.tz-b1 .lg-x i.neg{color:var(--bad-ink);font-weight:700}
-.tz-b1 .lg-c b{font-weight:800}
-.tz-b1 .lg-cr i{font-size:12.5px;color:var(--mute)}
-.tz-b1 .lg-pay .lg-x b,.tz-b1 .lg-both .lg-x b{font-weight:500}
+.tz-b1 .lg-k{font-weight:700}
+.tz-b1 .lg-payment .lg-k,.tz-b1 .lg-payment .lg-m{color:var(--good-ink)}
+.tz-b1 .lg-m{font-weight:800;text-align:end}
 .tz-b1 .lg-a{display:flex;justify-content:flex-end}
-.tz-b1 .lg-a .btn-s{min-height:36px;padding:0 14px;font-size:13.5px;white-space:nowrap}
 .tz-b1 .lg-go{display:inline-flex;align-items:center;gap:4px;min-height:36px;padding:0 6px;font-size:13.5px;font-weight:700;white-space:nowrap;cursor:pointer}
 .tz-b1 .lg-go .g{width:14px;height:14px}
 .tz-b1 .lg-go:hover,.tz-b1 .lg-go:focus-visible{text-decoration:underline}
-.tz-b1 .lg-open,.tz-b1 .lg-sub{min-height:40px;font-size:14.5px;color:var(--ink-2)}
-.tz-b1 .lg-sub{border-top:1.5px dashed var(--line)}
-.tz-b1 .lg-sub .lg-c,.tz-b1 .lg-sub .lg-x b{font-weight:700}
-.tz-b1 .lg-tot{margin-top:12px;border-top:2px solid var(--ink);background:var(--grey-2);border-radius:0 0 14px 14px}
-.tz-b1 .lg-add{min-height:36px;padding:0 14px;font-size:13.5px}
+.tz-b1 .lg-tot{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:10px 34px;margin-top:12px;padding:14px 16px;border-top:2px solid var(--ink);background:var(--grey-2);border-radius:0 0 14px 14px}
+.tz-b1 .lg-tot span{display:flex;flex-direction:column;align-items:flex-end;gap:1px}
+.tz-b1 .lg-tot i{font-size:12.5px;font-weight:700;color:var(--mute)}
+.tz-b1 .lg-tot b{font-size:17px;font-weight:800}
+.tz-b1 .lg-tot .lg-bal b{font-size:21px}
 .tz-b1 .lg-none{margin:6px 12px 4px;font-size:15px}
+.tz-b1 .sheet-f .le-del{margin-inline-start:auto;color:var(--bad-ink);box-shadow:inset 0 0 0 1.5px var(--bad-ink)}
 @media (max-width:860px){
   .tz-b1 .lg-h{display:none}
-  .tz-b1 .lg-r{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px 12px;padding:10px 8px;min-height:0}
-  .tz-b1 .lg-d{grid-column:1 / 2}
-  .tz-b1 .lg-x{grid-column:2 / -1}
-  .tz-b1 .lg-d:empty{display:none}
-  .tz-b1 .lg-d:empty + .lg-x{grid-column:1 / -1}
-  .tz-b1 .lg-c::before{content:attr(data-l);display:block;font-size:12px;font-weight:700;color:var(--mute)}
-  .tz-b1 .lg-c:empty::before{content:none}
+  .tz-b1 .lg-r{grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;padding:10px 8px}
+  .tz-b1 .lg-d{grid-column:1;grid-row:1}
+  .tz-b1 .lg-m{grid-column:2;grid-row:1 / span 2;align-self:center}
+  .tz-b1 .lg-x{grid-column:1;grid-row:2}
   .tz-b1 .lg-a{grid-column:1 / -1;justify-content:flex-start}
   .tz-b1 .lg-a:empty{display:none}
+  .tz-b1 .lg-tot{justify-content:space-between;gap:10px 18px}
+  .tz-b1 .lg-tot span{align-items:flex-start}
 }
 
 /* ---------- בחורים: בחירת שנה ברשימה ---------- */

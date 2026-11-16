@@ -287,6 +287,15 @@
       ['א', 'ב'].forEach(function (half) {
         arr(window.getLegacyBillsForHalf(archive, selYear, half, storeNames)).forEach(function (b) { if (b) addBill(b.store, b.amount, true); });
       });
+      // שורות שנוספו ישירות בכרטסת החנות: נספרות בשנת המענקים שהתאריך שלהן נמצא בה
+      arr(archive.storeLedger).forEach(function (e) {
+        if (!e || typeof e !== 'object' || !isFn(window.getGrantHalf)) return;
+        var s = trim(e.store), d = parseDate(e.date);
+        if (!s || !d || !window.getGrantHalf(d, selYear)) return;
+        if (!(s in costPer) && extra.indexOf(s) === -1) extra.push(s);
+        if (e.kind === 'payment') paid[s] = (paid[s] || 0) + num(e.amount);
+        else due[s] = (due[s] || 0) + num(e.amount);
+      });
       var stores = [];
       storeNames.concat(extra).forEach(function (s) {
         var expected = r2(num(costPer[s]) * grooms), p = r2(paid[s] || 0);

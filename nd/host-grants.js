@@ -67,6 +67,11 @@
   function legacyOf(a, year) { try { return window.getGrantPaymentsForYear(a, year) || []; } catch (e) { return []; } }
   function findLegacy(a, year, key) { return legacyOf(a, year).filter(function (p) { return window.legacyPaymentKey(p) === key; })[0] || null; }
   function isOpen(id) { var m = _.el(id); return !!m && m.classList.contains('open'); }
+  // שורות הכרטסת שהוספו ישירות (לא חיובים מחלון התשלום לחנות)
+  function ledgerOf(a) { return Array.isArray(a.storeLedger) ? a.storeLedger.filter(function (e) { return e && typeof e === 'object'; }) : []; }
+  function ledgerIndex(list, id) { for (var i = 0; i < list.length; i++) if (list[i] && str(list[i].id) === id) return i; return -1; }
+  function copyOf(o) { return JSON.parse(JSON.stringify(o)); }
+  function rerender() { try { if (_.fn('renderGrantsArchive')) window.renderGrantsArchive(); if (_.fn('renderDashboard')) window.renderDashboard(); } catch (e) { log(e); } }
 
   // מזהה חתן: rid (מחרוזת), או { index: n } / מספר לרשומות ישנות בלי rid (כך גם המסך הישן מזהה שורה: לפי מיקום)
   function recipientIndex(list, ref) {
@@ -461,6 +466,78 @@
       b = findBill(archive(), year, str(billId));
       if (!b || !b.receipt || !b.receipt.path) return no('לא צורפה קבלה לתשלום הזה');
       quiet(window.viewStoreBillReceipt(b.bid));
+      return ok();
+    }),
+
+    /* --- כרטסת חנות: שורות שמוסיפים ישירות בכרטסת (archive.storeLedger) --- */
+    // entry = { id? , store, kind: 'charge' (דרישת תשלום) | 'payment' (תשלום), date: 'dd/mm/yyyy', amount, method, ref, note }
+    // נשמר דרך mutateGrantsArchive (מיזוג עם הגרסה שבשרת, תור כשאין חיבור). הפונקציה שבתוכה רצה פעמיים, ולכן מזהים לפי id.
+    saveLedgerEntry: safe(function (o) {
+      var s = st(), id, old, rec, store, amount, date, kind, p, now, user;
+      o = o && typeof o === 'object' ? o : {};
+      if (!_.canEdit()) return no(NO_EDIT);
+      if (!has('mutateGrantsArchive', 'generateId')) return no();
+      store = str(o.store).trim();
+      if (!store) return no('צריך לכתוב את שם החנות');
+      kind = o.kind === 'payment' ? 'payment' : 'charge';
+      amount = Math.round(num(o.amount) * 100) / 100;
+      if (!(amount > 0)) return no('צריך להזין סכום גדול מאפס');
+      date = isoDate(o.date);
+      if (!date) return no(BAD_DATE);
+      id = str(o.id);
+      old = id ? ledgerOf(archive()).filter(function (e) { return str(e.id) === id; })[0] || null : null;
+      if (id && !old) return no('השורה לא נמצאה. כדאי לרענן את הנתונים');
+      if (!id) id = window.generateId('L');
+      now = new Date().toISOString(); user = str(s.currentUser);
+      rec = { id: id, store: store, kind: kind, date: date, amount: amount, method: kind === 'payment' ? str(o.method).trim() : '', ref: str(o.ref).trim(), note: str(o.note).trim(),
+        createdAt: old ? str(old.createdAt) || now : now, createdBy: old ? str(old.createdBy) || user : user, updatedAt: now, updatedBy: user };
+      p = window.mutateGrantsArchive(function (a) {
+        if (!Array.isArray(a.storeLedger)) a.storeLedger = [];
+        var i = ledgerIndex(a.storeLedger, id);
+        if (i === -1) a.storeLedger.push(copyOf(rec)); else a.storeLedger[i] = copyOf(rec);
+      });
+      rerender();
+      if (p && typeof p.then === 'function') p.then(function (saved) {
+        try {
+          if (_.fn('reportSave')) window.reportSave(saved, old ? 'השורה עודכנה' : 'השורה נוספה לכרטסת');
+          if (_.fn('logAudit')) window.logAudit(old ? 'update' : 'create', 'store-ledger', id, { חנות: store, סוג: kind === 'payment' ? 'תשלום' : 'דרישת תשלום', תאריך: date, סכום: amount });
+        } catch (e) { log(e); }
+      }, function () {});
+      _.sync();
+      return ok({ id: id });
+    }),
+
+    // מחיקה עם "בטל פעולה", כמו מחיקת תשלום לחנות במסך הישן
+    removeLedgerEntry: safe(function (ref) {
+      var id = str(ref), old, snap, label, removeIt, putBack, commit;
+      if (!_.canEdit()) return no(NO_EDIT);
+      if (!has('mutateGrantsArchive')) return no();
+      old = id ? ledgerOf(archive()).filter(function (e) { return str(e.id) === id; })[0] || null : null;
+      if (!old) return no('השורה לא נמצאה. כדאי לרענן את הנתונים');
+      snap = copyOf(old);
+      label = (snap.kind === 'payment' ? 'התשלום ל' : 'דרישת התשלום של ') + str(snap.store) + ' על סך ₪' + num(snap.amount).toLocaleString('he-IL', { minimumFractionDigits: num(snap.amount) % 1 ? 2 : 0, maximumFractionDigits: 2 }) + ' נמחק' + (snap.kind === 'payment' ? '' : 'ה');
+      removeIt = function (a) { var l = a.storeLedger, i; if (!Array.isArray(l)) return; i = ledgerIndex(l, id); if (i > -1) l.splice(i, 1); };
+      putBack = function (a) { if (!Array.isArray(a.storeLedger)) a.storeLedger = []; if (ledgerIndex(a.storeLedger, id) === -1) a.storeLedger.push(copyOf(snap)); };
+      commit = function () {
+        var p = window.mutateGrantsArchive(removeIt);
+        if (p && typeof p.then === 'function') p.then(function (saved) {
+          try {
+            if (!saved && _.fn('reportSave')) window.reportSave(false);
+            if (_.fn('logAudit')) window.logAudit('delete', 'store-ledger', id, { חנות: snap.store, סוג: snap.kind === 'payment' ? 'תשלום' : 'דרישת תשלום', סכום: snap.amount });
+          } catch (e) { log(e); }
+        }, function () {});
+        rerender();
+      };
+      if (has('scheduleUndoableDelete', 'mutateGrantsArchiveLocal')) {
+        window.scheduleUndoableDelete({
+          message: label,
+          apply: function () { window.mutateGrantsArchiveLocal(removeIt); },
+          undo: function () { quiet(window.mutateGrantsArchive(putBack)); rerender(); },
+          commit: commit,
+          queueOnExit: function () { if (_.fn('enqueueWrite')) window.enqueueWrite('saveGrantsArchive', st().grantsArchive); }
+        });
+      } else commit();
+      _.sync();
       return ok();
     }),
 

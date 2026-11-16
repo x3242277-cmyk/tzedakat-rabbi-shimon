@@ -1253,7 +1253,7 @@
   .cframe b{font-size:19px;font-weight:800}
   .cframe i{font-size:14.5px;font-weight:300;max-width:42ch}
   .upl{align-self:flex-start;margin-top:8px}
-  .paid-only.is-off{display:none}
+  .paid-only.is-off,.pay-only.is-off{display:none}
   .fsheet > .sheet-s{flex:1;min-height:0}
   .route{margin-top:20px;gap:10px}
   .route li{grid-template-columns:44px minmax(0,1fr);font-size:14.5px;color:var(--ink-2)}
@@ -1552,45 +1552,45 @@
 .tz-b1 .st .panel-h h3{margin-inline-end:auto}
 .tz-b1 .tl-acc .trow > .g{width:18px;height:18px;justify-self:end;transform:rotate(0)}
 
-/* ---------- מענקים: כרטסת לחנות (חיוב, תשלום ויתרה מצטברת, לפי שנה לועזית) ---------- */
-.tz-b1 .lg-r{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,2.1fr) repeat(3,minmax(0,1fr)) 132px;gap:12px;align-items:center;min-height:52px;padding:8px 12px;border-top:1.5px solid var(--line);font-size:15.5px}
+/* ---------- מענקים: כרטסת לחנות (דרישת תשלום, תשלום, ויתרה בסוף) ---------- */
+.tz-b1 .lg-adds{display:flex;flex-wrap:wrap;gap:8px}
+.tz-b1 .lg-adds .btn-s{min-height:38px;padding:0 14px;font-size:14px;gap:8px}
+.tz-b1 .lg-r{display:grid;grid-template-columns:130px minmax(0,1fr) 150px 96px;gap:14px;align-items:center;min-height:48px;padding:7px 12px;border-top:1.5px solid var(--line);font-size:15.5px}
 .tz-b1 .lg-h{min-height:0;border-top:0;padding-block:4px 6px;font-size:12.5px;font-weight:700;color:var(--mute)}
-.tz-b1 .lg-y{display:flex;align-items:baseline;gap:10px;margin-top:12px;padding:7px 14px;border-radius:12px;background:var(--y-mist)}
-.tz-b1 .lg-y b{font-size:18px;font-weight:800}
+.tz-b1 .lg-h span:nth-child(3){text-align:end}
+.tz-b1 .lg-y{display:flex;align-items:baseline;gap:10px;margin-top:12px;padding:6px 14px;border-radius:12px;background:var(--y-mist)}
+.tz-b1 .lg-y b{font-size:17px;font-weight:800}
 .tz-b1 .lg-y i{font-size:13.5px;color:var(--mute)}
 .tz-b1 .lg-y + .lg-r{border-top:0}
 .tz-b1 .lg-d{font-size:14.5px;color:var(--ink-2)}
-.tz-b1 .lg-d b{font-weight:800;color:var(--ink)}
+.tz-b1 .lg-d b{font-weight:700;color:var(--ink)}
 .tz-b1 .lg-d i,.tz-b1 .lg-none{color:var(--mute)}
 .tz-b1 .lg-x{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 12px}
-.tz-b1 .lg-x b{font-weight:700}
 .tz-b1 .lg-x i{font-size:13px;color:var(--mute)}
-.tz-b1 .lg-x i.neg{color:var(--bad-ink);font-weight:700}
-.tz-b1 .lg-c b{font-weight:800}
-.tz-b1 .lg-cr i{font-size:12.5px;color:var(--mute)}
-.tz-b1 .lg-pay .lg-x b,.tz-b1 .lg-both .lg-x b{font-weight:500}
+.tz-b1 .lg-k{font-weight:700}
+.tz-b1 .lg-payment .lg-k,.tz-b1 .lg-payment .lg-m{color:var(--good-ink)}
+.tz-b1 .lg-m{font-weight:800;text-align:end}
 .tz-b1 .lg-a{display:flex;justify-content:flex-end}
-.tz-b1 .lg-a .btn-s{min-height:36px;padding:0 14px;font-size:13.5px;white-space:nowrap}
 .tz-b1 .lg-go{display:inline-flex;align-items:center;gap:4px;min-height:36px;padding:0 6px;font-size:13.5px;font-weight:700;white-space:nowrap;cursor:pointer}
 .tz-b1 .lg-go .g{width:14px;height:14px}
 .tz-b1 .lg-go:hover,.tz-b1 .lg-go:focus-visible{text-decoration:underline}
-.tz-b1 .lg-open,.tz-b1 .lg-sub{min-height:40px;font-size:14.5px;color:var(--ink-2)}
-.tz-b1 .lg-sub{border-top:1.5px dashed var(--line)}
-.tz-b1 .lg-sub .lg-c,.tz-b1 .lg-sub .lg-x b{font-weight:700}
-.tz-b1 .lg-tot{margin-top:12px;border-top:2px solid var(--ink);background:var(--grey-2);border-radius:0 0 14px 14px}
-.tz-b1 .lg-add{min-height:36px;padding:0 14px;font-size:13.5px}
+.tz-b1 .lg-tot{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:10px 34px;margin-top:12px;padding:14px 16px;border-top:2px solid var(--ink);background:var(--grey-2);border-radius:0 0 14px 14px}
+.tz-b1 .lg-tot span{display:flex;flex-direction:column;align-items:flex-end;gap:1px}
+.tz-b1 .lg-tot i{font-size:12.5px;font-weight:700;color:var(--mute)}
+.tz-b1 .lg-tot b{font-size:17px;font-weight:800}
+.tz-b1 .lg-tot .lg-bal b{font-size:21px}
 .tz-b1 .lg-none{margin:6px 12px 4px;font-size:15px}
+.tz-b1 .sheet-f .le-del{margin-inline-start:auto;color:var(--bad-ink);box-shadow:inset 0 0 0 1.5px var(--bad-ink)}
 @media (max-width:860px){
   .tz-b1 .lg-h{display:none}
-  .tz-b1 .lg-r{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px 12px;padding:10px 8px;min-height:0}
-  .tz-b1 .lg-d{grid-column:1 / 2}
-  .tz-b1 .lg-x{grid-column:2 / -1}
-  .tz-b1 .lg-d:empty{display:none}
-  .tz-b1 .lg-d:empty + .lg-x{grid-column:1 / -1}
-  .tz-b1 .lg-c::before{content:attr(data-l);display:block;font-size:12px;font-weight:700;color:var(--mute)}
-  .tz-b1 .lg-c:empty::before{content:none}
+  .tz-b1 .lg-r{grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;padding:10px 8px}
+  .tz-b1 .lg-d{grid-column:1;grid-row:1}
+  .tz-b1 .lg-m{grid-column:2;grid-row:1 / span 2;align-self:center}
+  .tz-b1 .lg-x{grid-column:1;grid-row:2}
   .tz-b1 .lg-a{grid-column:1 / -1;justify-content:flex-start}
   .tz-b1 .lg-a:empty{display:none}
+  .tz-b1 .lg-tot{justify-content:space-between;gap:10px 18px}
+  .tz-b1 .lg-tot span{align-items:flex-start}
 }
 
 /* ---------- בחורים: בחירת שנה ברשימה ---------- */
@@ -2250,6 +2250,10 @@ window.TZ_DATA = (function () {
         'א': [bill('ביגוד', 7, 20300, 'שולם', '3562', '18/09/2025', 'העברה בנקאית'), bill('נעליים', 7, 8100, 'שולם', '1996', '18/09/2025', 'העברה בנקאית'), bill('כלי בית', 6, 4000, 'שולם', '0877', '21/09/2025', 'צ׳ק'), open]
       } },
       { year: 'תשפ״ו', civil: 2026, loose: [], halves: { 'א': entered('א'), 'ב': entered('ב') } }
+    ], manual: [
+      // שורות שנוספו ישירות בכרטסת
+      { id: 'L1', store: 'כלי בית', kind: 'payment', date: '12/10/2025', amount: 1000, method: 'מזומן', ref: '', note: 'תשלום חלקי' },
+      { id: 'L2', store: 'נעליים', kind: 'charge', date: '20/10/2026', amount: 450, method: '', ref: '2455', note: 'החלפת מידות' }
     ] };
   })();
 
@@ -3187,139 +3191,120 @@ window.TZ_DATA = (function () {
     return '<p class="g-span"><b>שנת המענקים ' + esc(X.year) + '</b><span>מחצית א׳: <b>' + esc(halfPeriod(a)) + '</b></span><span>מחצית ב׳: <b>' + esc(halfPeriod(b)) + '</b></span></p>';
   }
   /* ---------- מענקים: כרטסת לכל חנות ---------- */
-  // לכל חנות: מה נדרשנו לשלם (לפי הקבלות שהחנות הגישה) ומה שולם, שורה אחרי שורה, עם יתרה מצטברת, לפי שנה לועזית.
-  // כל שנת מענקים נרשמת בשנה הלועזית שלה (תשפ"ו = 2026) ובה שתי התקופות. תשלום עם תאריך נרשם בשנה של התאריך שלו.
+  // כרטסת פשוטה: שורת "דרישת תשלום" ושורת "תשלום", לפי שנה לועזית, והיתרה מחושבת רק בסוף.
+  // שלושה מקורות לשורות:
+  //   1. חיובים שהוזנו בחלון התשלום לחנות (storeBills): דרישת תשלום לתקופה, ותשלום אם סומן כשולם. עריכה בחלון הקיים.
+  //   2. תשלומים מהשיטה הקודמת: דרישה ותשלום באותו סכום (שולם לפי הקבלות). עריכה = שיוך לתקופה.
+  //   3. שורות שמוסיפים ישירות בכרטסת (ledger.manual): דרישת תשלום או תשלום, עם תאריך. עריכה ומחיקה בטופס של הכרטסת.
+  // כל שנת מענקים נרשמת בשנה הלועזית שלה (תשפ"ו = 2026) ובה שתי התקופות, תשרי–אדר ואז ניסן–אלול.
   var HALF_NAME = { 'א': 'ניסן–אלול', 'ב': 'תשרי–אדר' }, HALF_END = { 'א': 930, 'ב': 331 };
+  var LE_KIND = { charge: 'דרישת תשלום', payment: 'תשלום' };
   function dkeyOf(s) { var m = /^(\d{1,2})[\/.](\d{1,2})[\/.](\d{4})$/.exec(String(s == null ? '' : s).trim()); return m ? +m[3] * 10000 + +m[2] * 100 + +m[1] : 0; }
   function r2(v) { return Math.round((+v || 0) * 100) / 100; }
-  function ledgerYears() {
+  function ledgerData() {
     var X = D.grantsX, L = X.ledger;
-    if (L && L.years) return L.years;
-    function entered(h) { return ((X.halves[h] || {}).bills || []).filter(function (b) { return b.status !== 'טרם הוזן חיוב'; }); }
-    return [{ year: X.year, civil: X.civil || new Date().getFullYear(), halves: { 'א': entered('א'), 'ב': entered('ב') }, loose: [] }];
+    if (!L || !L.years) {
+      var entered = function (h) { return ((X.halves[h] || {}).bills || []).filter(function (b) { return b.status !== 'טרם הוזן חיוב'; }); };
+      L = X.ledger = { years: [{ year: X.year, civil: X.civil || new Date().getFullYear(), halves: { 'א': entered('א'), 'ב': entered('ב') }, loose: [] }], manual: (L && L.manual) || [] };
+    }
+    if (!L.manual) L.manual = [];
+    return L;
   }
+  function ledgerYears() { return ledgerData().years; }
   function storeLedgers() {
-    var X = D.grantsX, map = {}, order = [], seq = 0, heb = {};
+    var X = D.grantsX, L = ledgerData(), map = {}, order = [], seq = 0, heb = {};
     function S(name) { if (!map[name]) { map[name] = { store: name, e: [] }; order.push(name); } return map[name]; }
     function add(name, e) { e.q = seq++; S(name).e.push(e); }
-    // חנויות התכולה של השנה המוצגת מופיעות תמיד, גם בלי תנועות, כדי שאפשר יהיה להזין להן חיוב
+    // חנויות התכולה של השנה המוצגת מופיעות תמיד, גם בלי תנועות, כדי שאפשר יהיה להוסיף להן שורה
     ['א', 'ב'].forEach(function (h) { ((X.halves[h] || {}).bills || []).forEach(function (b) { S(b.store); }); });
-    ledgerYears().forEach(function (Y, yi) {
+    L.years.forEach(function (Y, yi) {
       var cy = +Y.civil || 0;
       if (cy) heb[cy] = Y.year;
       ['ב', 'א'].forEach(function (h) {
-        var nominal = cy * 10000 + HALF_END[h], groups = {}, names = [];
+        var nominal = cy * 10000 + HALF_END[h];
         ((Y.halves || {})[h] || []).forEach(function (b, i) {
-          var act = 'lb:' + yi + ':' + h + ':' + i, dk = dkeyOf(b.paidOn), gr;
-          // תשלום מהשיטה הקודמת: שולם לפי קבלות, בשורה אחת (חיוב ותשלום באותו סכום)
-          if (b.legacy) { add(b.store, { k: 'both', d: dk || nominal, date: b.paidOn, amt: +b.billed || 0, h: h, cy: cy, b: b, act: act }); return; }
-          gr = groups[b.store];
-          if (!gr) { gr = groups[b.store] = { amt: 0, open: 0, first: '', pays: [], notes: [], min: 0 }; names.push(b.store); }
-          gr.amt += +b.billed || 0;
-          if (b.status === 'שולם') {
-            gr.pays.push({ k: 'pay', d: dk, date: b.paidOn, amt: +b.billed || 0, h: h, cy: cy, b: b, act: act });
-            if (dk && Math.floor(dk / 10000) === cy && (!gr.min || dk < gr.min)) gr.min = dk;
-          } else {
-            gr.open += +b.billed || 0;
-            if (!gr.first) gr.first = act;
-            if (b.ref) gr.notes.push('קבלה ' + b.ref);
-            if (b.notes) gr.notes.push(b.notes);
-          }
-        });
-        names.forEach(function (name) {
-          var gr = groups[name], d = gr.min && gr.min < nominal ? gr.min : nominal;   // החיוב לא מופיע אחרי התשלום הראשון שלו
-          add(name, { k: 'charge', d: d, amt: r2(gr.amt), open: r2(gr.open), h: h, cy: cy, notes: gr.notes, act: gr.first });
-          gr.pays.forEach(function (p) { if (!p.d) p.d = d; add(name, p); });
+          var act = 'lb:' + yi + ':' + h + ':' + i, dk = dkeyOf(b.paidOn), paid = b.legacy || b.status === 'שולם';
+          var d = dk && Math.floor(dk / 10000) === cy && dk < nominal ? dk : nominal;   // הדרישה לא מופיעה אחרי התשלום שלה
+          var info = [b.ref ? 'קבלה ' + b.ref : '', b.notes || '', b.legacy ? 'נרשם בשיטה הקודמת' : ''];
+          add(b.store, { k: 'charge', d: d, per: HALF_NAME[h], amt: +b.billed || 0, info: info, act: act, edit: b.legacy ? 'שיוך' : 'עריכה' });
+          if (paid) add(b.store, { k: 'payment', d: dk || d, date: b.paidOn, amt: +b.billed || 0, info: [b.method || '', 'עבור ' + HALF_NAME[h]], act: act, edit: b.legacy ? 'שיוך' : 'עריכה' });
         });
       });
       (Y.loose || []).forEach(function (l, i) {
-        var dk = dkeyOf(l.date), t = String(l.date || '');
-        add(l.store, { k: 'both', d: dk || cy * 10000 + (/אלול/.test(t) ? 930 : /אדר/.test(t) ? 331 : 1231), date: l.date, amt: +l.amount || 0, cy: cy, loose: true, b: { ref: l.description, method: l.method, legacy: true }, act: 'll:' + yi + ':' + i });
+        var t = String(l.date || ''), dk = dkeyOf(l.date) || cy * 10000 + (/אלול/.test(t) ? 930 : /אדר/.test(t) ? 331 : 1231), act = 'll:' + yi + ':' + i, info = [l.description || '', 'נרשם בשיטה הקודמת'];
+        add(l.store, { k: 'charge', d: dk, date: l.date, amt: +l.amount || 0, info: info, act: act, edit: 'שיוך' });
+        add(l.store, { k: 'payment', d: dk, date: l.date, amt: +l.amount || 0, info: [l.method || ''].concat(info), act: act, edit: 'שיוך' });
       });
     });
-    var KO = { charge: 0, both: 1, pay: 2 };
+    L.manual.forEach(function (m) {
+      if (!m || !m.store) return;
+      add(m.store, { k: m.kind === 'payment' ? 'payment' : 'charge', d: dkeyOf(m.date), date: m.date, amt: +m.amount || 0, info: [m.kind === 'payment' ? m.method || '' : '', m.ref || '', m.note || ''], act: 'le:' + m.id, edit: 'עריכה' });
+    });
     return order.map(function (name) {
-      var s = map[name], bal = 0, cur = null;
+      var s = map[name], cur = null;
       s.years = []; s.charged = 0; s.paid = 0;
-      s.e.sort(function (a, b) { return a.d - b.d || KO[a.k] - KO[b.k] || a.q - b.q; });
+      s.e.sort(function (a, b) { return a.d - b.d || (a.k === b.k ? 0 : a.k === 'charge' ? -1 : 1) || a.q - b.q; });
       s.e.forEach(function (e) {
-        var y = Math.floor(e.d / 10000);
-        if (!cur || cur.y !== y) { cur = { y: y, heb: heb[y] || '', open: bal, rows: [], charged: 0, paid: 0, close: bal }; s.years.push(cur); }
-        if (e.k !== 'pay') { cur.charged += e.amt; s.charged += e.amt; }
-        if (e.k !== 'charge') { cur.paid += e.amt; s.paid += e.amt; }
-        bal = r2(bal + (e.k === 'charge' ? e.amt : e.k === 'pay' ? -e.amt : 0));
-        e.bal = bal; cur.close = bal; cur.rows.push(e);
+        var y = e.d ? Math.floor(e.d / 10000) : 0;
+        if (!cur || cur.y !== y) { cur = { y: y, heb: heb[y] || '', rows: [], charged: 0, paid: 0 }; s.years.push(cur); }
+        if (e.k === 'charge') { cur.charged += e.amt; s.charged += e.amt; } else { cur.paid += e.amt; s.paid += e.amt; }
+        cur.rows.push(e);
       });
-      s.charged = r2(s.charged); s.paid = r2(s.paid); s.bal = bal;
+      s.charged = r2(s.charged); s.paid = r2(s.paid); s.bal = r2(s.charged - s.paid);
       return s;
     });
   }
   function grantsPay() {
-    var X = D.grantsX, live = !!HOST(), canE = !live || X.canEdit !== false, acc = storeLedgers();
+    var X = D.grantsX, live = !!HOST(), canE = !live || X.canEdit !== false, acc = storeLedgers(), L = ledgerData();
+    var canAdd = canE && (!live || has('saveLedgerEntry'));
     var T = acc.reduce(function (t, s) { t.charged += s.charged; t.paid += s.paid; t.bal += s.bal; return t; }, { charged: 0, paid: 0, bal: 0 });
-    var first = acc.reduce(function (m, s) { return s.years.length && s.years[0].y && (!m || s.years[0].y < m) ? s.years[0].y : m; }, 0);
-    var addYear = X.civil || X.year;
     function money(v, strong) { return v ? (strong ? '<b>' + nis(v) + '</b>' : nis(v)) : '<i>—</i>'; }
-    // יתרה: חיובית = נשאר לשלם לחנות · אפס = אין חוב · שלילית = שולם יותר ממה שחויב
-    function balH(v, plain) {
-      if (v > 0) return plain ? nis(v) : '<b class="neg">' + nis(v) + '</b>';
-      if (v < 0) return '<span class="lg-cr">' + nis(-v) + ' <i>בזכות</i></span>';
-      return plain ? nis(0) : '<b class="pos">אין חוב</b>';
+    // יתרה: חיובית = נשאר לשלם לחנות · אפס = אין חוב · שלילית = שולם יותר ממה שנדרש
+    function balH(v) {
+      if (v > 0.004) return '<b class="neg">' + nis(v) + '</b>';
+      if (v < -0.004) return '<b>' + nis(-v) + '</b> <i>שולם ביתר</i>';
+      return '<b class="pos">אין חוב</b>';
     }
     function debtTag(s) {
-      if (s.bal > 0) return '<span class="tag t-bad">נשאר לשלם ' + nis(s.bal) + '</span>';
-      if (s.bal < 0) return '<span class="tag t-neutral">שולם ביתר ' + nis(-s.bal) + '</span>';
+      if (s.bal > 0.004) return '<span class="tag t-bad">נשאר לשלם ' + nis(s.bal) + '</span>';
+      if (s.bal < -0.004) return '<span class="tag t-neutral">שולם ביתר ' + nis(-s.bal) + '</span>';
       if (!s.e.length) return '<span class="tag t-idle">אין תנועות</span>';
       return '<span class="tag t-good">הכול שולם</span>';
     }
-    function cell(label, html, cls) { return '<span class="lg-c' + (cls ? ' ' + cls : '') + '" data-l="' + label + '">' + html + '</span>'; }
-    function goH(act, label) { return canE && act ? '<button type="button" class="lg-go" data-scr="' + act + '">' + label + g('chev') + '</button>' : ''; }
-    // prev = השורה שמעל, באותה שנה. "עבור התקופה" נכתב בתשלום רק כשהוא לא בא מיד אחרי החיוב של אותה תקופה
-    function rowH(s, e, prev) {
-      var b = e.b || {}, per = e.h ? HALF_NAME[e.h] : '', date, what, actH = '';
-      if (e.k === 'charge') {
-        date = '<b>' + per + '</b>';
-        what = '<b>חיוב לפי קבלות</b>' + (e.open && e.open < e.amt ? '<i class="neg">מזה ' + nis(e.open) + ' עוד לא שולם</i>' : '') + e.notes.map(function (n) { return '<i>' + esc(n) + '</i>'; }).join('');
-        if (canE && e.act) actH = '<button type="button" class="btn btn-s btn-o" data-scr="' + e.act + '" aria-label="סימון כשולם: ' + esc(s.store) + ', ' + per + '">סימון כשולם</button>';
-      } else {
-        date = e.date ? (dkeyOf(e.date) ? ltr(esc(e.date)) : esc(e.date)) : '<i>בלי תאריך</i>';
-        what = '<b>' + (e.k === 'both' ? 'שולם לפי קבלות' : 'תשלום') + '</b>' + (b.method ? '<i>' + esc(b.method) + '</i>' : '') + (per && e.k === 'pay' && !(prev && prev.h === e.h && prev.cy === e.cy) ? '<i>עבור ' + per + (e.cy && e.cy !== Math.floor(e.d / 10000) ? ' ' + e.cy : '') + '</i>' : '') +
-          (b.ref ? '<i>' + (e.k === 'both' ? '' : 'קבלה ') + esc(b.ref) + '</i>' : '') + (live && b.receipt ? '<i>קבלה מצורפת</i>' : '') + (b.legacy ? '<i>נרשם בשיטה הקודמת</i>' : '') + (b.notes ? '<i>' + esc(b.notes) + '</i>' : '');
-        actH = goH(e.act, b.legacy ? 'שיוך לתקופה' : 'פרטים');
-      }
-      return '<div class="lg-r lg-' + e.k + '"><span class="lg-d">' + date + '</span><span class="lg-x">' + what + '</span>' +
-        cell('נדרשנו לשלם', e.k !== 'pay' ? '<b>' + nis(e.amt) + '</b>' : '') + cell('שולם', e.k !== 'charge' ? '<b>' + nis(e.amt) + '</b>' : '') + cell('יתרה', balH(e.bal, true)) +
-        '<span class="lg-a">' + actH + '</span></div>';
+    function rowH(s, e) {
+      var date = e.per ? '<b>' + e.per + '</b>' : e.date ? (dkeyOf(e.date) ? ltr(esc(e.date)) : esc(e.date)) : '<i>בלי תאריך</i>';
+      var info = e.info.filter(function (x) { return x; }).map(function (x) { return '<i>' + esc(x) + '</i>'; }).join('');
+      var actH = canE && e.act ? '<button type="button" class="lg-go" data-scr="' + e.act + '" aria-label="' + esc(e.edit + ': ' + LE_KIND[e.k] + ', ' + s.store) + '">' + e.edit + g('chev') + '</button>' : '';
+      return '<div class="lg-r lg-' + e.k + '"><span class="lg-d">' + date + '</span><span class="lg-x"><b class="lg-k">' + LE_KIND[e.k] + '</b>' + info + '</span>' +
+        '<span class="lg-m">' + nis(e.amt) + '</span><span class="lg-a">' + actH + '</span></div>';
     }
-    // 1. סיכום: שורה לכל חנות, על פני כל השנים
+    // 1. סיכום: שורה לכל חנות
     var CC = 'minmax(0,1.4fr) repeat(3,minmax(0,1fr)) 30px';
     var overH = acc.length ? tlH(CC, ['חנות', 'נדרשנו לשלם', 'שולם', 'יתרה', ''], acc.map(function (s) {
         return '<button type="button" class="trow" data-scr="st-go:' + esc(s.store) + '" aria-label="' + esc(s.store) + ', לכרטסת">' + tc('חנות', '<b>' + esc(s.store) + '</b>') + tc('נדרשנו לשלם', money(s.charged, true)) +
           tc('שולם', money(s.paid)) + tc('יתרה', s.e.length ? balH(s.bal) : '<i>—</i>') + g('down') + '</button>';
       }).join(''), 'tl-bills tl-acc') +
       '<div class="tl-sum" style="--cols:' + CC + '"><span><b>סך הכול</b></span><span><b>' + nis(T.charged) + '</b></span><span><b>' + nis(T.paid) + '</b></span><span><b>' + nis(T.bal) + '</b></span><span></span></div>'
-      : emptyH('אין עדיין חנויות', 'החנויות מגיעות מתכולת המענק. אפשר גם להזין חיוב לחנות שאינה בתכולה');
+      : emptyH('אין עדיין חנויות', 'החנויות מגיעות מתכולת המענק. אפשר גם להוסיף שורה לחנות אחרת');
     // 2. כרטסת לכל חנות
     var det = acc.map(function (s, si) {
-      var many = s.years.length > 1;
-      var body = s.years.map(function (yr, yi) {
-        return '<div class="lg-y"><b>' + (yr.y || 'בלי שנה') + '</b>' + (yr.heb ? '<i>' + esc(yr.heb) + '</i>' : '') + '</div>' +
-          (yi && yr.open ? '<div class="lg-r lg-open"><span class="lg-d"></span><span class="lg-x"><b>יתרה משנים קודמות</b></span>' + cell('נדרשנו לשלם', '') + cell('שולם', '') + cell('יתרה', balH(yr.open, true)) + '<span class="lg-a"></span></div>' : '') +
-          yr.rows.map(function (e, ri) { return rowH(s, e, yr.rows[ri - 1]); }).join('') +
-          (many ? '<div class="lg-r lg-sub"><span class="lg-d"></span><span class="lg-x"><b>סך הכול ' + (yr.y || '') + '</b></span>' + cell('נדרשנו לשלם', nis(r2(yr.charged))) + cell('שולם', nis(r2(yr.paid))) + cell('יתרה לסוף השנה', balH(yr.close, true)) + '<span class="lg-a"></span></div>' : '');
+      var adds = canAdd ? '<span class="lg-adds"><button type="button" class="btn btn-s btn-o" data-scr="le-new:charge:' + esc(s.store) + '">' + g('plus') + 'דרישת תשלום</button>' +
+        '<button type="button" class="btn btn-s btn-o" data-scr="le-new:payment:' + esc(s.store) + '">' + g('plus') + 'תשלום</button></span>' : '';
+      var body = s.years.map(function (yr) {
+        return '<div class="lg-y"><b>' + (yr.y || 'בלי תאריך') + '</b>' + (yr.heb ? '<i>' + esc(yr.heb) + '</i>' : '') + '</div>' + yr.rows.map(function (e) { return rowH(s, e); }).join('');
       }).join('');
-      return '<section class="panel st" id="' + P + 'st-' + si + '"><div class="panel-h"><h3><span class="lt">כרטסת חנות</span>' + esc(s.store) + '</h3>' + debtTag(s) +
-        (live && canE ? '<button type="button" class="btn btn-s btn-o lg-add" data-scr="lb-add:' + esc(s.store) + '">' + g('plus') + 'חיוב ל-' + esc(addYear) + '</button>' : '') + '</div>' +
-        (s.e.length ? '<div class="lg-r lg-h"><span>תאריך</span><span>פרטים</span><span>נדרשנו לשלם</span><span>שולם</span><span>יתרה</span><span></span></div>' + body +
-          '<div class="lg-r lg-tot"><span class="lg-d"></span><span class="lg-x"><b>סך הכול</b></span>' + cell('נדרשנו לשלם', '<b>' + nis(s.charged) + '</b>') + cell('שולם', '<b>' + nis(s.paid) + '</b>') + cell('יתרה', balH(s.bal)) + '<span class="lg-a"></span></div>'
-          : '<p class="lg-none">עדיין לא נרשמו חיובים או תשלומים לחנות הזאת.</p>') + '</section>';
+      return '<section class="panel st" id="' + P + 'st-' + si + '"><div class="panel-h"><h3><span class="lt">כרטסת חנות</span>' + esc(s.store) + '</h3>' + debtTag(s) + adds + '</div>' +
+        (s.e.length ? '<div class="lg-r lg-h"><span>תאריך</span><span>פירוט</span><span>סכום</span><span></span></div>' + body +
+          '<div class="lg-tot"><span><i>סך הכול דרישות תשלום</i><b>' + nis(s.charged) + '</b></span><span><i>סך הכול תשלומים</i><b>' + nis(s.paid) + '</b></span>' +
+          '<span class="lg-bal"><i>' + (s.bal < -0.004 ? 'שולם ביתר' : 'יתרה לתשלום') + '</i>' + (s.bal > 0.004 ? '<b class="neg">' + nis(s.bal) + '</b>' : s.bal < -0.004 ? '<b>' + nis(-s.bal) + '</b>' : '<b class="pos">' + nis(0) + '</b>') + '</span></div>'
+          : '<p class="lg-none">עדיין אין שורות בכרטסת של החנות הזאת.</p>') + '</section>';
     }).join('');
-    return factsH([['₪' + num(T.charged), 'נדרשנו לשלם', 'לפי הקבלות של החנויות' + (first ? ', מ-' + first : '')], ['₪' + num(T.paid), 'שולם', T.charged ? pctOf(T.paid, T.charged) + '% מהחיובים' : 'עדיין לא שולם'],
-        ['₪' + num(Math.max(0, T.bal)), 'נשאר לשלם', T.bal > 0 ? 'חיובים שממתינים לתשלום' : 'אין חיובים פתוחים']]) +
-      '<div class="scr-sec">' + shH('כמה נדרשנו לשלם לכל חנות, וכמה שולם', 'סיכום לפי חנות', live && canE ? '<button type="button" class="btn btn-s btn-o sh-btn" data-scr="bill-new">' + g('plus') + 'חיוב לחנות אחרת</button>' : '') + overH + '</div>' +
-      (acc.length ? '<div class="scr-sec">' + shH('חיובים ותשלומים לפי שנה לועזית', 'כרטסת לכל חנות') + '<div class="st-list">' + det + '</div></div>' : '') +
-      '<p class="scr-note"><b>נדרשנו לשלם</b> = הסכום לפי הקבלות שהחנות הגישה לתקופה. <b>שולם</b> = מה שסומן כשולם, לפי תאריך התשלום. <b>יתרה</b> = מה שנשאר לשלם לחנות אחרי כל שורה.' +
-      ' בכל שנה לועזית שתי תקופות: תשרי–אדר וניסן–אלול.' + (X.ledger && X.ledger.from ? ' הכרטסת מתחילה ב' + esc(X.ledger.from) + ': שנים קודמות לא מוצגות בה.' : '') + '</p>';
+    return factsH([['₪' + num(T.charged), 'נדרשנו לשלם', 'סך כל דרישות התשלום'], ['₪' + num(T.paid), 'שולם', T.charged ? pctOf(T.paid, T.charged) + '% מהדרישות' : 'עדיין לא שולם'],
+        ['₪' + num(Math.max(0, T.bal)), 'נשאר לשלם', T.bal > 0.004 ? 'דרישות שעוד לא שולמו' : 'אין יתרה פתוחה']]) +
+      '<div class="scr-sec">' + shH('כמה נדרשנו לשלם לכל חנות, וכמה שולם', 'סיכום לפי חנות', canAdd ? '<button type="button" class="btn btn-s btn-o sh-btn" data-scr="le-new:charge:">' + g('plus') + 'שורה לחנות אחרת</button>' : '') + overH + '</div>' +
+      (acc.length ? '<div class="scr-sec">' + shH('דרישות תשלום ותשלומים, לפי שנה לועזית', 'כרטסת לכל חנות') + '<div class="st-list">' + det + '</div></div>' : '') +
+      '<p class="scr-note"><b>דרישת תשלום</b> = מה שהחנות דרשה לפי הקבלות. <b>תשלום</b> = מה ששולם לחנות. <b>יתרה לתשלום</b> = סך הדרישות פחות סך התשלומים.' +
+      ' חיובים שהוזנו בחלון התשלום לחנות נערכים בחלון הזה; שורות שנוספו בכרטסת נערכות ונמחקות כאן.' + (L.from ? ' חיובים לפי תקופה מוצגים מ' + esc(L.from) + ' והלאה.' : '') + '</p>';
   }
 
   /* ---------- כתובות פורים ---------- */
@@ -3655,6 +3640,18 @@ window.TZ_DATA = (function () {
         fldH('תאריך התשלום', inH('b-date', b.paidOn || D.settings.todayLabel, 'inputmode="numeric" dir="ltr" style="text-align:right"') + g('calendar'), 'paid-only' + (b.status === 'שולם' ? '' : ' is-off'), 'b-date') +
         '<div class="fld"><span class="lb">קבלה</span><button type="button" class="btn btn-s btn-o upl" data-scr="demo:כאן בוחרים קובץ קבלה, PDF או תמונה (הדגמה)">' + (b.receipt ? 'החלפת הקבלה' : 'צירוף קבלה') + '</button></div>' +
         '<p class="err fld w2" id="' + P + 'ferr" role="alert"></p></div></div>' + foot('שמירת התשלום') + '</form>';
+    } else if (kind === 'ledger') {
+      var le = arg.e || {}, lk = arg.kind === 'payment' ? 'payment' : 'charge', lst = storeLedgers().map(function (s) { return s.store; });
+      h = '<form data-form="ledger" novalidate><div class="sheet-s">' + X + '<h2 class="fh"><span class="lt">כרטסת חנות</span>' + (arg.store ? esc(arg.store) : 'שורה לחנות אחרת') + '</h2><div class="dform">' +
+        '<div class="fld w2"><span class="lb">סוג השורה</span>' + segH('le-kind', [LE_KIND.charge, LE_KIND.payment], LE_KIND[lk]) + '</div>' +
+        (arg.store ? '' : fldH('חנות', inH('le-store', '', 'list="' + P + 'le-stores" placeholder="שם החנות"') + '<datalist id="' + P + 'le-stores">' + lst.map(function (n) { return '<option value="' + esc(n) + '">'; }).join('') + '</datalist>', 'w2', 'le-store')) +
+        fldH('תאריך', inH('le-date', le.date || D.settings.todayLabel, 'inputmode="numeric" dir="ltr" style="text-align:right"') + g('calendar'), '', 'le-date') +
+        '<div class="fld amt"><label for="' + P + 'le-amt">סכום</label><div class="uin" dir="ltr"><span class="pre">₪</span><input id="' + P + 'le-amt" type="text" inputmode="decimal" value="' + (le.amount ? esc(le.amount) : '') + '" placeholder="0" autocomplete="off" style="text-align:left"></div></div>' +
+        fldH('אמצעי תשלום', optH('le-method', ['העברה בנקאית', 'צ׳ק', 'מזומן', 'אשראי', 'אחר'], le.method || 'העברה בנקאית'), 'pay-only' + (lk === 'payment' ? '' : ' is-off'), 'le-method') +
+        fldH('מס׳ קבלה / אסמכתה', inH('le-ref', le.ref || '', 'placeholder="לא חובה"'), '', 'le-ref') +
+        fldH('הערה', inH('le-note', le.note || '', 'placeholder="לא חובה"'), 'w2', 'le-note') + '<p class="err fld w2" id="' + P + 'ferr" role="alert"></p></div></div>' +
+        '<div class="sheet-f"><button type="submit" class="btn">' + (le.id ? 'שמירת השינויים' : 'הוספת השורה') + g('chev2') + '</button><button type="button" class="btn btn-o" data-close>ביטול</button>' +
+        (le.id ? '<button type="button" class="btn btn-o le-del" data-scr="le-del:' + esc(le.id) + '">מחיקת השורה</button>' : '') + '</div></form>';
     } else if (kind === 'visit') {
       var vr = arg, wt = vr.win ? (vr.win.from ? 'from' : 'to') : '';
       h = '<form data-form="visit" novalidate><div class="sheet-s">' + X + '<h2 class="fh"><span class="lt">' + esc(vr.street) + ' ' + vr.house + ' · דירה ' + vr.apt + '</span>' + esc(vr.family) + ' ' + esc(vr.first) + '</h2><div class="dform">' +
@@ -3799,6 +3796,22 @@ window.TZ_DATA = (function () {
       var paid = ($('input[name="' + P + 'b-paid"]:checked', id('fsheet')) || {}).value === 'שולם';
       b.billed = amt; b.ref = val('b-ref'); b.status = paid ? 'שולם' : 'ממתין לתשלום'; b.paidOn = paid ? val('b-date') : ''; b.method = paid ? val('b-method') : ''; b.receipt = true;
       closeAll(); toast('התשלום ל' + esc(b.shop) + ' נשמר', 'check'); scrDraw();
+    } else if (kind === 'ledger') {
+      var la = FORM.arg || {}, lk2 = ($('input[name="' + P + 'le-kind"]:checked', id('fsheet')) || {}).value === LE_KIND.payment ? 'payment' : 'charge';
+      var lstore = la.store || val('le-store'), ldate = val('le-date'), lamt = Math.round(numIn(val('le-amt')) * 100) / 100;
+      if (!lstore) return formErr('צריך לכתוב את שם החנות');
+      if (!isDate(ldate)) return formErr('התאריך צריך להיות בצורה יום/חודש/שנה');
+      if (!(lamt > 0)) return formErr('צריך להזין סכום גדול מאפס');
+      var lent = { id: la.e ? la.e.id : '', store: lstore, kind: lk2, date: ldate, amount: lamt, method: lk2 === 'payment' ? val('le-method') : '', ref: val('le-ref'), note: val('le-note') };
+      if (HOST()) {
+        hr = hcall('saveLedgerEntry', lent);
+        if (hr.classic) return true;
+        if (!hr.ok) return formErr(hr.error || 'השורה לא נשמרה. אפשר לנסות שוב');
+        closeAll(); return true;
+      }
+      var LM = ledgerData().manual, li = la.e ? LM.indexOf(la.e) : -1;
+      if (li > -1) LM[li] = lent; else { lent.id = 'L' + Date.now(); LM.push(lent); }
+      closeAll(); toast(li > -1 ? 'השורה עודכנה' : 'השורה נוספה לכרטסת', 'check'); scrDraw();
     } else if (kind === 'credit') {
       if (FORM.step === 1) { amt = digits('c-amt'); if (!amt) return formErr('צריך להזין סכום לחיוב'); FORM.amt = amt; FORM.mid = val('c-member'); FORM.step = 2; openForm('credit'); }
       else if (FORM.step === 2) { FORM.step = 3; openForm('credit'); }
@@ -3847,7 +3860,7 @@ window.TZ_DATA = (function () {
       if (a === 'bill-new') { hdo('openBill', { half: 'א' }); return; }
       if (a === 'lb') { hg = ledgerYears()[+pv[0]]; hb = hg && ((hg.halves || {})[pv[1]] || [])[+pv[2]]; if (hb) hdo('openBill', hb.legacy ? { legacyId: hb.id, year: hg.year } : { id: hb.id, year: hg.year }); return; }
       if (a === 'll') { hg = ledgerYears()[+pv[0]]; hb = hg && (hg.loose || [])[+pv[1]]; if (hb) hdo('openBill', { legacyId: hb.id, year: hg.year }); return; }
-      if (a === 'lb-add') { hdo('openBill', { store: v }); return; }
+      if (a === 'le-del') { if (hdo('removeLedgerEntry', v)) closeAll(); return; }
       if (a === 'legacy') { hb = (X.legacy || [])[+v]; if (hb) hdo('openBill', { legacyId: hb.id }); return; }
       if (a === 'pkg-edit') {
         if (!has('savePackage')) { HOST().classic('grants'); return; }
@@ -3885,6 +3898,9 @@ window.TZ_DATA = (function () {
     if (a === 'form') { openForm(v); return; }
     if (a === 'credit-back') { FORM.step = 1; openForm('credit'); return; }
     if (a === 'gview') { SC.grants.view = v; SC.grants.editPkg = false; if (S.soon !== 'grants') go('grants'); else scrDraw(); if (v === 'pay') scrollToEl($('.scr-bar', id('scr'))); return; }
+    if (a === 'le-new') { X = v.split(':'); openForm('ledger', { kind: X[0], store: X.slice(1).join(':') }); return; }
+    if (a === 'le') { st = ledgerData().manual.filter(function (m) { return String(m.id) === v; })[0]; if (st) openForm('ledger', { kind: st.kind, store: st.store, e: st }); return; }
+    if (a === 'le-del') { X = ledgerData().manual; st = X.map(function (m) { return String(m.id); }).indexOf(v); if (st > -1) X.splice(st, 1); closeAll(); toast('השורה נמחקה', 'check'); scrDraw(); return; }
     if (a === 'lb') { X = v.split(':'); st = ledgerYears()[+X[0]]; st = st && ((st.halves || {})[X[1]] || [])[+X[2]]; if (st) { SC.grants.half = X[1]; openForm('bill', st); } return; }
     if (a === 'st-go') { var sp = $$('.st', id('scr')).filter(function (e) { return (e.querySelector('h3') || {}).textContent.indexOf(v) > -1; })[0]; if (sp) scrollToEl(sp); return; }
     if (a === 'pkg-edit') { st = SC.grants; if (st.editPkg) { D.grantsX.package.forEach(function (p) { p.total = p.items.reduce(function (s, it) { return s + it.value; }, 0); }); toast('תכולת החבילה נשמרה', 'check'); } st.editPkg = !st.editPkg; scrDraw(); return; }
@@ -3923,6 +3939,7 @@ window.TZ_DATA = (function () {
       var t = e.target, a = t.getAttribute && (t.getAttribute('data-scrsel') || t.getAttribute('data-scrtog')), p, m;
       // תשלום לחנות: אמצעי ותאריך מוצגים רק כשמסמנים "שולם"
       if (t.getAttribute && t.getAttribute('data-plan') === 'mode') { planRead(); scrDraw(); return; }
+      if (t.name === P + 'le-kind') { $$('.pay-only', id('fsheet')).forEach(function (f) { f.classList.toggle('is-off', t.value !== LE_KIND.payment); }); return; }
       if (t.name === P + 'b-paid') { $$('.paid-only', id('fsheet')).forEach(function (f) { f.classList.toggle('is-off', t.value !== 'שולם'); }); return; }
       if (!a) return;
       if (a === 'method') { SC.transactions.method = t.value; scrDraw(); }
