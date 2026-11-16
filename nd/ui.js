@@ -654,7 +654,7 @@ window.TZ_BODY="<svg width=\"0\" height=\"0\" style=\"position:absolute\" aria-h
      הקובץ נכנס לתוך script.js בזמן הבנייה (shared/build.js), ולכן הוא משתמש באותן פונקציות עזר: id, esc, nis, g, slot, disc, toast, stampSVG.
      כל הנתונים הם נתוני הדגמה מ-shared/data-screens.js. שינויים נשמרים בזיכרון בלבד. */
   var SC = {
-    grants: { view: 'give', half: 'א', editPkg: false },
+    grants: { view: 'give', half: 'א', editPkg: false, cumOpen: {} },
     purim: { city: '', group: 0, all: false, edit: false, map: false, better: false, plan: null },
     transactions: { period: 'week', method: '' },
     expenses: { year: '', open: {} },
@@ -877,12 +877,28 @@ window.TZ_BODY="<svg width=\"0\" height=\"0\" style=\"position:absolute\" aria-h
         var c = tc('חנות / ספק', '<b>' + esc(l.store) + '</b>') + tc('תאריך', esc(l.date || '—')) + tc('הוצאה / חשבונית', esc(l.description || '—')) + tc('אמצעי', esc(l.method || '—')) + tc('סכום ששולם', '<b>' + nis(l.amount || 0) + '</b>');
         return canE ? '<button type="button" class="trow" data-scr="legacy:' + i + '">' + c + '<span class="tc tc-act">שיוך למחצית' + g('chev') + '</span></button>' : '<div class="trow">' + c + '<span></span></div>';
       }).join(''), 'tl-bills') + '</div>' : '';
+    // 3. חשבון מצטבר: כל שנות המענקים יחד, עם פירוט לפי שנה בלחיצה על חנות
+    var C = X.cum, cumH = '', CC = 'minmax(0,1.3fr) repeat(4,minmax(0,1fr)) 30px';
+    if (C && C.stores.length) {
+      cumH = '<div class="scr-sec">' + shH(C.years.length > 1 ? 'מ' + esc(C.years[0]) + ' עד ' + esc(C.years[C.years.length - 1]) + ', כל השנים יחד' : 'כל מה שנרשם עד היום', 'חשבון מצטבר לחנות') +
+        tlH(CC, ['חנות', 'צפי', 'בפועל לפי קבלות', 'שולם', 'נשאר לשלם', ''], C.stores.map(function (s) {
+          var open = !!SC.grants.cumOpen[s.store];
+          return '<button type="button" class="trow' + (open ? ' is-open' : '') + '" data-scr="cum:' + esc(s.store) + '" aria-expanded="' + open + '">' + tc('חנות', '<b>' + esc(s.store) + '</b><i>' + (s.byYear.length === 1 ? 'שנה אחת' : s.byYear.length + ' שנים') + '</i>') +
+            tc('צפי', money(s.expected)) + tc('בפועל לפי קבלות', money(s.billed, true)) + tc('שולם', money(s.paid)) + tc('נשאר לשלם', s.debt ? '<b class="neg">' + nis(s.debt) + '</b>' : s.billed ? '<b class="pos">אין חוב</b>' : '<i>—</i>') + g('down') + '</button>' +
+            (open ? s.byYear.map(function (y) {
+              return '<div class="trow trow-y">' + tc('שנה', '<b>' + esc(y.year) + '</b>' + (y.legacy ? '<i>מזה ' + nis(y.legacy) + ' בשיטה הקודמת</i>' : '')) + tc('צפי', money(y.expected)) + tc('בפועל לפי קבלות', money(y.billed)) + tc('שולם', money(y.paid)) +
+                tc('נשאר לשלם', y.debt ? '<b class="neg">' + nis(y.debt) + '</b>' : '<i>—</i>') + '<span></span></div>';
+            }).join('') : '');
+        }).join(''), 'tl-bills tl-acc tl-cum') +
+        '<div class="tl-sum" style="--cols:' + CC + '"><span><b>סך הכול</b></span><span><b>' + nis(C.total.expected) + '</b></span><span><b>' + nis(C.total.billed) + '</b></span><span><b>' + nis(C.total.paid) + '</b></span><span><b>' + nis(C.total.debt) + '</b></span><span></span></div>' +
+        '<p class="scr-note">לחיצה על חנות מציגה את הפירוט לפי שנה. בצפי המצטבר נספרים כל החתנים של כל שנה, גם מי שאין לו תאריך.' + (C.legacyOpen ? ' הסכומים כוללים ' + nis(C.legacyOpen) + ' מתשלומים שנרשמו בשיטה הקודמת ועוד לא שויכו למחצית (' + C.legacyCount + ' תשלומים): בחשבון המצטבר הם נספרים כתשלום ששולם לחנות.' : '') + '</p></div>';
+    }
     return factsH([['₪' + num(T.expected), 'צפי לשנה', grooms + ' חתנים × עלות החבילה'], ['₪' + num(T.billed), 'בפועל לפי קבלות', T.expected ? pctOf(T.billed, T.expected) + '% מהצפי' : 'מה שהחנויות חייבו'],
         ['₪' + num(T.paid), 'שולם', T.billed ? pctOf(T.paid, T.billed) + '% מהחיובים' : 'עדיין לא שולם'], ['₪' + num(T.debt), 'נשאר לשלם', T.debt ? 'חיובים שממתינים לתשלום' : 'אין חיובים פתוחים']]) +
       '<div class="scr-sec">' + shH('כמה שולם לכל חנות, וכמה נשאר', 'סיכום לפי חנות', live && canE ? '<button type="button" class="btn btn-s btn-o sh-btn" data-scr="bill-new">' + g('plus') + 'תשלום לחנות אחרת</button>' : '') + overH + '</div>' +
       (acc.length ? '<div class="scr-sec">' + shH('בכל מחצית: הצפי מול מה שחויב ושולם', 'פירוט לפי חנות') + '<div class="st-list">' + det + '</div></div>' : '') +
       '<p class="scr-note"><b>צפי</b> = מספר החתנים שקיבלו מענק במחצית × עלות החבילה באותה חנות. <b>בפועל</b> = הסכום לפי הקבלות של החנות, שבדרך כלל נמוך מהצפי (לא כל התלושים מומשו). <b>נשאר לשלם</b> = חיובים שהוזנו ועוד לא סומנו כשולמו.' +
-      (X.noHalf ? ' ' + X.noHalf + ' חתנים בלי תאריך בשנת המענקים לא נכללו בצפי.' : '') + '</p>' + legacy;
+      (X.noHalf ? ' ' + X.noHalf + ' חתנים בלי תאריך בשנת המענקים לא נכללו בצפי.' : '') + '</p>' + cumH + legacy;
   }
 
   /* ---------- כתובות פורים ---------- */
@@ -1445,6 +1461,7 @@ window.TZ_BODY="<svg width=\"0\" height=\"0\" style=\"position:absolute\" aria-h
     if (a === 'form') { openForm(v); return; }
     if (a === 'credit-back') { FORM.step = 1; openForm('credit'); return; }
     if (a === 'gview') { SC.grants.view = v; SC.grants.editPkg = false; if (S.soon !== 'grants') go('grants'); else scrDraw(); if (v === 'pay') scrollToEl($('.scr-bar', id('scr'))); return; }
+    if (a === 'cum') { SC.grants.cumOpen[v] = !SC.grants.cumOpen[v]; scrDraw(); return; }
     if (a === 'st-go') { var sp = $$('.st', id('scr')).filter(function (e) { return (e.querySelector('h3') || {}).textContent.indexOf(v) > -1; })[0]; if (sp) scrollToEl(sp); return; }
     if (a === 'pkg-edit') { st = SC.grants; if (st.editPkg) { D.grantsX.package.forEach(function (p) { p.total = p.items.reduce(function (s, it) { return s + it.value; }, 0); }); toast('תכולת החבילה נשמרה', 'check'); } st.editPkg = !st.editPkg; scrDraw(); return; }
     if (a === 'groom-del') { X = D.grantsX; X.recipients = X.recipients.filter(function (r) { return String(r.n) !== v; }); X.recipients.forEach(function (r, n) { r.n = n + 1; }); scrDraw(); toast('החתן הוסר מהרשימה', 'check'); return; }

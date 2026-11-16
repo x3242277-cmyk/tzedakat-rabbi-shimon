@@ -1566,3 +1566,9 @@ img{max-width:100%}
   .tz-b1 .st-bill{grid-template-columns:minmax(0,1fr) auto}
   .tz-b1 .st-b2,.tz-b1 .st-b3{grid-column:1 / -1}
 }
+
+/* ---------- מענקים: חשבון מצטבר לחנות ---------- */
+.tz-b1 .tl-cum .trow > .g{width:18px;height:18px;justify-self:end;transition:transform .25s}
+.tz-b1 .tl-cum .trow.is-open > .g{transform:rotate(180deg)}
+.tz-b1 .tl-cum .trow-y{background:var(--grey-2);box-shadow:none;min-height:0;padding-block:8px;margin-inline-start:22px;font-size:14.5px}
+.tz-b1 .tl-cum .trow-y b{font-weight:700}

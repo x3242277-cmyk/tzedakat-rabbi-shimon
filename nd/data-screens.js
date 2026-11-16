@@ -223,7 +223,68 @@
     halves['א'].label = 'מחצית א׳ · ' + halves['א'].period;
     halves['ב'].label = 'מחצית ב׳ · ' + halves['ב'].period;
     return { year: year, nextYear: next, years: yearsAsc.slice().reverse(), recipients: recipients, 'package': pkg, halves: halves,
-      noHalf: counts.none };   // חתנים בלי תאריך בשנה הזו: לא נכללים בצפי של אף מחצית
+      noHalf: counts.none,
+      cum: opts && opts.noCum ? null : safeCum(archive, yearsAsc, allYears) };   // חתנים בלי תאריך בשנה הזו: לא נכללים בצפי של אף מחצית
+  }
+  // חשבון מצטבר לכל חנות, על פני כל שנות המענקים: צפי, בפועל לפי קבלות, שולם ונשאר לשלם, עם פירוט לפי שנה.
+  // תשלום מהשיטה הקודמת נספר כאן כתשלום ששולם לחנות גם אם עוד לא שויך למחצית: בחשבון מצטבר המחצית לא משנה.
+  function safeCum(archive, yearsAsc, allYears) {
+    try { return buildCumulative(archive, yearsAsc, allYears); } catch (e) { warn('grants cumulative', e); return null; }
+  }
+  function buildCumulative(archive, yearsAsc, allYears) {
+    var order = yearsOrder(), years = yearsAsc.slice(), stores = {}, names = [], legacyOpen = 0, legacyCount = 0;
+    arr(archive.payments).forEach(function (p) { var y = p && str(p.year); if (y && years.indexOf(y) === -1) years.push(y); });
+    years.sort(function (a, b) { return order.indexOf(a) - order.indexOf(b); });
+    // כל שמות החנויות המוכרים, מכל השנים: תשלום ישן שנרשם בשם ארוך ("אווניו 13 ביתר") משויך לחנות שבתכולה ("אווניו 13")
+    var known = [];
+    years.forEach(function (y) { try { Object.keys(storeCosts(archive, y)).forEach(function (n) { if (known.indexOf(n) === -1) known.push(n); }); } catch (e) {} });
+    years.forEach(function (y) {
+      var m = map0(), own;
+      if (allYears[y]) {
+        var g = buildGrants({ grantsYear: y, noCum: true });
+        ['א', 'ב'].forEach(function (h) {
+          arr(g.halves[h].bills).forEach(function (b) {
+            var s = m[b.store] || (m[b.store] = { expected: 0, billed: 0, paid: 0, legacy: 0 });
+            s.expected += num(b.expected);
+            if (b.status === 'טרם הוזן חיוב') return;
+            s.billed += num(b.billed); if (b.status === 'שולם') s.paid += num(b.billed);
+            if (b.legacy) s.legacy += num(b.billed);
+          });
+        });
+      }
+      // חתנים בלי תאריך (או עם תאריך שמחוץ לשנת המענקים) לא נספרים בצפי של אף מחצית, אבל בחשבון השנתי הם כן קיבלו חבילה
+      if (allYears[y] && g.noHalf) {
+        var cs = storeCosts(archive, y);
+        Object.keys(cs).forEach(function (name) { var s = m[name] || (m[name] = { expected: 0, billed: 0, paid: 0, legacy: 0 }); s.expected += num(cs[name]) * g.noHalf; });
+      }
+      own = Object.keys(m);
+      try {
+        if (typeof getGrantPaymentsForYear === 'function' && typeof getLegacyPaymentHalf === 'function') {
+          arr(getGrantPaymentsForYear(archive, y)).forEach(function (p) {
+            if (!p || getLegacyPaymentHalf(archive, y, p)) return;       // המשויכים כבר נספרו בשורות המחצית
+            var name = typeof matchLegacyStoreName === 'function' ? matchLegacyStoreName(p.store, own.concat(names, known)) : str(p.store).trim(), amt = num(p.amount);
+            var s = m[name] || (m[name] = { expected: 0, billed: 0, paid: 0, legacy: 0 });
+            s.billed += amt; s.paid += amt; s.legacy += amt; legacyOpen += amt; legacyCount++;
+          });
+        }
+      } catch (e) { warn('grants cumulative legacy ' + y, e); }
+      Object.keys(m).forEach(function (name) {
+        var v = m[name], S = stores[name];
+        if (!v.expected && !v.billed) return;
+        if (!S) { S = stores[name] = { store: name, expected: 0, billed: 0, paid: 0, legacy: 0, byYear: [] }; names.push(name); }
+        S.expected += v.expected; S.billed += v.billed; S.paid += v.paid; S.legacy += v.legacy;
+        S.byYear.push({ year: y, expected: r2(v.expected), billed: r2(v.billed), paid: r2(v.paid), debt: r2(Math.max(0, v.billed - v.paid)), legacy: r2(v.legacy) });
+      });
+    });
+    var total = { expected: 0, billed: 0, paid: 0, debt: 0 };
+    var list = names.map(function (name) {
+      var S = stores[name];
+      S.expected = r2(S.expected); S.billed = r2(S.billed); S.paid = r2(S.paid); S.legacy = r2(S.legacy); S.debt = r2(Math.max(0, S.billed - S.paid));
+      total.expected += S.expected; total.billed += S.billed; total.paid += S.paid; total.debt += S.debt;
+      return S;
+    });
+    ['expected', 'billed', 'paid', 'debt'].forEach(function (k) { total[k] = r2(total[k]); });
+    return { years: years, stores: list, total: total, legacyOpen: r2(legacyOpen), legacyCount: legacyCount };
   }
   function emptyGrants() { return { year: campaignYear(), years: [], recipients: [], 'package': [], halves: emptyHalves(), noHalf: 0 }; }
 
