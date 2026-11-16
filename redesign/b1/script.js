@@ -426,15 +426,27 @@
     m.status = D.statusOf(m);
     m.gifts = D.settings.gifts.map(function (gf) { return { name: gf.name, threshold: gf.threshold, earned: m.collected >= gf.threshold, missing: Math.max(0, gf.threshold - m.collected) }; });
   }
+  function mselLabel(key, label) {
+    var v = S[key], j;
+    if (!v.length) return label + ': הכול';
+    if (v.length === 1) return v[0];
+    j = v.join(', ');
+    return j.length <= 24 ? j : label + ': ' + v.length + ' נבחרו';
+  }
   function uniq(k) { var o = {}, r = []; M.forEach(function (m) { if (m[k] && !o[m[k]] && (S.married || !m.married)) { o[m[k]] = 1; r.push(m[k]); } }); return r.sort(function (a, b) { return String(a).localeCompare(String(b), 'he'); }); }
   function renderFilters() {
     id('filt').innerHTML = D.statusFilters.map(function (f) {
       var on = f.key === S.filter;
       return '<button type="button" class="ftab' + (on ? ' is-on' : '') + '" role="tab" aria-selected="' + on + '" data-filter="' + f.key + '">' + BRUSH + esc(f.label) + '<small>' + f.count + '</small></button>';
     }).join('');
+    // סינון עם כמה בחירות יחד (למשל ישי״ק וגם ישי״ג): כפתור שפותח רשימת סימונים
     function sel(key, label, opts) {
-      return '<span class="sel' + (S[key] ? ' is-set' : '') + '"><select aria-label="' + label + '" data-sel="' + key + '"><option value="">' + label + ': הכול</option>' +
-        opts.map(function (o) { return '<option' + (S[key] === o ? ' selected' : '') + '>' + esc(o) + '</option>'; }).join('') + '</select>' + g('down') + '</span>';
+      S[key] = S[key].filter(function (v) { return opts.indexOf(v) > -1; });
+      var v = S[key];
+      return '<span class="pop-wrap msel"><button type="button" class="mbtn' + (v.length ? ' is-set' : '') + '" data-msel="' + key + '" data-label="' + label + '" aria-haspopup="true" aria-expanded="false"><span>' + esc(mselLabel(key, label)) + '</span>' + g('down') + '</button>' +
+        '<span class="pop mpop" role="group" aria-label="' + label + '" hidden>' + (opts.length ? opts.map(function (o) {
+          return '<label class="mopt"><input type="checkbox" data-mopt="' + key + '" value="' + esc(o) + '"' + (v.indexOf(o) > -1 ? ' checked' : '') + '><span class="ck"></span><span>' + esc(o) + '</span></label>';
+        }).join('') : '<span class="mnone">אין ערכים לבחירה</span>') + '<button type="button" class="mclr" data-mclr="' + key + '">ניקוי הבחירה</button></span></span>';
     }
     var ysel = '';
     if (HOST() && D.years && D.years.length) {
@@ -457,9 +469,9 @@
       if (m.married && !S.married) return false;
       if (S.filter === 'near') { if (!m.near) return false; }
       else if (S.filter !== 'all' && m.status.key !== S.filter) return false;
-      if (S.yeshiva && m.yeshiva !== S.yeshiva) return false;
-      if (S.city && m.city !== S.city) return false;
-      if (S.type && m.type !== S.type) return false;
+      if (S.yeshiva.length && S.yeshiva.indexOf(m.yeshiva) === -1) return false;
+      if (S.city.length && S.city.indexOf(m.city) === -1) return false;
+      if (S.type.length && S.type.indexOf(m.type) === -1) return false;
       if (q) { var hay = (m.full + m.last + m.first + m.yeshiva + m.phone + m.city + (m.father || '')).replace(/[-\s]/g, ''); if (hay.indexOf(q) === -1) return false; }
       return true;
     });
@@ -476,7 +488,7 @@
   function membersSubtitle() {
     var f = D.statusFilters.filter(function (x) { return x.key === S.filter; })[0], parts = [];
     if (f && S.filter !== 'all') parts.push(f.label);
-    if (S.yeshiva) parts.push(S.yeshiva); if (S.city) parts.push(S.city); if (S.type) parts.push(S.type);
+    ['yeshiva', 'city', 'type'].forEach(function (k) { if (S[k].length) parts.push(S[k].join(', ')); });
     if (S.q.trim()) parts.push('חיפוש: ' + S.q.trim());
     return parts.join(' · ');
   }
@@ -708,8 +720,8 @@
     return false;
   }
   function goMembers(patch) {
-    S.filter = 'all'; S.q = ''; S.yeshiva = ''; S.city = ''; S.type = '';
-    for (var k in patch) S[k] = patch[k];
+    S.filter = 'all'; S.q = ''; S.yeshiva = []; S.city = []; S.type = [];
+    for (var k in patch) S[k] = (k === 'yeshiva' || k === 'city' || k === 'type') && !Array.isArray(patch[k]) ? (patch[k] ? [patch[k]] : []) : patch[k];
     var q = id('q'); if (q) q.value = S.q;
     go('members');
   }
@@ -728,6 +740,8 @@
     if ((el = t.closest('#' + P + 'userbtn'))) { togglePop(el, id('userpop')); return; }
     if ((el = t.closest('#' + P + 'morebtn'))) { togglePop(el, id('morepop')); return; }
     if ((el = t.closest('#' + P + 'refresh'))) { refresh(); return; }
+    if ((el = t.closest('[data-msel]'))) { togglePop(el, el.parentNode.querySelector('.pop')); return; }
+    if ((el = t.closest('[data-mclr]'))) { S[el.getAttribute('data-mclr')] = []; renderFilters(); renderList(true); return; }
     if ((el = t.closest('[data-yr]'))) { closePops(); setYear(el.getAttribute('data-yr')); return; }
     if ((el = t.closest('[data-pick]'))) { acPick(byId(el.getAttribute('data-pick'))); return; }
     if ((el = t.closest('[data-scr]'))) { scrAct(el.getAttribute('data-scr'), el); return; }
@@ -754,7 +768,7 @@
     else if (a === 'classic') { closeAll(); HOST().classic(S.view === 'soon' ? S.soon : S.view, S.soon === 'settings' ? SC.settings.tab : null); }
     else if (a === 'newmember') openForm('member');
     else if (a === 'edit') openForm('member', byId(el.getAttribute('data-mid')) || byId(S.member));
-    else if (a === 'clearfilters') { S.filter = 'all'; S.q = ''; S.yeshiva = ''; S.city = ''; S.type = ''; id('q').value = ''; renderFilters(); renderList(true); }
+    else if (a === 'clearfilters') { S.filter = 'all'; S.q = ''; S.yeshiva = []; S.city = []; S.type = []; id('q').value = ''; renderFilters(); renderList(true); }
     else if (a === 'dep-for') { var m = byId(el.getAttribute('data-mid')); id('ov-member').hidden = true; openDeposit({ member: m }); }
     else if (a === 'dep-again') { clearTimeout(closeT); openDeposit(); }
     else if (a === 'yearmenu') { closeAll(); later(function () { togglePop(id('yearbtn'), id('yearpop')); }, 30); }
@@ -817,7 +831,16 @@
     });
     root.addEventListener('change', function (e) {
       var t = e.target, k = t.getAttribute && t.getAttribute('data-sel');
-      if (k === 'year') { if (t.value !== S.year) setYear(t.value); }
+      var mk = t.getAttribute && t.getAttribute('data-mopt');
+      if (mk) {
+        // סימון או ביטול של אפשרות: הרשימה מתעדכנת מיד, והחלונית נשארת פתוחה לבחירות נוספות
+        var cur = S[mk].filter(function (v) { return v !== t.value; }), mb = $('[data-msel="' + mk + '"]');
+        if (t.checked) cur.push(t.value);
+        S[mk] = cur;
+        if (mb) { mb.classList.toggle('is-set', cur.length > 0); mb.firstElementChild.textContent = mselLabel(mk, mb.getAttribute('data-label')); }
+        renderList(true);
+      }
+      else if (k === 'year') { if (t.value !== S.year) setYear(t.value); }
       else if (k) { S[k] = t.value; renderFilters(); renderList(true); }
       else if (t.id === P + 'married') { S.married = t.checked; if (HOST()) { renderFilters(); renderList(true); } else if (t.checked) toast('בנתוני ההדגמה אין בחורים נשואים', 'info'); }
     });
@@ -847,7 +870,7 @@
     var s = D.summary;
     M = D.members.map(function (m) { var c = {}, k; for (k in m) c[k] = m[k]; c.deposits = m.deposits.map(function (d) { return { id: d.id, date: d.date, amount: d.amount, method: d.method, year: d.year, note: d.note }; }); return c; });
     ACT = D.activity.slice();
-    if (first) S = { view: 'dashboard', soon: null, year: D.settings.campaignYear, tab: 'alerts', filter: 'all', q: '', yeshiva: '', city: '', type: '', married: false, sort: { k: '', d: 1 }, member: null, sum: null };
+    if (first) S = { view: 'dashboard', soon: null, year: D.settings.campaignYear, tab: 'alerts', filter: 'all', q: '', yeshiva: [], city: [], type: [], married: false, sort: { k: '', d: 1 }, member: null, sum: null };
     S.sum = sumOf(s);
     if (HOST()) {
       if (HOST().year) S.year = HOST().year() || S.year;

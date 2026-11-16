@@ -551,3 +551,31 @@
 /* ---------- בחורים: בחירת שנה ברשימה ---------- */
 .tz-b1 .yr-warn{display:inline-flex;align-items:center;gap:12px;padding:8px 16px;border-radius:999px;background:var(--bad-bg);color:var(--bad-ink);font-weight:700;font-size:14px}
 .tz-b1 .yr-warn .lnk{font-size:14px;color:var(--ink)}
+
+/* ---------- בחורים: סינון עם כמה בחירות ---------- */
+.tz-b1 .filt2{position:relative;z-index:6}
+.tz-b1 .msel{display:inline-flex}
+.tz-b1 .mbtn{display:inline-flex;align-items:center;justify-content:space-between;gap:10px;min-height:44px;max-width:270px;padding:0 18px;border-radius:99px;background:#fff;box-shadow:inset 0 0 0 1.5px var(--ink);font-size:15px;font-weight:500;cursor:pointer}
+.tz-b1 .mbtn > span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tz-b1 .mbtn .g{flex:none;width:14px;height:14px;transition:transform .2s}
+.tz-b1 .mbtn[aria-expanded="true"] .g{transform:rotate(180deg)}
+.tz-b1 .mbtn:hover{background:var(--y-mist)}
+.tz-b1 .mbtn.is-set{background:var(--y);box-shadow:none;font-weight:800}
+.tz-b1 .mpop{display:block;inset-inline-end:auto;inset-inline-start:0;min-width:240px;max-width:min(340px,calc(100vw - 32px));max-height:min(62vh,430px);overflow-y:auto;scrollbar-width:none;z-index:30}
+.tz-b1 .mpop::-webkit-scrollbar{display:none}
+.tz-b1 .mopt{display:flex;align-items:center;gap:12px;min-height:40px;padding:0 12px;border-radius:14px;font-size:15px;font-weight:500;cursor:pointer}
+.tz-b1 .mopt:hover{background:var(--y-mist)}
+.tz-b1 .mopt input{position:absolute;opacity:0;width:0;height:0}
+.tz-b1 .mopt .ck{flex:none;display:grid;place-items:center;width:20px;height:20px;border-radius:6px;box-shadow:inset 0 0 0 1.5px var(--ink);transition:background .15s}
+.tz-b1 .mopt input:checked + .ck{background:var(--ink)}
+.tz-b1 .mopt input:checked + .ck::after{content:"";width:10px;height:5px;border:solid var(--y);border-width:0 0 2.5px 2.5px;transform:rotate(-45deg) translate(1px,-1px)}
+.tz-b1 .mopt input:checked ~ span:last-child{font-weight:800}
+.tz-b1 .mopt input:focus-visible + .ck{outline:2px solid var(--ink);outline-offset:2px}
+.tz-b1 .mnone{display:block;padding:10px 12px;color:var(--mute);font-size:14px}
+.tz-b1 .mclr{display:block;width:100%;margin-top:6px;padding:11px 12px 5px;border-top:1.5px solid var(--line);font-size:14px;font-weight:700;text-align:start;cursor:pointer}
+.tz-b1 .mclr:hover{text-decoration:underline}
+@media (max-width:760px){
+  .tz-b1 .filt2 .msel{flex:1 1 30%}
+  .tz-b1 .mbtn{width:100%;max-width:none;padding:0 14px;font-size:14px}
+  .tz-b1 .mpop{position:fixed;inset-inline:16px;top:auto;bottom:92px;max-width:none;max-height:52vh;z-index:120}
+}
