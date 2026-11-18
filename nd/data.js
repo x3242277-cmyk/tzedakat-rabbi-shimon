@@ -32,6 +32,7 @@
   var NAV = [
     { key: 'dashboard', label: 'לוח בקרה', group: 'ראשי' },
     { key: 'members', label: 'בחורים', group: 'ניהול' },
+    { key: 'gifts', label: 'מתנות', group: 'ניהול' },
     { key: 'grants', label: 'מענקים', group: 'ניהול' },
     { key: 'payments', label: 'תשלומים לחנויות', group: 'ניהול' },
     { key: 'purim', label: 'כתובות פורים', group: 'ניהול' },
@@ -547,6 +548,56 @@
       return { key: f.key, label: f.label, count: count };
     });
 
+    /* מתנות: מי זכאי לכל מתנה, בכל שנה בנפרד.
+       אותו כלל כמו isEligibleTiyul / isEligibleShay ב-buildMemberSummaries: מה שהבחור אסף באותה שנה מול סכום המתנה.
+       סכומי המתנות הם אלה שמוגדרים היום: המערכת אינה שומרת סכום מתנה נפרד לכל שנה.
+       בלי הרשאת "היסטוריית זכאות" מוצגת רק שנת הקמפיין. */
+    var giftsX = safe('giftsX', function () {
+      var sums = dict(), yearList = [];
+      allDonations.forEach(function (d) {
+        if (!d) return;
+        var y = str(d.year), mk = memberKey(d.memberId);
+        if (!y) return;
+        if (!sums[y]) { sums[y] = dict(); yearList.push(y); }
+        sums[y][mk] = (sums[y][mk] || 0) + num(d.amount);
+      });
+      if (yearList.indexOf(campaignYear) === -1) yearList.push(campaignYear);
+      if (!can.history) yearList = [campaignYear];
+      yearList.sort(function (a, b) {
+        var ia = order.indexOf(a), ib = order.indexOf(b);
+        if (ia !== -1 && ib !== -1) return ib - ia;
+        return ia !== -1 ? -1 : ib !== -1 ? 1 : 0;
+      });
+      function frameIn(m, y) {
+        var tKey = '', shiur = m.shiur;
+        try {
+          var hi = isFn(window.getHistoricalStatus) ? window.getHistoricalStatus(m.yeshivaType, m.shiur, campaignYear, y, settingsRaw) : null;
+          if (hi) { tKey = typeKey(hi.type); shiur = hi.shiur; }
+        } catch (e) { tKey = ''; }
+        if (!tKey) { tKey = typeKey(m.yeshivaType); shiur = m.shiur; }
+        return frameLabel(tKey, shiurLabel(tKey, shiur));
+      }
+      var years = yearList.map(function (y) {
+        var by = sums[y] || dict(), rows = [], counts = gifts.map(function () { return 0; }), depositors = 0;
+        allMembers.forEach(function (m) {
+          if (!m) return;
+          var collected = by[memberKey(m.id)] || 0;
+          if (collected > 0) depositors++;
+          var got = gifts.map(function (g) { return collected >= g.threshold; });
+          if (got.indexOf(true) === -1) return;
+          got.forEach(function (on, i) { if (on) counts[i]++; });
+          rows.push({
+            id: str(m.id), full: trim(str(m.firstName) + ' ' + str(m.lastName)), first: trim(m.firstName), last: trim(m.lastName),
+            yeshiva: yeshivaGroup(m.yeshiva), frame: frameIn(m, y), phone: trim(m.phone), married: married(m),
+            collected: r2(collected), got: got
+          });
+        });
+        rows.sort(function (a, b) { return (a.last + ' ' + a.first).localeCompare(b.last + ' ' + b.first, 'he'); });
+        return { year: y, rows: rows, counts: counts, total: rows.length, depositors: depositors };
+      });
+      return { gifts: gifts, years: years };
+    }, { gifts: gifts, years: [] });
+
     /* היסטוריית זכאות של בחור, מהשנה הישנה לחדשה */
     function historyOf(m) {
       try {
@@ -636,7 +687,7 @@
       fmt: fmt, settings: settings, can: can, summary: summary, frameworks: frameworks, yeshivas: yeshivas,
       yearly: yearly, monthly: monthly, expenseCategories: expenseCategories, alerts: alerts,
       activity: activity, members: members, historyOf: historyOf, statusOf: statusOf,
-      leaderboard: leaderboard, heatmap: heatmap, grants: grants, nav: nav, quickActions: quickActions,
+      leaderboard: leaderboard, heatmap: heatmap, grants: grants, giftsX: giftsX, nav: nav, quickActions: quickActions,
       statusFilters: statusFilters
     };
   }

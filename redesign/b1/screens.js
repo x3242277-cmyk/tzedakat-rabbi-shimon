@@ -7,6 +7,7 @@
     transactions: { period: 'week', method: '' },
     expenses: { year: '', open: {} },
     rules: { q: '', mid: '' },
+    gifts: { year: '', gift: 'all', yeshiva: '' },
     settings: { tab: 'targets' }
   };
   var HERO_WAVES = '<div class="hero-wave-in" aria-hidden="true"><svg class="hero-wave hero-wave--b" viewBox="0 0 800 640" preserveAspectRatio="none"><path fill="#D1A83C" d="M800,0L190,0C70,80-20,220,40,350C90,460,230,480,180,570C160,605,132,628,120,640L800,640Z"/></svg>' +
@@ -430,8 +431,65 @@
       tlH('minmax(0,1.6fr) ' + X.years.map(function () { return 'minmax(0,1fr)'; }).join(' ') + ' 22px', ['קטגוריה'].concat(X.years.map(esc)).concat(['']), det, 'tl-exp') + '</div>';
   }
 
+  /* ---------- מתנות ----------
+     מי זכאי לכל מתנה, לכל שנה בנפרד. הנתונים מגיעים מוכנים ב-D.giftsX: לכל שנה רשימת הזכאים ומספר הזכאים לכל מתנה. */
+  function giftsAll() { var X = D.giftsX; return X && X.gifts && X.years ? X : { gifts: [], years: [] }; }
+  // השנה המוצגת: זו שנבחרה במסך. בכניסה הראשונה, השנה שמוצגת בשאר המערכת
+  function giftsYear() {
+    var X = giftsAll(), st = SC.gifts, ys = X.years.map(function (y) { return y.year; });
+    if (ys.indexOf(st.year) < 0) st.year = ys.indexOf(S.year) > -1 ? S.year : ys.indexOf(D.settings.campaignYear) > -1 ? D.settings.campaignYear : (ys[0] || '');
+    return X.years[ys.indexOf(st.year)] || { year: st.year, rows: [], counts: [], total: 0, depositors: 0 };
+  }
+  function giftsShown() {
+    var st = SC.gifts, gi = st.gift === 'all' ? -1 : +st.gift;
+    return giftsYear().rows.filter(function (r) { return (gi < 0 || r.got[gi]) && (!st.yeshiva || r.yeshiva === st.yeshiva); });
+  }
+  function giftsTitle() {
+    var st = SC.gifts, gf = giftsAll().gifts[+st.gift];
+    return (st.gift !== 'all' && gf ? 'זכאים ל' + gf.name : 'כל הזכאים') + (st.yeshiva ? ' · ' + st.yeshiva : '');
+  }
+  function giftsBody() {
+    var X = giftsAll(), st = SC.gifts, gl = X.gifts;
+    if (!gl.length) return emptyH('לא הוגדרו מתנות', 'את המתנות ואת הסכום של כל אחת קובעים בהגדרות') + (navOf('settings') ? '<p class="ml-foot"><button type="button" class="lnk" data-go="settings"><span>להגדרות</span>' + g('chev') + '</button></p>' : '');
+    var Y = giftsYear();
+    if (st.gift !== 'all' && !gl[+st.gift]) st.gift = 'all';
+    var yesh = Y.rows.map(function (r) { return r.yeshiva; }).filter(function (v, i, a) { return v && a.indexOf(v) === i; }).sort(function (a, b) { return a.localeCompare(b, 'he'); });
+    if (st.yeshiva && yesh.indexOf(st.yeshiva) < 0) st.yeshiva = '';
+    var shown = giftsShown();
+    var facts = gl.map(function (gf, i) { return [Y.counts[i] || 0, 'זכאים ל' + gf.name, 'אספו ₪' + num(gf.threshold) + ' ומעלה בשנת ' + Y.year]; });
+    facts.push([Y.depositors, 'בחורים הפקידו', 'בשנת ' + Y.year + ' · ' + Y.total + ' מהם זכאים למתנה']);
+    var rows = shown.map(function (r, i) {
+      return '<button type="button" class="trow" data-mid="' + esc(r.id) + '">' + tc('מס׳', '<b class="num">' + (i + 1) + '</b>') +
+        tc('שם ומשפחה', '<b>' + esc(r.full) + '</b><i>' + esc(r.frame) + (r.married ? ' · נשוי' : '') + '</i>') +
+        tc('ישיבה', esc(r.yeshiva || '—')) + tc('נאסף בשנה', '<b>' + nis(r.collected) + '</b>') +
+        tc('מתנות', '<span class="gtags">' + gl.map(function (gf, gi) { return r.got[gi] ? '<span class="tag t-gift">' + esc(gf.name) + '</span>' : ''; }).join('') + '</span>') +
+        '<span class="tc tc-act">' + g('chev') + '</span></button>';
+    }).join('');
+    var bar = '<div class="scr-bar">' + tabsH([['all', 'כל הזכאים', Y.total]].concat(gl.map(function (gf, i) { return [String(i), gf.name, Y.counts[i] || 0]; })), st.gift, 'gift', 'סינון לפי מתנה') + '<span class="scr-sp"></span>' +
+      (X.years.length > 1 ? selH('שנה', X.years.map(function (y) { return [y.year, 'שנה: ' + y.year]; }), Y.year, 'giftyear', true) : '') +
+      (yesh.length > 1 ? selH('ישיבה', [['', 'ישיבה: הכול']].concat(yesh.map(function (y) { return [y, y]; })), st.yeshiva, 'giftyesh') : '') +
+      rbtnH('demo:הרשימה מוכנה להורדה (הדגמה)', 'ייצוא לקובץ', G_DOWNLOAD) + rbtnH('demo:הרשימה נשלחה להדפסה (הדגמה)', 'הדפסה', G_PRINT) + '</div>';
+    var list = '<div class="scr-sec gifts-list">' + shH('שנת ' + esc(Y.year), 'רשימת הזכאים') +
+      (shown.length ? tlH('44px minmax(0,1.5fr) minmax(0,1.2fr) minmax(0,.8fr) minmax(0,1.1fr) 28px', ['מס׳', 'שם ומשפחה', 'ישיבה', 'נאסף בשנה', 'מתנות', ''], rows, 'tl-gifts') +
+        '<p class="ml-foot">' + (shown.length === 1 ? 'בחור אחד' : num(shown.length) + ' בחורים') + ' · ' + esc(giftsTitle()) + ' · שנת ' + esc(Y.year) + '</p>'
+        : emptyH(Y.total ? 'אין זכאים בסינון הזה' : 'אין זכאים בשנת ' + esc(Y.year), Y.total ? 'אפשר לבחור מתנה אחרת או ישיבה אחרת' : 'מי שיאסוף את סכום המתנה בשנה הזאת יופיע כאן')) + '</div>';
+    var cmp = X.years.length > 1 ? '<div class="scr-sec">' + shH('כמה היו זכאים בכל שנה', 'שנה מול שנה') +
+      tlH('minmax(0,1fr) ' + gl.map(function () { return 'minmax(0,1fr)'; }).join(' ') + ' minmax(0,1.2fr) 96px', ['שנה'].concat(gl.map(function (gf) { return 'זכאים ל' + esc(gf.name); })).concat(['סך הזכאים', '']),
+        X.years.map(function (y) {
+          var on = y.year === Y.year;
+          return '<button type="button" class="trow' + (on ? ' is-on' : '') + '" data-scr="giftyear:' + esc(y.year) + '" aria-pressed="' + on + '">' +
+            tc('שנה', '<b>' + esc(y.year) + '</b>' + (y.year === D.settings.campaignYear ? '<i>קמפיין נוכחי</i>' : '')) +
+            gl.map(function (gf, gi) { return tc('זכאים ל' + gf.name, '<b>' + num(y.counts[gi] || 0) + '</b>'); }).join('') +
+            tc('סך הזכאים', '<b>' + num(y.total) + '</b><i>מתוך ' + num(y.depositors) + ' שהפקידו</i>') +
+            '<span class="tc tc-act">' + (on ? 'מוצגת' : 'להצגה' + g('chev')) + '</span></button>';
+        }).join(''), 'tl-gyears') + '</div>' : '';
+    return bar + factsH(facts) + list + cmp +
+      '<p class="scr-note">הזכאות נקבעת לפי מה שכל בחור אסף באותה שנה. סכומי המתנות הם אלה שמוגדרים היום בהגדרות (' +
+      gl.map(function (gf) { return esc(gf.name) + ' מ-' + nis(gf.threshold); }).join(', ') + '), גם כשמציגים שנה קודמת.</p>';
+  }
+
   /* ---------- תקנון ---------- */
-  var FW_FULL = { 'ישי״ג': 'ישיבה גדולה', 'ישי״ק': 'ישיבה קטנה', 'קיבוץ': 'קיבוץ', 'חיידר': 'חיידר' };
+  var FW_FULL ={ 'ישי״ג': 'ישיבה גדולה', 'ישי״ק': 'ישיבה קטנה', 'קיבוץ': 'קיבוץ', 'חיידר': 'חיידר' };
   var GIFT_SLOT = ['tiyul', 'matana'];
   function rulesMember(m) {
     var gifts = m.gifts.map(function (gf) { return '<span class="tag ' + (gf.earned ? 't-gift' : 't-idle') + '">' + (gf.earned ? 'זכאי ל' + esc(gf.name) : 'חסר ' + nis(gf.missing) + ' ל' + esc(gf.name)) + '</span>'; }).join('');
@@ -536,6 +594,14 @@
   }
 
   var SCREENS = {
+    gifts: {
+      hero: function () {
+        var cur = giftsYear();
+        return { slot: 'matana', sub: 'מי זכאי לכל מתנה, לפי מה שאסף באותה שנה.', stamp: [['מתנות לבחורים', 'שנת ' + cur.year, 'זכאים'], String(cur.total), 'זכאים'],
+          cta: '<button type="button" class="btn btn-k" data-scr="gifts-list">לרשימת הזכאים' + g('chev2') + '</button><button type="button" class="lnk" data-go="rules"><span>לכללי הזכאות</span>' + g('chev') + '</button>' };
+      },
+      body: giftsBody
+    },
     grants: {
       hero: function () { var gr = D.grants; return { slot: 'maanakim', sub: 'חבילת החתן, מי קיבל אותה, והתשלומים לחנויות.', stamp: [['מענקי חתנים', 'קמפיין ' + S.year, 'עזרת חתנים'], String(gr.grooms), 'חתנים'],
         cta: '<button type="button" class="btn btn-k" data-scr="form:groom">הוספת חתן' + g('chev2') + '</button><button type="button" class="lnk" data-go="payments"><span>לתשלומים לחנויות</span>' + g('chev') + '</button>' }; },
@@ -912,6 +978,9 @@
     if (a === 'purim-edit') { SC.purim.edit = true; scrDraw(); var f = $('.tl-purim input', id('scr')); scrollToEl($('.sums', id('scr'))); if (f) later(function () { try { f.focus({ preventScroll: true }); } catch (e) {} }, 350); return; }
     if (a === 'purim-save' || a === 'purim-cancel') { SC.purim.edit = false; scrDraw(); if (a === 'purim-save') toast('הסכומים נשמרו', 'check'); return; }
     if (a === 'period') { SC.transactions.period = v; scrDraw(); return; }
+    if (a === 'gift') { SC.gifts.gift = v; scrDraw(); return; }
+    if (a === 'giftyear') { SC.gifts.year = v; scrDraw(); scrollToEl($('.scr-bar', id('scr'))); return; }
+    if (a === 'gifts-list') { scrollToEl($('.gifts-list', id('scr'))); return; }
     if (a === 'cat') { SC.expenses.open[v] = !SC.expenses.open[v]; scrDraw(); return; }
     if (a === 'cat-del') { D.settingsX.categories.splice(+v, 1); scrDraw(); return; }
     if (a === 'rcheck') { scrollToEl(id('rcheck')); var q = id('rq'); if (q) later(function () { try { q.focus({ preventScroll: true }); } catch (e) {} }, 400); return; }
@@ -932,6 +1001,10 @@
       hdo(print ? 'printPurimGroup' : 'exportPurimGroup', gr.city, gr.group);
     } else if (scr === 'transactions') { st = SC.transactions.shown; if (st) hdo('printReport', 'transactions', st); }
     else if (scr === 'expenses') { X = D.expensesX; hdo('printReport', 'expenses', { year: SC.expenses.year || X.year, years: X.years, categories: X.categories }); }
+    else if (scr === 'gifts') {
+      X = { year: giftsYear().year, title: giftsTitle(), gifts: giftsAll().gifts.map(function (gf) { return gf.name; }), rows: giftsShown() };
+      if (print) hdo('printReport', 'gifts', X); else hdo('exportGifts', X);
+    }
     else HOST().classic(scr);
   }
   function bindScreens() {
@@ -948,6 +1021,8 @@
       if (!a) return;
       if (a === 'method') { SC.transactions.method = t.value; scrDraw(); }
       else if (a === 'expyear') { SC.expenses.year = t.value; scrDraw(); }
+      else if (a === 'giftyear') { SC.gifts.year = t.value; scrDraw(); }
+      else if (a === 'giftyesh') { SC.gifts.yeshiva = t.value; scrDraw(); }
       else if (a === 'gyear') { if (t.value !== D.grantsX.year) { if (HOST() && HOST().setGrantsYear) { SC.grants.editPkg = false; if (!hdo('setGrantsYear', t.value)) t.value = D.grantsX.year; } else { toast('בהדגמה מוצגת שנת ' + esc(D.grantsX.year) + ' בלבד', 'info'); t.value = D.grantsX.year; } } }
       else if (a === 'allyears') { SC.purim.all = t.checked; scrDraw(); }
       else if (a === 'mtype') { var sh = id('m-shiur'), box = id('m-shiur-f'); box.hidden = t.value === 'חיידר'; sh.innerHTML = D.frames[t.value].map(function (o) { return '<option>' + esc(o) + '</option>'; }).join(''); }

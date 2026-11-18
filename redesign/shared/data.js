@@ -181,6 +181,28 @@ window.TZ_DATA = (function () {
     return m;
   });
 
+  // מתנות: מי זכאי לכל מתנה בכל שנה. השנה הנוכחית מחושבת מהרשימה, והשנים הקודמות הן דוגמה
+  var giftsX = (function () {
+    function yearOf(year, factor) {
+      var rows = [], counts = settings.gifts.map(function () { return 0; }), depositors = 0;
+      members.forEach(function (m, i) {
+        var c = Math.round(m.collected * factor(i) / 50) * 50;
+        if (c > 0) depositors++;
+        var got = settings.gifts.map(function (g) { return c >= g.threshold; });
+        if (got.indexOf(true) < 0) return;
+        got.forEach(function (on, k) { if (on) counts[k]++; });
+        rows.push({ id: m.id, full: m.full, first: m.first, last: m.last, yeshiva: m.yeshiva, frame: m.frame, phone: m.phone, married: false, collected: c, got: got });
+      });
+      rows.sort(function (x, y) { return (x.last + ' ' + x.first).localeCompare(y.last + ' ' + y.first, 'he'); });
+      return { year: year, rows: rows, counts: counts, total: rows.length, depositors: depositors };
+    }
+    return { gifts: settings.gifts, years: [
+      yearOf('תשפ״ו', function () { return 1; }),
+      yearOf('תשפ״ה', function (i) { return i % 3 ? 0.8 : 1.1; }),
+      yearOf('תשפ״ד', function (i) { return i % 4 ? 0.6 : 1; })
+    ] };
+  })();
+
   // היסטוריית זכאות לדוגמה (לפי כללי החוב המצטבר: חוסר ביעד × 2 עובר לשנה הבאה)
   function historyOf(m) {
     if (m.type === 'חיידר') return [];
@@ -242,6 +264,7 @@ window.TZ_DATA = (function () {
   var nav = [
     { key: 'dashboard', label: 'לוח בקרה', group: 'ראשי' },
     { key: 'members', label: 'בחורים', group: 'ניהול' },
+    { key: 'gifts', label: 'מתנות', group: 'ניהול' },
     { key: 'grants', label: 'מענקים', group: 'ניהול' },
     { key: 'payments', label: 'תשלומים לחנויות', group: 'ניהול' },
     { key: 'purim', label: 'כתובות פורים', group: 'ניהול' },
@@ -290,7 +313,7 @@ window.TZ_DATA = (function () {
     fmt: fmt, settings: settings, summary: summary, frameworks: frameworks, yeshivas: yeshivas,
     yearly: yearly, monthly: monthly, expenseCategories: expenseCategories, alerts: alerts,
     activity: activity, members: members, historyOf: historyOf, statusOf: statusOf,
-    leaderboard: leaderboard, heatmap: heatmap, grants: grants, nav: nav, quickActions: quickActions,
+    leaderboard: leaderboard, heatmap: heatmap, grants: grants, giftsX: giftsX, nav: nav, quickActions: quickActions,
     statusFilters: [
       { key: 'all', label: 'הכל', count: 438 },
       { key: 'ok', label: 'עמדו ביעד', count: 96 },

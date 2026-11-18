@@ -1092,6 +1092,12 @@ img{max-width:100%}
   .uin-s input{font-size:16px;font-weight:800;min-height:34px;padding:0;text-align:left;width:100%}
   .uin-s .pre{font-size:15px}
 
+  /* ---------- מתנות ---------- */
+  .gtags{display:flex;flex-wrap:wrap;gap:6px}
+  .tl-gifts .tc-act .g{width:16px;height:16px}
+  .tl-gyears .trow.is-on{background:var(--y-mist);box-shadow:inset 0 0 0 1.5px var(--ink)}
+  .tl-gyears .tc-act{color:var(--ink-2)}
+
   /* ---------- שבבים ---------- */
   .chips{display:flex;flex-wrap:wrap;gap:8px}
   .chipb{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 18px;border-radius:99px;background:#fff;box-shadow:inset 0 0 0 1.5px var(--ink);font-size:15px;font-weight:500;white-space:nowrap;transition:background .2s,transform .3s var(--spring)}
@@ -1279,6 +1285,7 @@ img{max-width:100%}
     .tc b{white-space:normal}
     .tc-act{grid-column:1/-1;justify-content:flex-start}
     .trow > .ic{justify-self:end}
+    .tl-gifts .tc-act{display:none}
     .trow-sub{padding-inline-start:18px;border-radius:0}
     .trow-cat > .g{justify-self:end}
     .tl-sum span:empty{display:none}

@@ -20,8 +20,9 @@
   if (!supported()) return;
   document.body.classList.add('nd-on');
 
+  // מסך המתנות קיים רק בעיצוב החדש. במנוע הקיים הוא נשען על מסך הבחורים (שם מוצגת הזכאות למתנות), ולכן הוא רשום לפני members: בכיוון ההפוך מסך הבחורים נשאר "בחורים"
   var MAP = {
-    dashboard: 'dashboard-screen', members: 'members-screen', transactions: 'daily-report-screen', expenses: 'expenses-summary-screen',
+    dashboard: 'dashboard-screen', gifts: 'members-screen', members: 'members-screen', transactions: 'daily-report-screen', expenses: 'expenses-summary-screen',
     purim: 'purim-registration-screen', payments: 'grants-screen', grants: 'grants-screen', rules: 'rules-screen', settings: 'settings-screen'
   };
   var REV = {}; Object.keys(MAP).forEach(function (k) { REV[MAP[k]] = k; });

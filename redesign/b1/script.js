@@ -535,7 +535,7 @@
       '<span class="coin k" style="--i:3"><i>פער</i><b>' + nis(m.gap) + '</b></span>';
     var why = '';
     if (m.debt > 0) {
-      why = '<p class="why"><b>למה נדרש ' + nis(m.required) + '?</b> יעד בסיס ' + nis(m.base) + ' + קנס ' + nis(m.debt) + ' = נדרש ' + nis(m.required) + '. בשנה הקודמת חסרו ' + nis(m.debt / 2) + ' ליעד, והחוסר עובר לשנה הבאה כקנס כפול.</p>';
+      why = '<p class="why"><b>למה נדרש ' + nis(m.required) + '?</b> יעד בסיס ' + nis(m.base) + ' + קנס ' + nis(m.debt) + ' = נדרש ' + nis(m.required) + '. הקנס הוא מה שחסר ליעד בשנים קודמות, כפול. הוא נקבע פעם אחת ואינו מוכפל שוב.</p>';
     } else if (!m.hasTarget) {
       why = '<p class="why"><b>ללא יעד שנתי.</b> ' + (m.type === 'חיידר' ? 'בחיידר עדיין לא בגיל הזכאות.' : m.type === 'קיבוץ' ? 'בקיבוץ הזכאות נשמרת למי שאין לו חוב עבר.' : m.married ? 'נשוי, אינו משתתף בקמפיין.' : 'לא הוגדר לו יעד לשנה הזאת.') + '</p>';
     } else if (m.gap === 0) {

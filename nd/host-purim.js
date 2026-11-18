@@ -450,11 +450,53 @@
     if (!html) return null;
     return printHtml(screenTitle('grants-screen', 'מענקים'), meta, html);
   }
+  /* ---------- מתנות: רשימת הזכאים כפי שהיא מוצגת במסך (שנה, מתנה וישיבה שנבחרו) ---------- */
+  function giftMeta(p) { return [p.year ? 'שנת ' + p.year : '', String(p.title == null ? '' : p.title).trim()]; }
+  function reportGifts(p) {
+    var rows = arr(p.rows).filter(Boolean), gifts = arr(p.gifts).map(String);
+    if (!rows.length) return null;
+    var totals = gifts.map(function (g, gi) { return rows.filter(function (r) { return arr(r.got)[gi]; }).length; });
+    // "נמסר": עמודה ריקה לסימון ביד בזמן החלוקה
+    return printHtml('מתנות', giftMeta(p), '<h2>' + esc('זכאים למתנות' + (p.year ? ' · ' + p.year : '')) + '</h2>' + tableHtml(
+      th('#') + th('שם ומשפחה') + th('ישיבה') + th('מסגרת') + th('טלפון') + th('נאסף בשנה', 'num') + gifts.map(function (g) { return th(g); }).join('') + th('נמסר'),
+      rows.map(function (r, i) {
+        return '<tr>' + td(i + 1) + td(r.full) + td(r.yeshiva) + td(r.frame) + td(r.phone) + td(money(r.collected), 'num') +
+          gifts.map(function (g, gi) { return td(arr(r.got)[gi] ? '✓' : ''); }).join('') + td('') + '</tr>';
+      }).join(''),
+      '<tr>' + td('סה"כ ' + rows.length + ' בחורים', '', 6) + totals.map(function (n) { return td(n); }).join('') + td('') + '</tr>'));
+  }
+  function exportGifts(p) {
+    p = p && typeof p === 'object' ? p : {};
+    var rows = arr(p.rows).filter(Boolean), gifts = arr(p.gifts).map(String);
+    if (!_.fn('exportToCSV')) return fail(GENERIC);
+    if (!rows.length) return fail('אין זכאים לייצוא');
+    // טקסט שמתחיל בסימן של נוסחה לא ייפתח באקסל כנוסחה
+    function plain(v) { v = String(v == null ? '' : v); return /^[=+\-@]/.test(v) ? "'" + v : v; }
+    function row(cells, tag) { var tr = document.createElement('tr'); cells.forEach(function (c) { var el = document.createElement(tag); el.textContent = c; tr.appendChild(el); }); return tr; }
+    // טבלה זמנית מחוץ למסך, ועליה הייצוא הקיים: אותו מבנה קובץ כמו בשאר הייצואים
+    var holder = document.createElement('div'), table = document.createElement('table'), thead = document.createElement('thead'), tbody = document.createElement('tbody'), res;
+    holder.setAttribute('aria-hidden', 'true');
+    holder.style.cssText = 'position:fixed;left:-99999px;top:0;width:1400px;opacity:0;pointer-events:none';
+    tbody.id = 'nd-export-gifts-body';
+    thead.appendChild(row(['#', 'שם פרטי', 'שם משפחה', 'ישיבה', 'מסגרת', 'טלפון', 'שנה', 'נאסף בשנה'].concat(gifts), 'th'));
+    rows.forEach(function (r, i) {
+      tbody.appendChild(row([i + 1, plain(r.first), plain(r.last), plain(r.yeshiva), plain(r.frame), plain(r.phone), p.year || '', num(r.collected)]
+        .concat(gifts.map(function (g, gi) { return arr(r.got)[gi] ? 'זכאי' : ''; })), 'td'));
+    });
+    table.appendChild(thead); table.appendChild(tbody); holder.appendChild(table);
+    document.body.appendChild(holder);
+    try { res = quiet(function () { window.exportToCSV('nd-export-gifts-body', 'זכאים_למתנות' + (p.year ? '_' + String(p.year).replace(/["״']/g, '') : '')); }); }
+    finally { if (holder.parentNode) holder.parentNode.removeChild(holder); }
+    if (res.ok) res.count = rows.length;
+    return res;
+  }
+
   function printReport(kind, payload) {
     var p = payload && typeof payload === 'object' ? payload : {}, html;
     if (kind === 'transactions') html = reportTransactions(p);
     else if (kind === 'expenses') html = reportExpenses(p);
     else if (kind === 'grants') html = reportGrants(p);
+    else if (kind === 'gifts') html = reportGifts(p);
     else return fail(GENERIC);
     if (!html) return fail('אין נתונים להדפסה');
     return printDocument(html);
@@ -467,6 +509,7 @@
     printPurimGroup: guard(printPurimGroup),
     exportMembers: guard(exportMembers),
     printMembers: guard(printMembers),
+    exportGifts: guard(exportGifts),
     printReport: guard(printReport)
   });
 })();
