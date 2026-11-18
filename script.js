@@ -5704,10 +5704,11 @@ function buildMemberSummaries(selectedYear = getCampaignYear()) {
           entry.debtOut = 0;
           runningDebt = 0;
         } else {
-          const debtPaidOff = Math.min(runningDebt, entry.collected);
-          const remainingForTarget = Math.max(0, entry.collected - runningDebt);
-          const unpaidOldDebt = runningDebt - debtPaidOff;
-          const targetShortfall = Math.max(0, entry.target - remainingForTarget);
+          // הכסף של השנה נזקף קודם ליעד של אותה שנה. רק מה שחסר ליעד הזה נהיה קנס (כפול, פעם אחת).
+          // קנס ישן אינו מוכפל שוב: הוא נשאר כפי שהוא, ויורד רק ממה שהובא מעבר ליעד.
+          const targetShortfall = Math.max(0, entry.target - entry.collected);
+          const beyondTarget = Math.max(0, entry.collected - entry.target);
+          const unpaidOldDebt = Math.max(0, runningDebt - beyondTarget);
           const yearIdx = hebrewYearsForSort.indexOf(y);
           const penaltyMultiplier = (penaltyStartIdx !== -1 && yearIdx >= penaltyStartIdx) ? 2 : 1;
           entry.debtOut = unpaidOldDebt + targetShortfall * penaltyMultiplier;
@@ -5725,8 +5726,8 @@ function buildMemberSummaries(selectedYear = getCampaignYear()) {
     // עדכון השנה הנוכחית עם החוב
     yearlyDataMap[currentYear].debtIn = totalDebtFromPast;
     yearlyDataMap[currentYear].requiredTotal = currentYearTarget + totalDebtFromPast;
-    // החוב הישן נפרע קודם מכל סכום שנאסף השנה (כמו בשנים קודמות) - זה מה שעדיין פתוח "כרגע"
-    const openDebtNow = Math.max(0, totalDebtFromPast - collectedThisYear);
+    // כמו בשנים קודמות: הכסף של השנה נזקף קודם ליעד של השנה, ורק מה שמעבר ליעד מוריד את החוב הישן - זה מה שעדיין פתוח "כרגע"
+    const openDebtNow = Math.max(0, totalDebtFromPast - Math.max(0, collectedThisYear - currentYearTarget));
     yearlyDataMap[currentYear].debtOut = openDebtNow;
 
     const totalRequiredThisYear = currentYearTarget + totalDebtFromPast;
