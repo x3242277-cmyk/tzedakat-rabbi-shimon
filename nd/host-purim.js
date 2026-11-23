@@ -316,8 +316,10 @@
   }
   function dropFrame() { var f = _.el(FRAME_ID); if (f && f.parentNode) f.parentNode.removeChild(f); }
   // מדפיס מסמך מתוך iframe מוסתר. אם זה לא אפשרי: חלון חדש, כמו הדפסת קבוצת פורים הקיימת
-  function printDocument(html) {
-    var frame = null, win = null, doc;
+  // fileTitle: שם הקובץ שהדפדפן מציע ב"שמירה כ-PDF". הדפדפן לוקח אותו מכותרת הדף הראשי, ולכן מחליפים אותה לזמן ההדפסה
+  function printDocument(html, fileTitle) {
+    var frame = null, win = null, doc, oldTitle = document.title, restored = false;
+    function restoreTitle() { if (fileTitle && !restored) { restored = true; document.title = oldTitle; } }
     try {
       dropFrame();
       frame = document.createElement('iframe');
@@ -328,10 +330,11 @@
       doc.open(); doc.write(html); doc.close();
     } catch (e) { log(e); win = null; if (frame && frame.parentNode) frame.parentNode.removeChild(frame); frame = null; }
     if (win) {
-      try { win.addEventListener('afterprint', function () { setTimeout(function () { if (frame && frame.parentNode) frame.parentNode.removeChild(frame); }, 1000); }); } catch (e) {}
+      try { win.addEventListener('afterprint', function () { restoreTitle(); setTimeout(function () { if (frame && frame.parentNode) frame.parentNode.removeChild(frame); }, 1000); }); } catch (e) {}
       setTimeout(function () {
         var back = document.activeElement;
         while (back && back.shadowRoot && back.shadowRoot.activeElement) back = back.shadowRoot.activeElement;
+        if (fileTitle) { document.title = fileTitle; setTimeout(restoreTitle, 60000); }
         try { win.focus(); win.print(); } catch (e) { log(e); }
         try { if (back && back.focus) back.focus({ preventScroll: true }); } catch (e) {}   // המיקוד חוזר למקום שבו היה
       }, 250);
@@ -517,7 +520,7 @@
     var cell = function (v, cls) { return '<td class="' + (v ? cls : cls + ' dash') + '">' + esc(m(v)) + '</td>'; };
     var logo = '';
     try { logo = new URL('assets/img/nd/logo.png', document.baseURI).href; } catch (e) {}
-    var html = '<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8"><title>' + esc('דף חשבון · מענק חתן · ' + (p.name || '')) + '</title><style>' + STMT_CSS + '</style></head><body><div class="pg">';
+    var html = '<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8"><title>' + esc(p.name || 'דף חשבון · מענק חתן') + '</title><style>' + STMT_CSS + '</style></head><body><div class="pg">';
     html += '<div class="hd"><div class="org">' + (logo ? '<img src="' + esc(logo) + '" alt="">' : '') + esc(ORG) + ' <span>· עזרת חתנים</span></div>' +
       '<div class="stamp">' + esc(printStamp()) + '</div>' +
       '<h1>דף חשבון · מענק חתן</h1><div class="who">' + esc(p.name || '') + (p.sub ? ' <i>· ' + esc(p.sub) + '</i>' : '') + '</div></div>';
@@ -596,7 +599,9 @@
     else if (kind === 'statement') html = reportStatement(p);
     else return fail(GENERIC);
     if (!html) return fail('אין נתונים להדפסה');
-    return printDocument(html);
+    // דף חשבון: הקובץ נשמר בשם הבחור (בלי תווים שאסורים בשם קובץ)
+    var fileTitle = kind === 'statement' && p.name ? String(p.name).replace(/"/g, '״').replace(/'/g, '׳').replace(/[\\/:*?<>|]+/g, ' ').trim() : null;
+    return printDocument(html, fileTitle);
   }
 
   Object.assign(window.TZ_HOST, {
