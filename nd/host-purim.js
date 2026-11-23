@@ -462,7 +462,7 @@
     body += '<h2>' + esc('השנים שלך') + '</h2>' + tableHtml(
       th('שנה') + th('מסגרת') + th('היעד', 'num') + th('הבאת', 'num') + th('נכנס למענק', 'num') + th('הארגון הוסיף', 'num') + th('סה"כ למענק', 'num') + th('חסר', 'num'),
       rows.map(function (r) {
-        return '<tr>' + td(r.year, 'nw') + td(r.frame, 'nw') + td(m(r.target), 'num') + td(money(r.collected) + (r.extra ? ' *' : ''), 'num') + td(m(r.own), 'num') +
+        return '<tr>' + td(r.year, 'nw') + td(r.frame, 'nw') + td(m(r.target), 'num') + td(money(r.collected), 'num') + td(m(r.own), 'num') +
           td(m(r.add), 'num') + td(m(r.total), 'num') + td(r.missText || '—', 'num') + '</tr>';
       }).join(''),
       '<tr>' + td('סה"כ', '', 3) + td(money(t.collected), 'num') + td(money(t.own), 'num') + td(money(t.add), 'num') + td(money(t.total), 'num') + td(m(t.missing), 'num') + '</tr>');
