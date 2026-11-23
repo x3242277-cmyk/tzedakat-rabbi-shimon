@@ -5625,6 +5625,12 @@ function getHistoricalStatus(currentType, currentShiur, currentYearStr, targetYe
     return { type: histStage.type, shiur: histStage.shiur, target: target };
 }
 
+// שנה שבה הארגון מוסיף לבחור סכום שווה למה שהביא עד היעד: ישיבה קטנה (כל השיעורים) וישיבה גדולה א'-ב'. בישי"ג ג' אין תוספת.
+function isMatchedStage(type, shiur) {
+  if (type === 'ישיבה קטנה') return true;
+  return type === 'ישיבה גדולה' && (shiur === 'א' || shiur === 'ב');
+}
+
 function isMemberMarried(member) {
   return member.maritalStatus === "נשוי" || (member.notes || "").includes("התחתן");
 }
@@ -5698,10 +5704,13 @@ function buildMemberSummaries(selectedYear = getCampaignYear()) {
     const memberWaivers = (settings.debtWaivers && settings.debtWaivers[String(member.id)]) || {};
     const waiverPctFor = (y) => Math.min(100, Math.max(0, Math.round(Number(memberWaivers[y]) || 0)));
     const waivedOf = (y, penalty) => { const p = waiverPctFor(y); return p > 0 && penalty > 0 ? Math.round(penalty * p / 100) : 0; };
+    // המענק: בישי"ק (כל השיעורים) ובישי"ג א'-ב' הארגון מוסיף סכום שווה למה שהבחור מביא עד היעד. בישי"ג ג' אין תוספת.
+    // לכן חסר בשנה עם תוספת חסר פעמיים (שלו ושל הארגון), והקנס הכפול משלים את התוספת שהפסיד.
+    // חסר בשנה בלי תוספת (ישי"ג ג', קיבוץ, חיידר) עובר הלאה פעם אחת, בלי הכפלה.
     // החוב מורכב משלושה חלקים:
     //   runningPenalty   = הקנס (התוספת של ההכפלה)
-    //   runningUndoubled = חוסר שעוד לא הוכפל אף פעם (למשל חוב מלפני שנות הקנס)
-    //   השאר             = חוסר שכבר הוכפל
+    //   runningUndoubled = חסר משנה עם תוספת שעוד לא הוכפל (מלפני שנות הקנס). מוכפל בשנת הקנס הראשונה שבה הוא נשאר פתוח
+    //   השאר             = חסר שכבר הוכפל, או חסר משנה בלי תוספת
     // כשחוב ישן יורד בתשלום, כל חלק יורד באותו יחס
     const shrinkPenalty = (part, debtBefore, debtAfter) => debtBefore > 0 ? Math.round(part * debtAfter / debtBefore) : 0;
 
@@ -5730,11 +5739,12 @@ function buildMemberSummaries(selectedYear = getCampaignYear()) {
           const unpaidOldDebt = Math.max(0, runningDebt - beyondTarget);
           const yearIdx = hebrewYearsForSort.indexOf(y);
           const isPenaltyYear = penaltyStartIdx !== -1 && yearIdx >= penaltyStartIdx;
+          const matched = isMatchedStage(entry.historicalType, entry.historicalShiur);
           const penaltyLeft = shrinkPenalty(runningPenalty, runningDebt, unpaidOldDebt);
           const undoubledLeft = shrinkPenalty(runningUndoubled, runningDebt, unpaidOldDebt);
           entry.penaltyYear = isPenaltyYear;
           if (isPenaltyYear) {
-            entry.newPenalty = undoubledLeft + targetShortfall;
+            entry.newPenalty = undoubledLeft + (matched ? targetShortfall : 0);
             entry.debtOut = unpaidOldDebt + entry.newPenalty + targetShortfall;
             runningPenalty = penaltyLeft + entry.newPenalty;
             runningUndoubled = 0;
@@ -5742,7 +5752,7 @@ function buildMemberSummaries(selectedYear = getCampaignYear()) {
             entry.newPenalty = 0;
             entry.debtOut = unpaidOldDebt + targetShortfall;
             runningPenalty = penaltyLeft;
-            runningUndoubled = undoubledLeft + targetShortfall;
+            runningUndoubled = undoubledLeft + (matched ? targetShortfall : 0);
           }
           runningDebt = entry.debtOut;
         }
@@ -5755,6 +5765,9 @@ function buildMemberSummaries(selectedYear = getCampaignYear()) {
         runningDebt = entry.debtOut;
       }
     });
+
+    // לכל שנה: האם הארגון מוסיף בה סכום שווה (לחשבון המענק)
+    Object.values(yearlyDataMap).forEach(entry => { entry.matched = isMatchedStage(entry.historicalType, entry.historicalShiur); });
 
     const debtBeforeWaiver = runningDebt;
     const penaltyBeforeWaiver = Math.min(runningPenalty, runningDebt);

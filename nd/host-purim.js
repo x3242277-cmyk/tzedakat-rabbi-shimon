@@ -453,19 +453,22 @@
     return printHtml(screenTitle('grants-screen', 'מענקים'), meta, html);
   }
   /* ---------- חשבון שנתי של בחור: כל שנה בשורה, ומה נזקף לזכותו ---------- */
+  // הטבלה והטקסטים מגיעים מוכנים מהעיצוב (statementOf), כך שהכרטיס, ההדפסה והמייל מראים אותו דבר
   function reportStatement(p) {
-    var rows = arr(p.rows).filter(Boolean);
+    var rows = arr(p.rows).filter(Boolean), t = p.totals || {};
     if (!rows.length) return null;
-    var m = function (v) { return v == null || v === '' ? '—' : money(v); };
-    var body = '<h2>' + esc('החשבון לפי שנים · ' + (p.name || '')) + '</h2>' + tableHtml(
-      th('שנה') + th('מסגרת') + th('יעד השנה', 'num') + th('חוב משנים קודמות', 'num') + th('נדרש', 'num') + th('הביא', 'num') + th('נזקף לזכותו', 'num') + th('חסר', 'num') + th('קנס שנוסף', 'num') + th('עובר לשנה הבאה', 'num') + th('הערה', 'wide'),
+    var m = function (v) { return v ? money(v) : '—'; };
+    var body = arr(p.intro).map(function (line, i) { return i ? '<p>' + esc(line) + '</p>' : '<h2>' + esc(line) + '</h2>'; }).join('');
+    body += '<h2>' + esc('השנים שלך') + '</h2>' + tableHtml(
+      th('שנה') + th('מסגרת') + th('היעד', 'num') + th('הבאת', 'num') + th('נכנס למענק', 'num') + th('הארגון הוסיף', 'num') + th('סה"כ למענק', 'num') + th('חסר', 'num'),
       rows.map(function (r) {
-        return '<tr' + (r.current ? ' class="total"' : '') + '>' + td(r.year, 'nw') + td(r.frame, 'nw') + td(m(r.target), 'num') + td(m(r.debtIn), 'num') + td(m(r.required), 'num') + td(m(r.collected), 'num') +
-          td(m(r.credited), 'num') + td(m(r.missing), 'num') + td(r.penalty ? money(r.penalty) : '—', 'num') + td(r.current ? 'השנה פתוחה' : m(r.out), r.current ? '' : 'num') + td(r.note || '', 'wide') + '</tr>';
-      }).join(''));
-    body += arr(p.summary).map(function (line) { return '<p>' + esc(line) + '</p>'; }).join('');
-    body += '<p class="note">' + esc('נזקף לזכותו = מה שהבחור הביא, עד הסכום הנדרש באותה שנה. חוסר ליעד מוכפל פעם אחת (קנס), החל משנת תשפ"ד, ואינו מוכפל שוב.') + '</p>';
-    return printHtml('חשבון בחור', [p.name, p.sub], body);
+        return '<tr>' + td(r.year, 'nw') + td(r.frame, 'nw') + td(m(r.target), 'num') + td(money(r.collected) + (r.extra ? ' *' : ''), 'num') + td(m(r.own), 'num') +
+          td(m(r.add), 'num') + td(m(r.total), 'num') + td(r.missText || '—', 'num') + '</tr>';
+      }).join(''),
+      '<tr>' + td('סה"כ', '', 3) + td(money(t.collected), 'num') + td(money(t.own), 'num') + td(money(t.add), 'num') + td(money(t.total), 'num') + td(m(t.missing), 'num') + '</tr>');
+    body += arr(p.notes).map(function (line) { return '<p class="note">' + esc(line) + '</p>'; }).join('');
+    body += arr(p.summary).map(function (line, i) { return '<p>' + (i ? esc(line) : '<b>' + esc(line) + '</b>') + '</p>'; }).join('');
+    return printHtml('החשבון לקראת מענק החתן', [p.name, p.sub], body);
   }
 
   /* ---------- מתנות: רשימת הזכאים כפי שהיא מוצגת במסך (שנה, מתנה וישיבה שנבחרו) ---------- */

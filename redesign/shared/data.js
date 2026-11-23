@@ -209,8 +209,8 @@ window.TZ_DATA = (function () {
     var t = m.base || settings.targets[m.type] || 0;
     if (m.debt === 900 && m.type === 'ישי״ג') {
       return [
-        { year: 'תשפ״ד', frame: 'ישי״ג א׳', target: 1100, required: 1100, collected: 1100, status: 'עמד ביעד', tone: 'good' },
-        { year: 'תשפ״ה', frame: 'ישי״ג ב׳', target: 1100, required: 1100, collected: 650, debtIn: 0, penalty: 450, out: 900, penaltyYear: true, status: 'חסר ₪450 · עם קנס עובר הלאה ₪900', tone: 'bad' },
+        { year: 'תשפ״ד', frame: 'ישי״ג א׳', target: 1100, required: 1100, collected: 1100, matched: true, status: 'עמד ביעד', tone: 'good' },
+        { year: 'תשפ״ה', frame: 'ישי״ג ב׳', target: 1100, required: 1100, collected: 650, debtIn: 0, penalty: 450, out: 900, penaltyYear: true, matched: true, status: 'חסר ₪450 · עם קנס עובר הלאה ₪900', tone: 'bad' },
         { year: 'תשפ״ו', frame: m.frame, target: 1100, required: m.required, collected: m.collected, debtIn: m.debt, waived: m.debtRaw - m.debt, current: true, status: m.gap > 0 ? 'חסר ' + fmt(m.gap) : 'עמד ביעד', tone: m.gap > 0 ? 'bad' : 'good' }
       ];
     }
