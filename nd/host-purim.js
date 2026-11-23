@@ -491,6 +491,9 @@
     'td.fix { font-weight: 800; color: #116A2B; }',
     'td.dash { color: #9a9a9a; }',
     'tfoot td { background: #F2E5C2; font-weight: 900; border-top: 2px solid #CEA130; }',
+    'th.dep { background: linear-gradient(120deg, #D9B85F, #CEA130); color: #0B0B0B; font-size: 13px; font-weight: 900; }',
+    'td.dep, tbody tr:nth-child(even) td.dep { background: #F6EBCB; font-weight: 900; font-size: 14px; box-shadow: inset 2px 0 0 #CEA130, inset -2px 0 0 #CEA130; }',
+    'tfoot td.dep { background: #CEA130; }',
     '.notes { margin: 8px 2px 0; padding: 0; list-style: none; color: #595959; font-size: 11.5px; }',
     '.notes li { margin-top: 2px; }',
     '.notes li::before { content: "•"; color: #CEA130; margin-left: 6px; }',
@@ -523,12 +526,12 @@
         '<div><b>ישיבה גדולה · שיעורים א׳–ב׳</b><span>הפקדה שנתית ' + esc(money(gr.gd)) + '<br>תוספת הארגון <em>' + esc(money(gr.gd)) + '</em></span></div>' +
         '<div><b>ישיבה גדולה · שיעור ג׳</b><span>הפקדה שנתית ' + esc(money(gr.gd)) + '<br>ללא תוספת</span></div></div>';
     }
-    html += '<h2>פירוט לפי שנים</h2><table><thead><tr><th>שנה</th><th>מסגרת</th><th class="n">יעד שנתי</th><th class="n">הופקד</th><th class="n">נחשב למענק</th><th class="n">תוספת הארגון</th><th class="n">סה"כ למענק</th><th class="n">חוסר</th></tr></thead><tbody>' +
+    html += '<h2>פירוט לפי שנים</h2><table><thead><tr><th>שנה</th><th>מסגרת</th><th class="n">יעד שנתי</th><th class="n dep">הופקד</th><th class="n">נחשב למענק</th><th class="n">תוספת הארגון</th><th class="n">סה"כ למענק</th><th class="n">חוסר</th></tr></thead><tbody>' +
       rows.map(function (r) {
         var miss = r.lost > 0 ? '<td class="n miss">' + esc(money(r.lost)) + '</td>' : r.repay > 0 ? '<td class="fix">' + esc('השלמת חוסר ' + money(r.repay)) + '</td>' : '<td class="n dash">—</td>';
-        return '<tr><td class="yr">' + esc(r.year) + '</td><td>' + esc(r.frame) + '</td>' + cell(r.target, 'n') + '<td class="n">' + esc(money(r.collected)) + '</td>' +
+        return '<tr><td class="yr">' + esc(r.year) + '</td><td>' + esc(r.frame) + '</td>' + cell(r.target, 'n') + '<td class="n dep">' + esc(money(r.collected)) + '</td>' +
           cell(r.own, 'n') + cell(r.add, 'n') + cell(r.total, 'n tot') + miss + '</tr>';
-      }).join('') + '</tbody><tfoot><tr><td colspan="3">סה"כ</td><td class="n">' + esc(money(t.collected)) + '</td><td class="n">' + esc(money(t.own)) + '</td><td class="n">' +
+      }).join('') + '</tbody><tfoot><tr><td colspan="3">סה"כ</td><td class="n dep">' + esc(money(t.collected)) + '</td><td class="n">' + esc(money(t.own)) + '</td><td class="n">' +
       esc(money(t.add)) + '</td><td class="n">' + esc(money(t.total)) + '</td><td class="n">' + esc(m(t.missing)) + '</td></tr></tfoot></table>';
     if (notes.length) html += '<ul class="notes">' + notes.map(function (l) { return '<li>' + esc(l) + '</li>'; }).join('') + '</ul>';
     html += '<div class="sum"><div class="box full"><i>' + (gr.complete ? 'מענק מלא' : 'סכום אפשרי עד כה') + '</i><b>' + esc(money(t.full != null ? t.full : gr.full)) + '</b></div>' +

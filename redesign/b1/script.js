@@ -564,11 +564,11 @@
     var stm = statementOf(m, hist);
     // פירוט שנים קודמות: טבלה ברוחב מלא מתחת לכרטיס, נפתחת מהכפתור שמתחת לעיגולים
     var mc = function (v) { return v ? nis(v) : '<span class="dash">—</span>'; };
-    var hh = stm.rows.length ? '<div class="stm-tw"><table class="stm-t"><thead><tr><th>שנה</th><th>מסגרת</th><th>יעד שנתי</th><th>הופקד</th><th>נחשב למענק</th><th>תוספת הארגון</th><th>סה״כ למענק</th><th>חוסר</th></tr></thead><tbody>' +
+    var hh = stm.rows.length ? '<div class="stm-tw"><table class="stm-t"><thead><tr><th>שנה</th><th>מסגרת</th><th>יעד שנתי</th><th class="sdep">הופקד</th><th>נחשב למענק</th><th>תוספת הארגון</th><th>סה״כ למענק</th><th>חוסר</th></tr></thead><tbody>' +
       stm.rows.map(function (r) {
         var miss = r.lost > 0 ? '<td class="miss">' + nis(r.lost) + '</td>' : r.repay > 0 ? '<td class="fix">השלמת חוסר ' + nis(r.repay) + '</td>' : '<td><span class="dash">—</span></td>';
-        return '<tr' + (r.current ? ' class="now"' : '') + '><td class="sy">' + esc(r.year) + '</td><td>' + esc(r.frame) + '</td><td>' + mc(r.target) + '</td><td>' + nis(r.collected) + '</td><td>' + mc(r.own) + '</td><td>' + mc(r.add) + '</td><td class="tot">' + mc(r.total) + '</td>' + miss + '</tr>';
-      }).join('') + '</tbody><tfoot><tr><td colspan="3">סה״כ</td><td>' + nis(stm.totals.collected) + '</td><td>' + nis(stm.totals.own) + '</td><td>' + nis(stm.totals.add) + '</td><td>' + nis(stm.totals.total) + '</td><td>' + mc(stm.totals.missing) + '</td></tr></tfoot></table></div>' +
+        return '<tr' + (r.current ? ' class="now"' : '') + '><td class="sy">' + esc(r.year) + '</td><td>' + esc(r.frame) + '</td><td>' + mc(r.target) + '</td><td class="sdep">' + nis(r.collected) + '</td><td>' + mc(r.own) + '</td><td>' + mc(r.add) + '</td><td class="tot">' + mc(r.total) + '</td>' + miss + '</tr>';
+      }).join('') + '</tbody><tfoot><tr><td colspan="3">סה״כ</td><td class="sdep">' + nis(stm.totals.collected) + '</td><td>' + nis(stm.totals.own) + '</td><td>' + nis(stm.totals.add) + '</td><td>' + nis(stm.totals.total) + '</td><td>' + mc(stm.totals.missing) + '</td></tr></tfoot></table></div>' +
       (stm.notes.length ? '<ul class="stm-notes">' + stm.notes.map(function (l) { return '<li>' + esc(l) + '</li>'; }).join('') + '</ul>' : '') +
       '<div class="stm-boxes"><div class="sb full"><i>' + (stm.grant.complete ? 'מענק מלא' : 'סכום אפשרי עד כה') + '</i><b>' + nis(stm.totals.full) + '</b></div>' +
       '<div class="sb got"><i>נצבר עד כה</i><b>' + nis(stm.totals.total) + '</b></div>' +

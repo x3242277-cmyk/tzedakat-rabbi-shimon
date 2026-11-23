@@ -746,6 +746,10 @@
   .stm-t td.fix{font-weight:800;color:var(--good-ink)}
   .stm-t .dash{color:#9a9a9a}
   .stm-t tfoot td{background:var(--y-pale);font-weight:900;border-top:2px solid var(--y)}
+  /* הופקד: העמודה המרכזית */
+  .stm-t th.sdep{background:var(--grad);color:var(--ink);font-size:14px;font-weight:900}
+  .stm-t td.sdep,.stm-t tbody tr:nth-child(even) td.sdep,.stm-t tr.now td.sdep{background:#F6EBCB;font-weight:900;font-size:16px;color:var(--ink);box-shadow:inset 2px 0 0 var(--y),inset -2px 0 0 var(--y)}
+  .stm-t tfoot td.sdep{background:var(--y);font-size:16.5px}
   .stm-notes{margin:10px 4px 0;padding:0;list-style:none;color:var(--mute);font-size:13.5px}
   .stm-notes li{margin-top:3px}
   .stm-notes li::before{content:"•";color:var(--y);margin-inline-end:6px}
