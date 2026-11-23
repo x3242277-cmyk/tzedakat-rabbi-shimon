@@ -506,6 +506,7 @@
     '.box.miss { background: #0B0B0B; color: #fff; }',
     '.box.miss b { color: #E3C46E; }',
     '.box.ok { background: #E2F5E7; color: #116A2B; }',
+    '.credit { margin-top: 12px; padding: 12px 18px; border-radius: 14px; background: #E2F5E7; color: #116A2B; border: 1.5px solid #9FD3AE; font-size: 14px; font-weight: 700; text-align: center; }',
     '.cta { margin-top: 12px; padding: 12px 18px; border-radius: 14px 14px 14px 40px; background: #F9F4E5; border: 1.5px solid #CEA130; font-size: 14px; font-weight: 700; text-align: center; }',
     '.ft { margin-top: 18px; padding-top: 8px; border-top: 1px solid #E2E2E2; display: flex; justify-content: space-between; color: #8a8a8a; font-size: 10.5px; }'
   ].join('\n');
@@ -536,7 +537,11 @@
     if (notes.length) html += '<ul class="notes">' + notes.map(function (l) { return '<li>' + esc(l) + '</li>'; }).join('') + '</ul>';
     html += '<div class="sum"><div class="box full"><i>' + (gr.complete ? 'מענק מלא' : 'סכום אפשרי עד כה') + '</i><b>' + esc(money(t.full != null ? t.full : gr.full)) + '</b></div>' +
       '<div class="box got"><i>נצבר עד כה</i><b>' + esc(money(t.total)) + '</b></div>' +
-      (t.missing > 0 ? '<div class="box miss"><i>יתרה להשלמה</i><b>' + esc(money(t.missing)) + '</b></div>' : '<div class="box ok"><i>יתרה להשלמה</i><b>₪0</b></div>') + '</div>';
+      (function () {
+        var due = t.due != null ? t.due : t.missing, lbl = t.credit > 0 ? 'יתרה להשלמה (לאחר זיכוי)' : 'יתרה להשלמה';
+        return due > 0 ? '<div class="box miss"><i>' + lbl + '</i><b>' + esc(money(due)) + '</b></div>' : '<div class="box ok"><i>' + lbl + '</i><b>₪0</b></div>';
+      })() + '</div>';
+    if (p.creditLine) html += '<div class="credit">' + esc(p.creditLine) + '</div>';
     if (sm.length > 1) html += '<div class="cta">' + esc(sm[1]) + '</div>';
     html += '<div class="ft"><span>' + esc(ORG) + ' · עזרת חתנים</span><span>' + esc(p.name || '') + '</span></div>';
     return html + '</div></body></html>';

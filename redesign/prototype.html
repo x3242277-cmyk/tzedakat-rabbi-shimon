@@ -777,6 +777,7 @@
   .stm-boxes .miss{background:var(--ink);color:#fff}
   .stm-boxes .miss b{color:var(--y)}
   .stm-boxes .ok{background:var(--good-bg);color:var(--good-ink)}
+  .stm-credit{margin-top:12px;padding:12px 18px;border-radius:16px;background:var(--good-bg);color:var(--good-ink);box-shadow:inset 0 0 0 1.5px #9FD3AE;font-weight:700;text-align:center}
   .stm-cta{margin-top:12px;padding:12px 18px;border-radius:16px 16px 16px 44px;background:var(--y-mist);box-shadow:inset 0 0 0 1.5px var(--y);font-weight:700;text-align:center}
   .sheet-f{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:16px clamp(20px,3.4vw,46px) 22px;padding-inline-start:clamp(60px,9vw,130px);border-top:1px solid var(--grey);background:#fff}
   .nodep{display:flex;align-items:center;gap:16px;padding:6px 0}
@@ -3064,7 +3065,8 @@ window.TZ_DATA = (function () {
       (stm.notes.length ? '<ul class="stm-notes">' + stm.notes.map(function (l) { return '<li>' + esc(l) + '</li>'; }).join('') + '</ul>' : '') +
       '<div class="stm-boxes"><div class="sb full"><i>' + (stm.grant.complete ? 'מענק מלא' : 'סכום אפשרי עד כה') + '</i><b>' + nis(stm.totals.full) + '</b></div>' +
       '<div class="sb got"><i>נצבר עד כה</i><b>' + nis(stm.totals.total) + '</b></div>' +
-      '<div class="sb ' + (stm.totals.missing > 0 ? 'miss' : 'ok') + '"><i>יתרה להשלמה</i><b>' + nis(stm.totals.missing) + '</b></div></div>' +
+      '<div class="sb ' + (stm.totals.due > 0 ? 'miss' : 'ok') + '"><i>' + (stm.totals.credit > 0 ? 'יתרה להשלמה (לאחר זיכוי)' : 'יתרה להשלמה') + '</i><b>' + nis(stm.totals.due) + '</b></div></div>' +
+      (stm.creditLine ? '<p class="stm-credit">' + esc(stm.creditLine) + '</p>' : '') +
       (stm.summary.length > 1 ? '<p class="stm-cta">' + esc(stm.summary[1]) + '</p>' : '') +
       '<div class="stm-act"><button type="button" class="btn btn-s btn-o" data-act="stm-print" data-mid="' + m.id + '">' + g('print') + 'הדפסה</button>' +
       '<button type="button" class="btn btn-s btn-o" data-act="stm-mail" data-mid="' + m.id + '">' + g('mail') + 'שליחה במייל</button></div>'
@@ -3123,7 +3125,11 @@ window.TZ_DATA = (function () {
     return 3 * 2 * k + 2 * 2 * gd + gd;
   }
   function statementOf(m, hist) {
-    var rows = (hist || D.historyOf(m)).map(function (h) {
+    var src = hist || D.historyOf(m);
+    // זיכוי שניתן על הקנס (בכל השנים), מפחית את הסכום להשלמה
+    var credit = src.reduce(function (a, h) { return a + (+h.waived || 0); }, 0);
+    if (!credit && m.waiverPct > 0) credit = Math.max(0, (m.debtRaw || 0) - (m.debt || 0));
+    var rows = src.map(function (h) {
       var T = +h.target || 0, B = +h.collected || 0, required = +h.required || 0;
       var debtIn = h.debtIn != null ? +h.debtIn : Math.max(0, required - T), mt = matchedOf(h) && T > 0;
       var own = Math.min(B, T + debtIn), toT = Math.min(B, T), repay = Math.max(0, own - toT), add = mt ? toT : 0;
@@ -3142,6 +3148,8 @@ window.TZ_DATA = (function () {
     var t = rows.reduce(function (a, r) { a.collected += r.collected; a.own += r.own; a.add += r.add; a.total += r.total; a.full += r.full; a.extra += r.extra; a.repay += r.repay; a.lostM += r.matched ? r.lost : 0; return a; },
       { collected: 0, own: 0, add: 0, total: 0, full: 0, extra: 0, repay: 0, lostM: 0 });
     t.missing = Math.max(0, t.full - t.total);
+    t.credit = Math.min(credit, t.missing);
+    t.due = Math.max(0, t.missing - t.credit);
     var FULL = fullGrant(), cur = rows.filter(function (r) { return r.current; })[0];
     // סיים את שנות הישיבה: יש שורה של ישי״ג ג׳ (או אחריה), או שנים בלי יעד אחרי הישיבה
     var done = rows.some(function (r) { return /(ישי״ג|ישי"ג)\s*[^אב\s]/.test(r.frame || '') || (/קיבוץ/.test(r.frame || '')); }) || tail.length > 0;
@@ -3157,10 +3165,11 @@ window.TZ_DATA = (function () {
     if (cur && cur.lost > 0) notes.push('שנת ' + cur.year + ' טרם הסתיימה, וניתן להשלים בה את ההפקדות.');
 
     var head = done && t.full === FULL ? 'מענק מלא ' + fmtN(FULL) : done ? 'סכום אפשרי בשנים המפורטות ' + fmtN(t.full) : 'סכום אפשרי עד כה ' + fmtN(t.full);
-    var summary = [head + ' · נצבר עד כה ' + fmtN(t.total) + (t.missing > 0 ? ' · יתרה להשלמה ' + fmtN(t.missing) : '')];
-    if (t.missing > 0 && done && t.missing === m.gap) summary.push('עם השלמת היתרה בסך ' + fmtN(t.missing) + ' יינתן המענק המלא בסך ' + fmtN(t.full) + '.');
-    else if (t.missing === 0 && t.full) summary.push(done ? 'המענק נצבר במלואו.' : 'עד כה נצבר מלוא הסכום האפשרי.');
-    return { rows: rows, totals: t, intro: intro, notes: notes, summary: summary,
+    var summary = [head + ' · נצבר עד כה ' + fmtN(t.total) + (t.due > 0 ? ' · יתרה להשלמה ' + fmtN(t.due) : '')];
+    var creditLine = t.credit > 0 ? 'עזרת חתנים צדקת רבי שמעון מעמידה לזכות החתן זיכוי בסך ' + fmtN(t.credit) + ' להפחתת יתרת התשלום. לאחר הזיכוי, סך הסכום להשלמה הוא ' + fmtN(t.due) + '.' : '';
+    if (t.due > 0 && done && Math.abs(t.due - m.gap) < 1) summary.push('עם השלמת היתרה בסך ' + fmtN(t.due) + ' יינתן המענק המלא בסך ' + fmtN(t.full) + '.');
+    else if (t.due === 0 && t.full) summary.push(t.credit > 0 ? 'לאחר הזיכוי, המענק המלא בסך ' + fmtN(t.full) + ' עומד לזכות החתן.' : done ? 'המענק נצבר במלואו.' : 'עד כה נצבר מלוא הסכום האפשרי.');
+    return { rows: rows, totals: t, intro: intro, notes: notes, summary: summary, creditLine: creditLine,
       grant: { full: FULL, k: +D.settings.targets['ישי״ק'] || 0, gd: +D.settings.targets['ישי״ג'] || 0, complete: done && t.full === FULL } };
   }
   function fmtN(v) { return '₪' + num(Math.round(+v || 0)); }
@@ -3168,7 +3177,7 @@ window.TZ_DATA = (function () {
   function stmSub(m) { return (m.yeshiva || 'ללא ישיבה') + ' · ' + m.frame; }
   function printStatement(m) {
     var s = statementOf(m);
-    if (HOST()) { hdo('printReport', 'statement', { name: stmTitle(m), sub: stmSub(m), rows: s.rows, totals: s.totals, intro: s.intro, notes: s.notes, summary: s.summary, grant: s.grant }); return; }
+    if (HOST()) { hdo('printReport', 'statement', { name: stmTitle(m), sub: stmSub(m), rows: s.rows, totals: s.totals, intro: s.intro, notes: s.notes, summary: s.summary, creditLine: s.creditLine, grant: s.grant }); return; }
     toast('דף החשבון נשלח להדפסה (הדגמה)', 'check');
   }
   // מייל: נפתחת תוכנת הדואר עם החשבון כטקסט, מוכן לשליחה
@@ -3181,7 +3190,7 @@ window.TZ_DATA = (function () {
         ' · תוספת הארגון ' + fmtN(r.add) + ' · סה"כ למענק ' + fmtN(r.total) + (r.missText ? ' · ' + (r.lost > 0 ? 'חוסר ' : '') + r.missText : ''));
     });
     L.push('סה"כ: נחשב למענק ' + fmtN(t.own) + ' · תוספת הארגון ' + fmtN(t.add) + ' · סה"כ למענק ' + fmtN(t.total) + ' · חוסר ' + fmtN(t.missing), '');
-    L = L.concat(s.notes, '', s.summary, '', 'צדקת רבי שמעון · עזרת חתנים');
+    L = L.concat(s.notes, '', s.creditLine ? [s.summary[0], s.creditLine].concat(s.summary.slice(1)) : s.summary, '', 'צדקת רבי שמעון · עזרת חתנים');
     var href = 'mailto:?subject=' + encodeURIComponent('דף חשבון · מענק חתן · ' + stmTitle(m)) + '&body=' + encodeURIComponent(L.join('\r\n'));
     try { window.location.href = href; } catch (e) { toast('לא הצלחנו לפתוח את תוכנת הדואר', 'close'); }
   }
