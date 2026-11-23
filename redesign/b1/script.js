@@ -549,10 +549,18 @@
       var dblNow = m.type === 'ישי״ק' || (m.type === 'ישי״ג' && /^[אב]/.test(m.shiur || ''));
       why = '<p class="why"><b>עוד ' + nis(m.gap) + ' ליעד.</b> ' + (dblNow ? 'מה שיחסר ליעד השנה יעבור לשנה הבאה כפול: החלק שלו והתוספת של הארגון שהפסיד.' : 'מה שיחסר ליעד השנה יעבור לשנה הבאה כמו שהוא, בלי הכפלה (בשנה הזאת אין תוספת מהארגון).') + '</p>';
     }
-    var deps = m.deposits.length ? '<div class="dl">' + m.deposits.map(function (d) {
-      var inner = '<span class="io" aria-hidden="true">+</span><span>' + ltr(d.date) + '<i>' + esc(d.method) + ' · ' + esc(d.year) + (d.note ? ' · ' + esc(d.note) : '') + '</i></span><b dir="ltr">₪' + num(d.amount) + '</b>';
-      return HOST() && canEdit && d.id != null ? '<button type="button" class="drow drow-b" data-act="dep-edit" data-did="' + esc(d.id) + '" aria-label="עריכת ההפקדה">' + inner + '</button>' : '<div class="drow">' + inner + '</div>';
-    }).join('') + '</div>' : '<div class="nodep">' + disc('kupa') + '<span><b>' + (HOST() ? 'עדיין אין הפקדות' : 'עדיין אין הפקדות השנה') + '</b><i>ההפקדה הראשונה תופיע כאן</i></span></div>';
+    // הפקדות: של השנה מוצגות פתוחות; של שנים קודמות מאחורי "הפקדות משנים קודמות"
+    var yKey = function (y) { return String(y || '').replace(/["'״׳]/g, ''); }, thisY = yKey(m.debtYear || S.year);
+    function depList(list) {
+      return '<div class="dl">' + list.map(function (d) {
+        var inner = '<span class="io" aria-hidden="true">+</span><span>' + ltr(d.date) + '<i>' + esc(d.method) + ' · ' + esc(d.year) + (d.note ? ' · ' + esc(d.note) : '') + '</i></span><b dir="ltr">₪' + num(d.amount) + '</b>';
+        return HOST() && canEdit && d.id != null ? '<button type="button" class="drow drow-b" data-act="dep-edit" data-did="' + esc(d.id) + '" aria-label="עריכת ההפקדה">' + inner + '</button>' : '<div class="drow">' + inner + '</div>';
+      }).join('') + '</div>';
+    }
+    var depsNow = m.deposits.filter(function (d) { return yKey(d.year) === thisY; }), depsOld = m.deposits.filter(function (d) { return yKey(d.year) !== thisY; });
+    var sumOf = function (list) { return list.reduce(function (t, d) { return t + (+d.amount || 0); }, 0); };
+    var deps = '<div class="m-box"><h4>הפקדות השנה (' + depsNow.length + ')' + (depsNow.length ? '<span class="fold-a">' + ltr('₪' + num(sumOf(depsNow))) + '</span>' : '') + '</h4>' +
+      (depsNow.length ? depList(depsNow) : '<p class="nodep-s">אין עדיין הפקדות השנה.</p>') + '</div>';
     var stm = statementOf(m, hist);
     // פירוט שנים קודמות: טבלה ברוחב מלא מתחת לכרטיס, נפתחת מהכפתור שמתחת לעיגולים
     var mc = function (v) { return v ? nis(v) : '<span class="dash">—</span>'; };
@@ -570,7 +578,6 @@
       '<button type="button" class="btn btn-s btn-o" data-act="stm-mail" data-mid="' + m.id + '">' + g('mail') + 'שליחה במייל</button></div>'
       : '';
     var stmBtn = hh ? '<button type="button" class="stm-open" data-act="stm-toggle" aria-expanded="false" aria-controls="' + P + 'stm-panel">' + g('list') + '<span>פירוט שנים קודמות</span>' + g('down') + '</button>' : '';
-    var depSum = m.deposits.reduce(function (t, d) { return t + (+d.amount || 0); }, 0);
     // קופסה מצומצמת: הכותרת היא כפתור שפותח וסוגר (חץ להרחבה)
     function fold(title, aside, inner) {
       return '<details class="m-box fold"><summary><h4>' + title + '</h4>' + (aside ? '<span class="fold-a">' + aside + '</span>' : '') + '<span class="fold-c" aria-hidden="true">' + g('down') + '</span></summary><div class="fold-b">' + inner + '</div></details>';
@@ -600,7 +607,7 @@
           (m.hasTarget ? '<span class="rq" style="--x:' + (m.required / scale * 100).toFixed(1) + '" data-tip="סה״כ נדרש|₪' + num(m.required) + '"></span>' : '') + ms + '</div></div>' +
         '<div class="m-box"><h4>איך מחושב הנדרש</h4><div class="eq">' + eq + '</div>' + stmBtn + why + wv + '</div>' +
       '</div><div class="m-col">' +
-        fold((HOST() ? 'הפקדות' : 'הפקדות השנה') + ' (' + m.deposits.length + ')', m.deposits.length ? ltr('₪' + num(depSum)) : '', deps) +
+        deps + (depsOld.length ? fold('הפקדות משנים קודמות (' + depsOld.length + ')', ltr('₪' + num(sumOf(depsOld))), depList(depsOld)) : '') +
       '</div></div>' +
       (hh ? '<section class="stm-panel" id="' + P + 'stm-panel" hidden><h4>פירוט שנים קודמות · מענק חתן</h4>' + hh + '</section>' : '') + '</div>' +
       (canEdit ? '<div class="sheet-f"><button type="button" class="btn" data-act="dep-for" data-mid="' + m.id + '">רישום הפקדה' + g('chev2') + '</button>' +
