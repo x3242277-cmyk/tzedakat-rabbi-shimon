@@ -298,6 +298,8 @@
     'td.sub { padding-right: 20px; }',
     'p { margin: 6px 0; }',
     '.note { font-size: 11px; }',
+    'th.wide, td.wide { min-width: 170px; }',
+    'td.nw { white-space: nowrap; }',
     '@media print { body { margin: 0; } }'
   ].join('\n');
 
@@ -450,6 +452,22 @@
     if (!html) return null;
     return printHtml(screenTitle('grants-screen', 'מענקים'), meta, html);
   }
+  /* ---------- חשבון שנתי של בחור: כל שנה בשורה, ומה נזקף לזכותו ---------- */
+  function reportStatement(p) {
+    var rows = arr(p.rows).filter(Boolean);
+    if (!rows.length) return null;
+    var m = function (v) { return v == null || v === '' ? '—' : money(v); };
+    var body = '<h2>' + esc('החשבון לפי שנים · ' + (p.name || '')) + '</h2>' + tableHtml(
+      th('שנה') + th('מסגרת') + th('יעד השנה', 'num') + th('חוב משנים קודמות', 'num') + th('נדרש', 'num') + th('הביא', 'num') + th('נזקף לזכותו', 'num') + th('חסר', 'num') + th('קנס שנוסף', 'num') + th('עובר לשנה הבאה', 'num') + th('הערה', 'wide'),
+      rows.map(function (r) {
+        return '<tr' + (r.current ? ' class="total"' : '') + '>' + td(r.year, 'nw') + td(r.frame, 'nw') + td(m(r.target), 'num') + td(m(r.debtIn), 'num') + td(m(r.required), 'num') + td(m(r.collected), 'num') +
+          td(m(r.credited), 'num') + td(m(r.missing), 'num') + td(r.penalty ? money(r.penalty) : '—', 'num') + td(r.current ? 'השנה פתוחה' : m(r.out), r.current ? '' : 'num') + td(r.note || '', 'wide') + '</tr>';
+      }).join(''));
+    body += arr(p.summary).map(function (line) { return '<p>' + esc(line) + '</p>'; }).join('');
+    body += '<p class="note">' + esc('נזקף לזכותו = מה שהבחור הביא, עד הסכום הנדרש באותה שנה. חוסר ליעד מוכפל פעם אחת (קנס), החל משנת תשפ"ד, ואינו מוכפל שוב.') + '</p>';
+    return printHtml('חשבון בחור', [p.name, p.sub], body);
+  }
+
   /* ---------- מתנות: רשימת הזכאים כפי שהיא מוצגת במסך (שנה, מתנה וישיבה שנבחרו) ---------- */
   function giftMeta(p) { return [p.year ? 'שנת ' + p.year : '', String(p.title == null ? '' : p.title).trim()]; }
   function reportGifts(p) {
@@ -497,6 +515,7 @@
     else if (kind === 'expenses') html = reportExpenses(p);
     else if (kind === 'grants') html = reportGrants(p);
     else if (kind === 'gifts') html = reportGifts(p);
+    else if (kind === 'statement') html = reportStatement(p);
     else return fail(GENERIC);
     if (!html) return fail('אין נתונים להדפסה');
     return printDocument(html);

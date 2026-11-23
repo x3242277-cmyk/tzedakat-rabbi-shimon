@@ -624,7 +624,11 @@
             var newPenalty = r2(d.newPenalty);
             status = 'חסר ' + fmt(required - collected) + (debtOut > 0 ? (newPenalty > 0 ? ' · עם קנס עובר הלאה ' : ' · חוב עובר הלאה ') + fmt(debtOut) : ''); tone = 'bad';
           }
-          return { year: str(d.year), frame: frameLabel(tKey, shiurLabel(tKey, d.historicalShiur)), target: target, required: required, collected: collected, waived: r2(d.debtWaived), status: status, tone: tone };
+          return {
+            year: str(d.year), frame: frameLabel(tKey, shiurLabel(tKey, d.historicalShiur)), target: target, required: required, collected: collected, waived: r2(d.debtWaived), status: status, tone: tone,
+            // לחשבון השנתי: חוב שנכנס, קנס שנוסף, מה שעבר הלאה, ואם זו שנת קנס
+            debtIn: r2(d.debtIn), penalty: r2(d.newPenalty), out: debtOut, penaltyYear: !!d.penaltyYear, current: isCurrent, noTarget: !(target > 0)
+          };
         });
       } catch (e) { return []; }
     }

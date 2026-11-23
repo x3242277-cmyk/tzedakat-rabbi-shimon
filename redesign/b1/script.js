@@ -45,6 +45,8 @@
     picture: '<rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8.5" cy="10" r="1.5"/><path d="M3.5 17l5-4.5 3.5 3 3-2.5 5.5 4.5"/>',
     logout: '<path d="M10 5H6a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h4M14 8l4 4-4 4M18 12H9"/>',
     edit: '<path d="M5 19l1-4L16.5 4.5l3 3L9 18zM14.5 6.5l3 3"/>',
+    print: '<path d="M7 9V4h10v5M7 17H5a1 1 0 0 1-1-1v-5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v5a1 1 0 0 1-1 1h-2M7 14h10v6H7z"/>',
+    mail: '<path d="M4 6h16v12H4zM4 7l8 6 8-6"/>',
     info: '<path d="M12 7v6M12 16.5h.01"/>'
   };
   function g(n, c) { return '<svg class="g' + (c ? ' ' + c : '') + '" viewBox="0 0 24 24" aria-hidden="true" focusable="false">' + GL[n] + '</svg>'; }
@@ -550,11 +552,24 @@
       var inner = '<span class="io" aria-hidden="true">+</span><span>' + ltr(d.date) + '<i>' + esc(d.method) + ' · ' + esc(d.year) + (d.note ? ' · ' + esc(d.note) : '') + '</i></span><b dir="ltr">₪' + num(d.amount) + '</b>';
       return HOST() && canEdit && d.id != null ? '<button type="button" class="drow drow-b" data-act="dep-edit" data-did="' + esc(d.id) + '" aria-label="עריכת ההפקדה">' + inner + '</button>' : '<div class="drow">' + inner + '</div>';
     }).join('') + '</div>' : '<div class="nodep">' + disc('kupa') + '<span><b>' + (HOST() ? 'עדיין אין הפקדות' : 'עדיין אין הפקדות השנה') + '</b><i>ההפקדה הראשונה תופיע כאן</i></span></div>';
-    var hh = hist.length ? '<div class="hist">' + hist.map(function (h, hi) {
-      return '<div class="hrow' + (hi === hist.length - 1 ? ' now' : '') + '"><span class="yr2">' + esc(h.year) + '</span><span class="tx"><b>' + esc(h.frame) + '</b>' +
-        '<i>יעד ' + nis(h.target) + (h.required !== h.target ? ' · נדרש ' + nis(h.required) : '') + ' · נאסף ' + nis(h.collected) + (h.waived > 0 ? ' · נמחק מהקנס ' + nis(h.waived) : '') + '</i>' +
-        '<span class="tag t-' + h.tone + '">' + esc(h.status).replace(/₪[\d,]+/g, function (x) { return ltr(x); }) + '</span></span></div>';
-    }).join('') + '</div>' : '<p class="why">' + (m.type === 'חיידר' ? 'אין היסטוריית זכאות: בחיידר עדיין לא בגיל הזכאות.' : 'אין עדיין היסטוריית זכאות.') + '</p>';
+    var stm = statementOf(m, hist);
+    var hh = stm.rows.length ? '<div class="hist">' + stm.rows.map(function (r, hi) {
+      function ln(label, val, cls) { return '<span class="sl' + (cls ? ' ' + cls : '') + '"><span>' + label + '</span><b>' + val + '</b></span>'; }
+      var lines = ln('יעד השנה', nis(r.target)) +
+        (r.debtIn > 0 ? ln('+ חוב משנים קודמות', nis(r.debtIn)) + ln('= נדרש', nis(r.required), 'sl-s') : '') +
+        ln('הביא', nis(r.collected)) +
+        (r.required > 0 ? ln('נזקף לזכותו', nis(r.credited), 'sl-c') : '') +
+        (r.missing > 0 ? ln('חסר', nis(r.missing), 'sl-b') : '') +
+        (r.penalty > 0 ? ln('+ קנס (החסר כפול)', nis(r.penalty), 'sl-b') : '') +
+        (r.waived > 0 ? ln('נמחק מהקנס', '−' + nis(r.waived)) : '') +
+        (!r.current && r.out > 0 ? ln('עובר לשנה הבאה', nis(r.out), 'sl-o') : '');
+      return '<div class="hrow' + (r.current ? ' now' : '') + '"><span class="yr2">' + esc(r.year) + '</span><span class="tx"><b>' + esc(r.frame) + '</b>' +
+        '<span class="sls">' + lines + '</span>' + (r.note ? '<i class="sn">' + esc(r.note) + '</i>' : '') +
+        '<span class="tag t-' + r.tone + '">' + esc(r.status).replace(/₪[\d,]+/g, function (x) { return ltr(x); }) + '</span></span></div>';
+    }).join('') + '</div>' + '<div class="stm-sum">' + stm.summary.map(function (l) { return '<p>' + esc(l) + '</p>'; }).join('') + '</div>' +
+      '<div class="stm-act"><button type="button" class="btn btn-s btn-o" data-act="stm-print" data-mid="' + m.id + '">' + g('print') + 'הדפסה</button>' +
+      '<button type="button" class="btn btn-s btn-o" data-act="stm-mail" data-mid="' + m.id + '">' + g('mail') + 'שליחה במייל</button></div>'
+      : '<p class="why">' + (m.type === 'חיידר' ? 'אין חשבון: בחיידר עדיין לא בגיל הזכאות.' : 'אין עדיין חשבון לפי שנים.') + '</p>';
     var depSum = m.deposits.reduce(function (t, d) { return t + (+d.amount || 0); }, 0);
     // קופסה מצומצמת: הכותרת היא כפתור שפותח וסוגר (חץ להרחבה)
     function fold(title, aside, inner) {
@@ -586,13 +601,62 @@
         '<div class="m-box"><h4>איך מחושב הנדרש</h4><div class="eq">' + eq + '</div>' + why + wv + '</div>' +
       '</div><div class="m-col">' +
         fold((HOST() ? 'הפקדות' : 'הפקדות השנה') + ' (' + m.deposits.length + ')', m.deposits.length ? ltr('₪' + num(depSum)) : '', deps) +
-        fold('היסטוריית זכאות', hist.length ? hist.length + ' שנים' : '', hh) +
+        fold('החשבון לפי שנים', hist.length ? hist.length + ' שנים' : '', hh) +
       '</div></div></div>' +
       (canEdit ? '<div class="sheet-f"><button type="button" class="btn" data-act="dep-for" data-mid="' + m.id + '">רישום הפקדה' + g('chev2') + '</button>' +
       '<button type="button" class="btn btn-o" data-act="edit">' + g('edit') + 'עריכת פרטים</button></div>' : '');
     showOv('member');
     wvPreview();
     $$('[data-n]', id('sheet')).forEach(function (el) { animNum(el, +el.getAttribute('data-n'), 700, 0); });
+  }
+
+  /* ---------- החשבון לפי שנים ---------- */
+  // כל שנה: יעד, חוב שנכנס, נדרש, מה הביא, כמה נזקף לזכותו (עד הנדרש), חסר, קנס ומה עבר הלאה
+  function statementOf(m, hist) {
+    var rows = (hist || D.historyOf(m)).map(function (h) {
+      var required = +h.required || 0, collected = +h.collected || 0, target = +h.target || 0;
+      var debtIn = h.debtIn != null ? +h.debtIn : Math.max(0, required - target);
+      var missing = Math.max(0, required - collected), penalty = +h.penalty || 0;
+      var out = h.out != null ? +h.out : (h.current ? null : missing + penalty);
+      var note = '';
+      if (h.current) note = missing > 0 ? 'השנה עדיין פתוחה. מה שיחסר בסוף השנה יוכפל ויעבור לשנה הבאה.' : '';
+      else if (!(target > 0)) note = out > 0 ? 'שנה בלי יעד: החוב ממתין ואינו מוכפל.' : '';
+      else if (missing > 0 && !penalty && !h.penaltyYear) note = 'לפני שנות הקנס (תשפ״ד): החסר עובר בלי הכפלה.';
+      else if (missing > 0 && !penalty) note = 'החוב כבר הוכפל בעבר, ולכן אינו מוכפל שוב.';
+      return { year: h.year, frame: h.frame, target: target, debtIn: debtIn, required: required, collected: collected, credited: Math.min(collected, required),
+        missing: missing, penalty: penalty, waived: +h.waived || 0, out: out, current: !!h.current, note: note, status: h.status, tone: h.tone };
+    });
+    var t = rows.reduce(function (a, r) { a.c += r.collected; a.cr += r.credited; a.p += r.penalty; a.w += r.waived; return a; }, { c: 0, cr: 0, p: 0, w: 0 });
+    var summary = ['סה״כ הביא ' + fmtN(t.c) + ' · נזקף לזכותו ' + fmtN(t.cr) + (t.c > t.cr ? ' (' + fmtN(t.c - t.cr) + ' מעבר לנדרש)' : '') + '.'];
+    if (t.p) summary.push('סה״כ קנסות ' + fmtN(t.p) + (t.w ? ', מתוכם נמחקו ' + fmtN(t.w) : '') + '.');
+    summary.push(m.gap > 0 ? 'השנה נדרש ' + fmtN(m.required) + ', הביא ' + fmtN(m.collected) + ', חסר עוד ' + fmtN(m.gap) + '.' : (m.hasTarget ? 'השנה עמד בכל הנדרש.' : 'השנה אין לו יעד' + (m.debt > 0 ? ', ויש חוב פתוח של ' + fmtN(m.debt) : '') + '.'));
+    return { rows: rows, summary: summary };
+  }
+  function fmtN(v) { return '₪' + num(Math.round(v)); }
+  function stmTitle(m) { return m.full + (m.father ? ' בן ' + m.father : ''); }
+  function stmSub(m) { return (m.yeshiva || 'ללא ישיבה') + ' · ' + m.frame; }
+  function printStatement(m) {
+    var s = statementOf(m);
+    if (HOST()) { hdo('printReport', 'statement', { name: stmTitle(m), sub: stmSub(m), rows: s.rows, summary: s.summary }); return; }
+    toast('החשבון נשלח להדפסה (הדגמה)', 'check');
+  }
+  // מייל: נפתחת תוכנת הדואר עם החשבון כטקסט, מוכן לשליחה
+  function mailStatement(m) {
+    var s = statementOf(m), L = [];
+    L.push('החשבון לפי שנים · ' + stmTitle(m), stmSub(m), '');
+    s.rows.forEach(function (r) {
+      L.push(r.year + ' · ' + r.frame);
+      L.push('  יעד השנה ' + fmtN(r.target) + (r.debtIn > 0 ? ' + חוב משנים קודמות ' + fmtN(r.debtIn) + ' = נדרש ' + fmtN(r.required) : ''));
+      L.push('  הביא ' + fmtN(r.collected) + (r.required > 0 ? ' · נזקף לזכותו ' + fmtN(r.credited) : ''));
+      if (r.missing > 0) L.push('  חסר ' + fmtN(r.missing) + (r.penalty > 0 ? ' + קנס ' + fmtN(r.penalty) : ''));
+      if (r.waived > 0) L.push('  נמחק מהקנס ' + fmtN(r.waived));
+      if (!r.current && r.out > 0) L.push('  עובר לשנה הבאה ' + fmtN(r.out));
+      if (r.note) L.push('  ' + r.note);
+      L.push('');
+    });
+    L = L.concat(s.summary, '', 'נזקף לזכותו = מה שהבחור הביא, עד הסכום הנדרש באותה שנה. חוסר ליעד מוכפל פעם אחת (קנס), החל משנת תשפ"ד, ואינו מוכפל שוב.', '', 'צדקת רבי שמעון · עזרת חתנים');
+    var href = 'mailto:?subject=' + encodeURIComponent('החשבון של ' + stmTitle(m) + ' · צדקת רבי שמעון') + '&body=' + encodeURIComponent(L.join('\r\n'));
+    try { window.location.href = href; } catch (e) { toast('לא הצלחנו לפתוח את תוכנת הדואר', 'close'); }
   }
 
   /* ---------- מחיקת חלק מהחוב ---------- */
@@ -815,6 +879,8 @@
     else if (a === 'wv-pick') { var wi = id('wv-pct'); if (wi) wi.value = el.getAttribute('data-p'); wvPreview(); }
     else if (a === 'wv-save') { var wp = wvVal(); if (!wp) { toast('צריך לבחור כמה אחוז מהקנס למחוק', 'close'); return; } saveWaiver(byId(el.getAttribute('data-mid')), wp); }
     else if (a === 'wv-clear') saveWaiver(byId(el.getAttribute('data-mid')), 0);
+    else if (a === 'stm-print') printStatement(byId(el.getAttribute('data-mid')));
+    else if (a === 'stm-mail') mailStatement(byId(el.getAttribute('data-mid')));
     else if (a === 'classic') { closeAll(); HOST().classic(S.view === 'soon' ? S.soon : S.view, S.soon === 'settings' ? SC.settings.tab : null); }
     else if (a === 'newmember') openForm('member');
     else if (a === 'edit') openForm('member', byId(el.getAttribute('data-mid')) || byId(S.member));
