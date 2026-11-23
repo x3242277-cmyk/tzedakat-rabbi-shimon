@@ -765,7 +765,6 @@
   /* הופקד: העמודה המרכזית */
   .stm-t th.sdep{background:var(--grad);color:var(--ink);font-size:14px;font-weight:900}
   .stm-t td.sdep,.stm-t tbody tr:nth-child(even) td.sdep,.stm-t tr.now td.sdep{background:#F6EBCB;font-weight:900;font-size:16px;color:var(--ink);box-shadow:inset 2px 0 0 var(--y),inset -2px 0 0 var(--y)}
-  .stm-t tfoot td.sdep{background:var(--y);font-size:16.5px}
   .stm-notes{margin:10px 4px 0;padding:0;list-style:none;color:var(--mute);font-size:13.5px}
   .stm-notes li{margin-top:3px}
   .stm-notes li::before{content:"•";color:var(--y);margin-inline-end:6px}
@@ -3062,7 +3061,7 @@ window.TZ_DATA = (function () {
       stm.rows.map(function (r) {
         var miss = r.lost > 0 ? '<td class="miss">' + nis(r.lost) + '</td>' : r.repay > 0 ? '<td class="fix">השלמת חוסר ' + nis(r.repay) + '</td>' : '<td><span class="dash">—</span></td>';
         return '<tr' + (r.current ? ' class="now"' : '') + '><td class="sy">' + esc(r.year) + '</td><td>' + esc(r.frame) + '</td><td>' + mc(r.target) + '</td><td class="sdep">' + nis(r.collected) + '</td><td>' + mc(r.own) + '</td><td>' + mc(r.add) + '</td><td class="tot">' + mc(r.total) + '</td>' + miss + '</tr>';
-      }).join('') + '</tbody><tfoot><tr><td colspan="3"></td><td class="sdep"></td><td></td><td class="flbl">סה״כ</td><td>' + nis(stm.totals.total) + '</td><td>' + mc(stm.totals.missing) + '</td></tr></tfoot></table></div>' +
+      }).join('') + '</tbody><tfoot><tr><td colspan="3"></td><td></td><td></td><td class="flbl">סה״כ</td><td>' + nis(stm.totals.total) + '</td><td>' + mc(stm.totals.missing) + '</td></tr></tfoot></table></div>' +
       (stm.notes.length ? '<ul class="stm-notes">' + stm.notes.map(function (l) { return '<li>' + esc(l) + '</li>'; }).join('') + '</ul>' : '') +
       (stm.creditLine ? '<p class="stm-credit">' + esc(stm.creditLine) + '</p>' : '') +
       '<div class="stm-boxes"><div class="sb full"><i>' + (stm.grant.complete ? 'מענק מלא' : 'סכום אפשרי עד כה') + '</i><b>' + nis(stm.totals.full) + '</b></div>' +
