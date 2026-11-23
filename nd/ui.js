@@ -153,14 +153,16 @@ window.TZ_BODY="<svg width=\"0\" height=\"0\" style=\"position:absolute\" aria-h
 
   /* ---------- header ---------- */
   function renderNav() {
-    var inl = '', pop = '';
-    D.nav.forEach(function (n, i) {
-      var c = i >= 5 ? '' : (i === 4 ? ' n-a5' : i === 3 ? ' n-a4' : i === 2 ? ' n-a3' : '');
-      if (i < 5) inl += '<button type="button" class="nav-i' + c + '" data-go="' + n.key + '" data-nav="' + n.key + '">' + BRUSH + esc(n.label) + '</button>';
-      var mc = i >= 5 ? '' : (i === 4 ? ' n-m5' : i === 3 ? ' n-m4' : i === 2 ? ' n-m3' : ' n-b');
-      if (i >= 2) pop += '<button type="button" class="pop-i' + mc + '" data-go="' + n.key + '" data-nav="' + n.key + '">' + esc(n.label) + '<small>' + esc(n.group) + '</small></button>';
+    // בשורה: מה שנוגע לבחורים ואחר כך לעובדים. במסך צר הפריטים האחרונים עוברים ל"עוד" (n-aN / n-mN).
+    // "עוד": קודם מה שלא נכנס בשורה, ואחריו הפריטים של המנהל, שמופיעים רק שם
+    var inl = '', pop = '', main = D.nav.filter(function (n) { return !n.admin; }), mgr = D.nav.filter(function (n) { return n.admin; });
+    main.forEach(function (n, i) {
+      var k = i + 1;
+      inl += '<button type="button" class="nav-i' + (k >= 3 ? ' n-a' + k : '') + '" data-go="' + n.key + '" data-nav="' + n.key + '">' + BRUSH + esc(n.label) + '</button>';
+      if (k >= 3) pop += '<button type="button" class="pop-i n-m' + k + '" data-go="' + n.key + '" data-nav="' + n.key + '">' + esc(n.label) + '<small>' + esc(n.area || n.group) + '</small></button>';
     });
-    inl += '<div class="pop-wrap"><button type="button" class="nav-i" id="' + P + 'morebtn" aria-haspopup="true" aria-expanded="false">' + BRUSH + 'עוד' + g('down') + '</button><div class="pop" id="' + P + 'morepop" hidden>' + pop + '</div></div>';
+    mgr.forEach(function (n) { pop += '<button type="button" class="pop-i" data-go="' + n.key + '" data-nav="' + n.key + '">' + esc(n.label) + '<small>' + esc(n.area || n.group) + '</small></button>'; });
+    inl += '<div class="pop-wrap' + (mgr.length ? '' : ' more-ovf') + '"><button type="button" class="nav-i" id="' + P + 'morebtn" aria-haspopup="true" aria-expanded="false">' + BRUSH + 'עוד' + g('down') + '</button><div class="pop" id="' + P + 'morepop" hidden>' + pop + '</div></div>';
     id('nav').innerHTML = inl;
     var u = D.settings.user;
     id('av').textContent = u.initial; id('uname').textContent = u.name;

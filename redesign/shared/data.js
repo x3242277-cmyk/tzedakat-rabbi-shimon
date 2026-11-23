@@ -266,16 +266,17 @@ window.TZ_DATA = (function () {
   };
 
   var nav = [
-    { key: 'dashboard', label: 'לוח בקרה', group: 'ראשי' },
-    { key: 'members', label: 'בחורים', group: 'ניהול' },
-    { key: 'gifts', label: 'מתנות', group: 'ניהול' },
-    { key: 'grants', label: 'מענקים', group: 'ניהול' },
-    { key: 'payments', label: 'תשלומים לחנויות', group: 'ניהול' },
-    { key: 'purim', label: 'כתובות פורים', group: 'ניהול' },
-    { key: 'transactions', label: 'דו״ח תנועות', group: 'כספים' },
-    { key: 'expenses', label: 'סיכום הוצאות', group: 'כספים' },
-    { key: 'rules', label: 'תקנון', group: 'כללי' },
-    { key: 'settings', label: 'הגדרות', group: 'כללי' }
+    // סדר התפריט: קודם מה שנוגע לבחורים, אחר כך לעובדים; של המנהל (admin) מופיע רק תחת "עוד"
+    { key: 'dashboard', label: 'לוח בקרה', group: 'ראשי', area: 'בחורים' },
+    { key: 'members', label: 'בחורים', group: 'ניהול', area: 'בחורים' },
+    { key: 'gifts', label: 'מתנות', group: 'ניהול', area: 'בחורים' },
+    { key: 'grants', label: 'מענקים', group: 'ניהול', area: 'בחורים' },
+    { key: 'purim', label: 'כתובות פורים', group: 'ניהול', area: 'בחורים' },
+    { key: 'rules', label: 'תקנון', group: 'כללי', area: 'בחורים' },
+    { key: 'transactions', label: 'דו״ח תנועות', group: 'כספים', area: 'עובדים' },
+    { key: 'payments', label: 'תשלומים לחנויות', group: 'ניהול', area: 'עובדים' },
+    { key: 'expenses', label: 'סיכום הוצאות', group: 'כספים', area: 'מנהל', admin: true },
+    { key: 'settings', label: 'הגדרות', group: 'כללי', area: 'מנהל', admin: true }
   ];
 
   var quickActions = [

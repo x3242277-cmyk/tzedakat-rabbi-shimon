@@ -872,6 +872,12 @@
 .tz-b1{
   .nav .n-b{display:none}
   .more-only{display:none}
+  /* תפריט: הפריטים האחרונים עוברים ל"עוד" ככל שהמסך צר יותר */
+  .pop .n-m6,.pop .n-m7,.pop .n-m8{display:none}
+  @media (max-width:1599px){ .nav .n-a8{display:none} .pop .n-m8{display:flex} }
+  @media (max-width:1499px){ .nav .n-a7{display:none} .pop .n-m7{display:flex} }
+  @media (max-width:1400px){ .nav .n-a6{display:none} .pop .n-m6{display:flex} }
+  @media (min-width:1600px){ .nav .more-ovf{display:none} }
   @media (max-width:1320px){
     .nav .n-a5{display:none}
     .pop .n-m5{display:flex}
@@ -2267,16 +2273,17 @@ window.TZ_DATA = (function () {
   };
 
   var nav = [
-    { key: 'dashboard', label: 'לוח בקרה', group: 'ראשי' },
-    { key: 'members', label: 'בחורים', group: 'ניהול' },
-    { key: 'gifts', label: 'מתנות', group: 'ניהול' },
-    { key: 'grants', label: 'מענקים', group: 'ניהול' },
-    { key: 'payments', label: 'תשלומים לחנויות', group: 'ניהול' },
-    { key: 'purim', label: 'כתובות פורים', group: 'ניהול' },
-    { key: 'transactions', label: 'דו״ח תנועות', group: 'כספים' },
-    { key: 'expenses', label: 'סיכום הוצאות', group: 'כספים' },
-    { key: 'rules', label: 'תקנון', group: 'כללי' },
-    { key: 'settings', label: 'הגדרות', group: 'כללי' }
+    // סדר התפריט: קודם מה שנוגע לבחורים, אחר כך לעובדים; של המנהל (admin) מופיע רק תחת "עוד"
+    { key: 'dashboard', label: 'לוח בקרה', group: 'ראשי', area: 'בחורים' },
+    { key: 'members', label: 'בחורים', group: 'ניהול', area: 'בחורים' },
+    { key: 'gifts', label: 'מתנות', group: 'ניהול', area: 'בחורים' },
+    { key: 'grants', label: 'מענקים', group: 'ניהול', area: 'בחורים' },
+    { key: 'purim', label: 'כתובות פורים', group: 'ניהול', area: 'בחורים' },
+    { key: 'rules', label: 'תקנון', group: 'כללי', area: 'בחורים' },
+    { key: 'transactions', label: 'דו״ח תנועות', group: 'כספים', area: 'עובדים' },
+    { key: 'payments', label: 'תשלומים לחנויות', group: 'ניהול', area: 'עובדים' },
+    { key: 'expenses', label: 'סיכום הוצאות', group: 'כספים', area: 'מנהל', admin: true },
+    { key: 'settings', label: 'הגדרות', group: 'כללי', area: 'מנהל', admin: true }
   ];
 
   var quickActions = [
@@ -2658,14 +2665,16 @@ window.TZ_DATA = (function () {
 
   /* ---------- header ---------- */
   function renderNav() {
-    var inl = '', pop = '';
-    D.nav.forEach(function (n, i) {
-      var c = i >= 5 ? '' : (i === 4 ? ' n-a5' : i === 3 ? ' n-a4' : i === 2 ? ' n-a3' : '');
-      if (i < 5) inl += '<button type="button" class="nav-i' + c + '" data-go="' + n.key + '" data-nav="' + n.key + '">' + BRUSH + esc(n.label) + '</button>';
-      var mc = i >= 5 ? '' : (i === 4 ? ' n-m5' : i === 3 ? ' n-m4' : i === 2 ? ' n-m3' : ' n-b');
-      if (i >= 2) pop += '<button type="button" class="pop-i' + mc + '" data-go="' + n.key + '" data-nav="' + n.key + '">' + esc(n.label) + '<small>' + esc(n.group) + '</small></button>';
+    // בשורה: מה שנוגע לבחורים ואחר כך לעובדים. במסך צר הפריטים האחרונים עוברים ל"עוד" (n-aN / n-mN).
+    // "עוד": קודם מה שלא נכנס בשורה, ואחריו הפריטים של המנהל, שמופיעים רק שם
+    var inl = '', pop = '', main = D.nav.filter(function (n) { return !n.admin; }), mgr = D.nav.filter(function (n) { return n.admin; });
+    main.forEach(function (n, i) {
+      var k = i + 1;
+      inl += '<button type="button" class="nav-i' + (k >= 3 ? ' n-a' + k : '') + '" data-go="' + n.key + '" data-nav="' + n.key + '">' + BRUSH + esc(n.label) + '</button>';
+      if (k >= 3) pop += '<button type="button" class="pop-i n-m' + k + '" data-go="' + n.key + '" data-nav="' + n.key + '">' + esc(n.label) + '<small>' + esc(n.area || n.group) + '</small></button>';
     });
-    inl += '<div class="pop-wrap"><button type="button" class="nav-i" id="' + P + 'morebtn" aria-haspopup="true" aria-expanded="false">' + BRUSH + 'עוד' + g('down') + '</button><div class="pop" id="' + P + 'morepop" hidden>' + pop + '</div></div>';
+    mgr.forEach(function (n) { pop += '<button type="button" class="pop-i" data-go="' + n.key + '" data-nav="' + n.key + '">' + esc(n.label) + '<small>' + esc(n.area || n.group) + '</small></button>'; });
+    inl += '<div class="pop-wrap' + (mgr.length ? '' : ' more-ovf') + '"><button type="button" class="nav-i" id="' + P + 'morebtn" aria-haspopup="true" aria-expanded="false">' + BRUSH + 'עוד' + g('down') + '</button><div class="pop" id="' + P + 'morepop" hidden>' + pop + '</div></div>';
     id('nav').innerHTML = inl;
     var u = D.settings.user;
     id('av').textContent = u.initial; id('uname').textContent = u.name;

@@ -859,6 +859,12 @@
 .tz-b1{
   .nav .n-b{display:none}
   .more-only{display:none}
+  /* תפריט: הפריטים האחרונים עוברים ל"עוד" ככל שהמסך צר יותר */
+  .pop .n-m6,.pop .n-m7,.pop .n-m8{display:none}
+  @media (max-width:1599px){ .nav .n-a8{display:none} .pop .n-m8{display:flex} }
+  @media (max-width:1499px){ .nav .n-a7{display:none} .pop .n-m7{display:flex} }
+  @media (max-width:1400px){ .nav .n-a6{display:none} .pop .n-m6{display:flex} }
+  @media (min-width:1600px){ .nav .more-ovf{display:none} }
   @media (max-width:1320px){
     .nav .n-a5{display:none}
     .pop .n-m5{display:flex}
