@@ -603,7 +603,7 @@ window.TZ_BODY="<svg width=\"0\" height=\"0\" style=\"position:absolute\" aria-h
         '<div class="m-box"><h4>איך מחושב הנדרש</h4><div class="eq">' + eq + '</div>' + why + wv + '</div>' +
       '</div><div class="m-col">' +
         fold((HOST() ? 'הפקדות' : 'הפקדות השנה') + ' (' + m.deposits.length + ')', m.deposits.length ? ltr('₪' + num(depSum)) : '', deps) +
-        fold('החשבון לפי שנים', hist.length ? hist.length + ' שנים' : '', hh) +
+        fold('החשבון לפי שנים', stm.rows.length ? stm.rows.length + ' שנים' : '', hh) +
       '</div></div></div>' +
       (canEdit ? '<div class="sheet-f"><button type="button" class="btn" data-act="dep-for" data-mid="' + m.id + '">רישום הפקדה' + g('chev2') + '</button>' +
       '<button type="button" class="btn btn-o" data-act="edit">' + g('edit') + 'עריכת פרטים</button></div>' : '');
@@ -628,10 +628,20 @@ window.TZ_BODY="<svg width=\"0\" height=\"0\" style=\"position:absolute\" aria-h
       return { year: h.year, frame: h.frame, target: target, debtIn: debtIn, required: required, collected: collected, credited: Math.min(collected, required),
         missing: missing, penalty: penalty, waived: +h.waived || 0, out: out, current: !!h.current, note: note, status: h.status, tone: h.tone };
     });
+    // שנים אחרונות בלי יעד ובלי הפקדות (למשל קיבוץ אחרי ישי״ג ג׳) לא מקבלות שורה: רק הערה אחת, כדי לא לבלבל
+    var tail = [];
+    while (rows.length > 1) {
+      var last = rows[rows.length - 1];
+      if (last.target > 0 || last.collected > 0 || last.waived > 0) break;
+      tail.unshift(rows.pop());
+    }
     var t = rows.reduce(function (a, r) { a.c += r.collected; a.cr += r.credited; a.p += r.penalty; a.w += r.waived; return a; }, { c: 0, cr: 0, p: 0, w: 0 });
+    var lastOut = rows.length ? rows[rows.length - 1].out : 0;
+    var tailNote = tail.length ? 'מ' + tail[0].year + ' ואילך לא היו עוד הפקדות' + (lastOut > 0 ? ', והחוב של ' + fmtN(lastOut) + ' ממתין' : '') + '.' : '';
     var summary = ['סה״כ הביא ' + fmtN(t.c) + ' · נזקף לזכותו ' + fmtN(t.cr) + (t.c > t.cr ? ' (' + fmtN(t.c - t.cr) + ' מעבר לנדרש)' : '') + '.'];
     if (t.p) summary.push('סה״כ קנסות ' + fmtN(t.p) + (t.w ? ', מתוכם נמחקו ' + fmtN(t.w) : '') + '.');
     summary.push(m.gap > 0 ? 'השנה נדרש ' + fmtN(m.required) + ', הביא ' + fmtN(m.collected) + ', חסר עוד ' + fmtN(m.gap) + '.' : (m.hasTarget ? 'השנה עמד בכל הנדרש.' : 'השנה אין לו יעד' + (m.debt > 0 ? ', ויש חוב פתוח של ' + fmtN(m.debt) : '') + '.'));
+    if (tailNote) summary.unshift(tailNote);
     return { rows: rows, summary: summary };
   }
   function fmtN(v) { return '₪' + num(Math.round(v)); }
