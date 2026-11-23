@@ -3091,11 +3091,11 @@ window.TZ_DATA = (function () {
           '<span class="l">' + (HOST() && S.year !== D.settings.campaignYear ? 'נאסף ב' + esc(S.year) : 'נאסף השנה') + (m.hasTarget ? '<br><b>' + m.pct + '%</b> מתוך ' + nis(m.required) : '<br><b>ללא יעד</b>') + '</span></div>' +
           '<div class="trk" style="--p:' + Math.min(100, m.collected / scale * 100).toFixed(1) + '" role="img" aria-label="התקדמות ואבני דרך למתנות"><i></i>' +
           (m.hasTarget ? '<span class="rq" style="--x:' + (m.required / scale * 100).toFixed(1) + '" data-tip="סה״כ נדרש|₪' + num(m.required) + '"></span>' : '') + ms + '</div></div>' +
-        '<div class="m-box"><h4>איך מחושב הנדרש</h4><div class="eq">' + eq + '</div>' + stmBtn + why + wv + '</div>' +
+        '<div class="m-box"><h4>איך מחושב הנדרש</h4><div class="eq">' + eq + '</div>' + wv + '</div>' +
       '</div><div class="m-col">' +
         deps + (depsOld.length ? fold('הפקדות משנים קודמות (' + depsOld.length + ')', ltr('₪' + num(sumOf(depsOld))), depList(depsOld)) : '') +
       '</div></div>' +
-      (hh ? '<section class="stm-panel" id="' + P + 'stm-panel" hidden><h4>פירוט שנים קודמות · מענק חתן</h4>' + hh + '</section>' : '') + '</div>' +
+      (hh ? '<section class="stm-panel" id="' + P + 'stm-panel"><h4>פירוט שנים קודמות · מענק חתן</h4>' + hh + '</section>' : '') + '</div>' +
       (canEdit ? '<div class="sheet-f"><button type="button" class="btn" data-act="dep-for" data-mid="' + m.id + '">רישום הפקדה' + g('chev2') + '</button>' +
       '<button type="button" class="btn btn-o" data-act="edit">' + g('edit') + 'עריכת פרטים</button></div>' : '');
     showOv('member');
