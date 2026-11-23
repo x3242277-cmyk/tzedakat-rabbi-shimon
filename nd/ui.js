@@ -660,14 +660,15 @@ window.TZ_BODY="<svg width=\"0\" height=\"0\" style=\"position:absolute\" aria-h
     var summary = [head + ' · נצבר ' + fmtN(t.total) + (t.missing > 0 ? ' · חסר להשלמה ' + fmtN(t.missing) : '')];
     if (t.missing > 0 && done && t.missing === m.gap) summary.push('אם תשלים ' + fmtN(t.missing) + ', תקבל את המענק המלא של ' + fmtN(t.full) + '.');
     else if (t.missing === 0 && t.full) summary.push(done ? 'נצבר המענק המלא.' : 'עד עכשיו נצבר כל מה שאפשר היה לצבור.');
-    return { rows: rows, totals: t, intro: intro, notes: notes, summary: summary };
+    return { rows: rows, totals: t, intro: intro, notes: notes, summary: summary,
+      grant: { full: FULL, k: +D.settings.targets['ישי״ק'] || 0, gd: +D.settings.targets['ישי״ג'] || 0, complete: done && t.full === FULL } };
   }
   function fmtN(v) { return '₪' + num(Math.round(+v || 0)); }
   function stmTitle(m) { return m.full + (m.father ? ' בן ' + m.father : ''); }
   function stmSub(m) { return (m.yeshiva || 'ללא ישיבה') + ' · ' + m.frame; }
   function printStatement(m) {
     var s = statementOf(m);
-    if (HOST()) { hdo('printReport', 'statement', { name: stmTitle(m), sub: stmSub(m), rows: s.rows, totals: s.totals, intro: s.intro, notes: s.notes, summary: s.summary }); return; }
+    if (HOST()) { hdo('printReport', 'statement', { name: stmTitle(m), sub: stmSub(m), rows: s.rows, totals: s.totals, intro: s.intro, notes: s.notes, summary: s.summary, grant: s.grant }); return; }
     toast('החשבון נשלח להדפסה (הדגמה)', 'check');
   }
   // מייל: נפתחת תוכנת הדואר עם החשבון כטקסט, מוכן לשליחה

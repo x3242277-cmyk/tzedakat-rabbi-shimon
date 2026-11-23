@@ -453,22 +453,90 @@
     return printHtml(screenTitle('grants-screen', 'מענקים'), meta, html);
   }
   /* ---------- חשבון שנתי של בחור: כל שנה בשורה, ומה נזקף לזכותו ---------- */
-  // הטבלה והטקסטים מגיעים מוכנים מהעיצוב (statementOf), כך שהכרטיס, ההדפסה והמייל מראים אותו דבר
+  // דף מעוצב לחתן, בצבעי המערכת (זהב ושחור). הטבלה והטקסטים מגיעים מוכנים מהעיצוב (statementOf),
+  // כך שהכרטיס, ההדפסה והמייל מראים אותו דבר. הצבעים נשמרים גם בהדפסה (print-color-adjust).
+  var STMT_CSS = [
+    '@page { size: A4; margin: 10mm; }',
+    '* { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+    'html, body { margin: 0; background: #fff; color: #0B0B0B; }',
+    'body { font-family: "Segoe UI", Arial, Helvetica, sans-serif; direction: rtl; font-size: 12.5px; line-height: 1.45; }',
+    '.pg { max-width: 190mm; margin: 0 auto; }',
+    '.hd { position: relative; overflow: hidden; border-radius: 18px; padding: 20px 26px 22px; background: linear-gradient(120deg, #D9B85F 0%, #CEA130 55%, #B98A26 100%); color: #0B0B0B; }',
+    '.hd::after { content: ""; position: absolute; left: -60px; bottom: -90px; width: 260px; height: 260px; border-radius: 50%; background: rgba(255,255,255,.18); }',
+    '.hd .org { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 13px; letter-spacing: .02em; }',
+    '.hd .org img { width: 38px; height: 38px; border-radius: 50%; background: #fff; padding: 3px; }',
+    '.hd .org span { opacity: .8; font-weight: 600; }',
+    '.hd h1 { margin: 14px 0 2px; font-size: 26px; font-weight: 900; letter-spacing: -.01em; }',
+    '.hd .who { font-size: 15px; font-weight: 700; }',
+    '.hd .who i { font-style: normal; font-weight: 500; opacity: .8; }',
+    '.hd .stamp { position: absolute; top: 18px; left: 24px; font-size: 10.5px; opacity: .75; }',
+    'h2 { display: flex; align-items: center; gap: 8px; margin: 18px 0 8px; font-size: 14.5px; font-weight: 900; }',
+    'h2::before { content: ""; width: 11px; height: 11px; border-radius: 50%; background: #CEA130; }',
+    '.how { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }',
+    '.how div { border-radius: 14px; padding: 10px 12px; background: #F9F4E5; border: 1.5px solid #E8D49B; }',
+    '.how b { display: block; font-size: 13px; }',
+    '.how span { display: block; margin-top: 3px; font-size: 12px; color: #3a3a3a; }',
+    '.how em { font-style: normal; font-weight: 800; color: #8A6514; }',
+    '.lead { margin: 0 0 8px; color: #3a3a3a; }',
+    'table { width: 100%; border-collapse: separate; border-spacing: 0; border-radius: 14px; overflow: hidden; border: 1.5px solid #E2E2E2; }',
+    'thead { display: table-header-group; }',
+    'tr { break-inside: avoid; page-break-inside: avoid; }',
+    'th { background: #0B0B0B; color: #E3C46E; font-weight: 800; font-size: 12px; padding: 8px 9px; text-align: right; }',
+    'td { padding: 7px 9px; border-top: 1px solid #EFEFEF; white-space: nowrap; }',
+    'tbody tr:nth-child(even) td { background: #FBF8F0; }',
+    'td.n, th.n { text-align: left; direction: ltr; }',
+    'td.yr { font-weight: 800; }',
+    'td.tot { font-weight: 800; color: #116A2B; }',
+    'td.miss { font-weight: 800; color: #B0200F; }',
+    'td.fix { font-weight: 800; color: #116A2B; }',
+    'td.dash { color: #9a9a9a; }',
+    'tfoot td { background: #F2E5C2; font-weight: 900; border-top: 2px solid #CEA130; }',
+    '.notes { margin: 8px 2px 0; padding: 0; list-style: none; color: #595959; font-size: 11.5px; }',
+    '.notes li { margin-top: 2px; }',
+    '.notes li::before { content: "•"; color: #CEA130; margin-left: 6px; }',
+    '.sum { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 18px; }',
+    '.box { border-radius: 16px; padding: 12px 16px; text-align: center; }',
+    '.box i { display: block; font-style: normal; font-size: 12px; font-weight: 700; }',
+    '.box b { display: block; margin-top: 2px; font-size: 24px; font-weight: 900; direction: ltr; }',
+    '.box.full { background: #fff; border: 2px solid #0B0B0B; }',
+    '.box.got { background: linear-gradient(120deg, #D9B85F, #CEA130); }',
+    '.box.miss { background: #0B0B0B; color: #fff; }',
+    '.box.miss b { color: #E3C46E; }',
+    '.box.ok { background: #E2F5E7; color: #116A2B; }',
+    '.cta { margin-top: 12px; padding: 12px 18px; border-radius: 14px 14px 14px 40px; background: #F9F4E5; border: 1.5px solid #CEA130; font-size: 14px; font-weight: 700; text-align: center; }',
+    '.ft { margin-top: 18px; padding-top: 8px; border-top: 1px solid #E2E2E2; display: flex; justify-content: space-between; color: #8a8a8a; font-size: 10.5px; }'
+  ].join('\n');
   function reportStatement(p) {
-    var rows = arr(p.rows).filter(Boolean), t = p.totals || {};
+    var rows = arr(p.rows).filter(Boolean), t = p.totals || {}, gr = p.grant || {}, sm = arr(p.summary), notes = arr(p.notes);
     if (!rows.length) return null;
     var m = function (v) { return v ? money(v) : '—'; };
-    var body = arr(p.intro).map(function (line, i) { return i ? '<p>' + esc(line) + '</p>' : '<h2>' + esc(line) + '</h2>'; }).join('');
-    body += '<h2>' + esc('השנים שלך') + '</h2>' + tableHtml(
-      th('שנה') + th('מסגרת') + th('היעד', 'num') + th('הבאת', 'num') + th('נכנס למענק', 'num') + th('הארגון הוסיף', 'num') + th('סה"כ למענק', 'num') + th('חסר', 'num'),
+    var cell = function (v, cls) { return '<td class="' + (v ? cls : cls + ' dash') + '">' + esc(m(v)) + '</td>'; };
+    var logo = '';
+    try { logo = new URL('assets/img/nd/logo.png', document.baseURI).href; } catch (e) {}
+    var html = '<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8"><title>' + esc('החשבון לקראת מענק החתן · ' + (p.name || '')) + '</title><style>' + STMT_CSS + '</style></head><body><div class="pg">';
+    html += '<div class="hd"><div class="org">' + (logo ? '<img src="' + esc(logo) + '" alt="">' : '') + esc(ORG) + ' <span>· עזרת חתנים</span></div>' +
+      '<div class="stamp">' + esc(printStamp()) + '</div>' +
+      '<h1>החשבון לקראת מענק החתן</h1><div class="who">' + esc(p.name || '') + (p.sub ? ' <i>· ' + esc(p.sub) + '</i>' : '') + '</div></div>';
+    if (gr.full) {
+      html += '<h2>איך בנוי המענק</h2><p class="lead">' + esc('מענק החתן המלא הוא ' + money(gr.full) + '. בכל שנה בישיבה מביאים את היעד, והארגון מוסיף סכום שווה:') + '</p>' +
+        '<div class="how"><div><b>ישיבה קטנה · א׳ עד ג׳</b><span>מביאים ' + esc(money(gr.k)) + ' בשנה<br>הארגון מוסיף <em>' + esc(money(gr.k)) + '</em></span></div>' +
+        '<div><b>ישיבה גדולה · א׳ וב׳</b><span>מביאים ' + esc(money(gr.gd)) + ' בשנה<br>הארגון מוסיף <em>' + esc(money(gr.gd)) + '</em></span></div>' +
+        '<div><b>ישיבה גדולה · ג׳</b><span>מביאים ' + esc(money(gr.gd)) + '<br>בלי תוספת</span></div></div>';
+    }
+    html += '<h2>השנים שלך</h2><table><thead><tr><th>שנה</th><th>מסגרת</th><th class="n">היעד</th><th class="n">הבאת</th><th class="n">נכנס למענק</th><th class="n">הארגון הוסיף</th><th class="n">סה"כ למענק</th><th class="n">חסר</th></tr></thead><tbody>' +
       rows.map(function (r) {
-        return '<tr>' + td(r.year, 'nw') + td(r.frame, 'nw') + td(m(r.target), 'num') + td(money(r.collected), 'num') + td(m(r.own), 'num') +
-          td(m(r.add), 'num') + td(m(r.total), 'num') + td(r.missText || '—', 'num') + '</tr>';
-      }).join(''),
-      '<tr>' + td('סה"כ', '', 3) + td(money(t.collected), 'num') + td(money(t.own), 'num') + td(money(t.add), 'num') + td(money(t.total), 'num') + td(m(t.missing), 'num') + '</tr>');
-    body += arr(p.notes).map(function (line) { return '<p class="note">' + esc(line) + '</p>'; }).join('');
-    body += arr(p.summary).map(function (line, i) { return '<p>' + (i ? esc(line) : '<b>' + esc(line) + '</b>') + '</p>'; }).join('');
-    return printHtml('החשבון לקראת מענק החתן', [p.name, p.sub], body);
+        var miss = r.lost > 0 ? '<td class="n miss">' + esc(money(r.lost)) + '</td>' : r.repay > 0 ? '<td class="fix">' + esc('השלים ' + money(r.repay)) + '</td>' : '<td class="n dash">—</td>';
+        return '<tr><td class="yr">' + esc(r.year) + '</td><td>' + esc(r.frame) + '</td>' + cell(r.target, 'n') + '<td class="n">' + esc(money(r.collected)) + '</td>' +
+          cell(r.own, 'n') + cell(r.add, 'n') + cell(r.total, 'n tot') + miss + '</tr>';
+      }).join('') + '</tbody><tfoot><tr><td colspan="3">סה"כ</td><td class="n">' + esc(money(t.collected)) + '</td><td class="n">' + esc(money(t.own)) + '</td><td class="n">' +
+      esc(money(t.add)) + '</td><td class="n">' + esc(money(t.total)) + '</td><td class="n">' + esc(m(t.missing)) + '</td></tr></tfoot></table>';
+    if (notes.length) html += '<ul class="notes">' + notes.map(function (l) { return '<li>' + esc(l) + '</li>'; }).join('') + '</ul>';
+    html += '<div class="sum"><div class="box full"><i>' + (gr.complete ? 'המענק המלא' : 'אפשר היה לצבור') + '</i><b>' + esc(money(t.full != null ? t.full : gr.full)) + '</b></div>' +
+      '<div class="box got"><i>נצבר</i><b>' + esc(money(t.total)) + '</b></div>' +
+      (t.missing > 0 ? '<div class="box miss"><i>חסר להשלמה</i><b>' + esc(money(t.missing)) + '</b></div>' : '<div class="box ok"><i>חסר להשלמה</i><b>₪0</b></div>') + '</div>';
+    if (sm.length > 1) html += '<div class="cta">' + esc(sm[1]) + '</div>';
+    html += '<div class="ft"><span>' + esc(ORG) + ' · עזרת חתנים</span><span>' + esc(p.name || '') + '</span></div>';
+    return html + '</div></body></html>';
   }
 
   /* ---------- מתנות: רשימת הזכאים כפי שהיא מוצגת במסך (שנה, מתנה וישיבה שנבחרו) ---------- */
