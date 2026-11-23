@@ -672,6 +672,8 @@ img{max-width:100%}
   .fold-b{margin-top:8px}
   /* מחיקת חלק מהחוב */
   .wv{margin-top:12px}
+  .wv-bottom{margin-top:22px;padding-top:16px;border-top:1px solid var(--grey)}
+  .wv-bottom .wv{margin-top:0}
   .wv > summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:8px;font-size:15px;font-weight:700;padding:6px 2px;border-bottom:1.5px solid var(--ink)}
   .wv > summary::-webkit-details-marker{display:none}
   .wv > summary .g{width:16px;height:16px}

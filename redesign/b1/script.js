@@ -532,15 +532,15 @@
       return '<span class="ms' + (gf.earned ? ' got' : '') + '" style="--x:' + (gf.threshold / scale * 100).toFixed(1) + '">' + disc(giftSlot(gf, gi)) + '<span><b>' + esc(gf.name) + '</b>' + ltr('₪' + num(gf.threshold)) + '</span></span>';
     }).join('');
     var eq = '<span class="coin w" style="--i:0"><i>יעד בסיס</i><b>' + nis(m.base) + '</b></span><span class="op">+</span>' +
-      '<span class="coin' + (m.debt ? ' r' : '') + '" style="--i:1"><i>חוב עבר (קנס)</i><b>' + nis(m.debt) + '</b>' + (m.waiverPct > 0 ? '<i class="wv-n">נמחקו ' + m.waiverPct + '% מהקנס</i>' : '') + '</span><span class="op">=</span>' +
+      '<span class="coin' + (m.debt ? ' r' : '') + '" style="--i:1"><i>חוב עבר (קנס)</i><b>' + nis(m.debt) + '</b>' + (m.waiverPct > 0 ? '<i class="wv-n">זיכוי ' + m.waiverPct + '% מהקנס</i>' : '') + '</span><span class="op">=</span>' +
       '<span class="coin y" style="--i:2"><i>סה״כ נדרש</i><b>' + nis(m.required) + '</b></span><span class="op">›</span>' +
       '<span class="coin k" style="--i:3"><i>פער</i><b>' + nis(m.gap) + '</b></span>';
     var why = '';
-    var waived = m.waiverPct > 0 ? ' מתוך קנס של ' + nis(m.penaltyRaw) + ' נמחקו ' + m.waiverPct + '% (' + nis(m.debtRaw - m.debt) + ').' : '';
+    var waived = m.waiverPct > 0 ? ' מתוך קנס של ' + nis(m.penaltyRaw) + ' ניתן זיכוי של ' + m.waiverPct + '% (' + nis(m.debtRaw - m.debt) + ').' : '';
     if (m.debt > 0) {
       why = '<p class="why"><b>למה נדרש ' + nis(m.required) + '?</b> יעד בסיס ' + nis(m.base) + ' + קנס ' + nis(m.debt) + ' = נדרש ' + nis(m.required) + '. הקנס הוא מה שחסר ליעד בשנים קודמות, כפול (בישי״ג ג׳ בלי הכפלה). הוא נקבע פעם אחת ואינו מוכפל שוב.' + waived + '</p>';
     } else if (m.waiverPct > 0) {
-      why = '<p class="why"><b>הקנס נמחק.</b>' + waived + '</p>';
+      why = '<p class="why"><b>ניתן זיכוי על הקנס.</b>' + waived + '</p>';
     } else if (!m.hasTarget) {
       why = '<p class="why"><b>ללא יעד שנתי.</b> ' + (m.type === 'חיידר' ? 'בחיידר עדיין לא בגיל הזכאות.' : m.type === 'קיבוץ' ? 'בקיבוץ הזכאות נשמרת למי שאין לו חוב עבר.' : m.married ? 'נשוי, אינו משתתף בקמפיין.' : 'לא הוגדר לו יעד לשנה הזאת.') + '</p>';
     } else if (m.gap === 0) {
@@ -586,13 +586,13 @@
     var wv = '';
     if (canEdit && m.penaltyRaw > 0) {
       var cur = m.waiverPct || 0;
-      wv = '<details class="wv"><summary>' + g('edit') + '<span>' + (cur ? 'נמחקו ' + cur + '% מהקנס · שינוי' : 'מחיקת חלק מהקנס') + '</span></summary>' +
-        '<div class="wv-b" data-raw="' + m.penaltyRaw + '" data-debt="' + m.debtRaw + '"><p class="wv-l">כמה אחוז מהקנס (' + nis(m.penaltyRaw) + ') למחוק? החוב עצמו (' + nis(m.debtRaw - m.penaltyRaw) + ') נשאר.</p>' +
+      wv = '<details class="wv"><summary>' + g('edit') + '<span>' + (cur ? 'זיכוי ' + cur + '% מהקנס · שינוי' : 'זיכוי') + '</span></summary>' +
+        '<div class="wv-b" data-raw="' + m.penaltyRaw + '" data-debt="' + m.debtRaw + '"><p class="wv-l">כמה אחוז מהקנס (' + nis(m.penaltyRaw) + ') לזכות? החוב עצמו (' + nis(m.debtRaw - m.penaltyRaw) + ') נשאר.</p>' +
         '<div class="wv-row"><div class="wv-chips">' + [25, 50, 75, 100].map(function (p) { return '<button type="button" class="wv-chip' + (p === cur ? ' is-on' : '') + '" data-act="wv-pick" data-p="' + p + '">' + p + '%</button>'; }).join('') + '</div>' +
         '<label class="uin wv-in" dir="ltr"><input id="' + P + 'wv-pct" type="text" inputmode="numeric" value="' + (cur || '') + '" placeholder="0" aria-label="אחוז למחיקה" autocomplete="off"><span class="pre">%</span></label></div>' +
         '<p class="wv-p" id="' + P + 'wv-p" aria-live="polite"></p>' +
-        '<div class="wv-f"><button type="button" class="btn btn-s" data-act="wv-save" data-mid="' + m.id + '">שמירת המחיקה</button>' +
-        (cur ? '<button type="button" class="btn btn-s btn-o" data-act="wv-clear" data-mid="' + m.id + '">ביטול המחיקה</button>' : '') + '</div></div></details>';
+        '<div class="wv-f"><button type="button" class="btn btn-s" data-act="wv-save" data-mid="' + m.id + '">שמירת הזיכוי</button>' +
+        (cur ? '<button type="button" class="btn btn-s btn-o" data-act="wv-clear" data-mid="' + m.id + '">ביטול הזיכוי</button>' : '') + '</div></div></details>';
     }
     id('sheet').innerHTML = '<button type="button" class="x" data-close aria-label="סגירת הכרטיס">' + g('close') + '</button><div class="sheet-s">' +
       '<div class="mh"><span class="mg' + (st.tone === 'good' ? ' s-good' : '') + '">' + mono(m) + '</span><div><h2>' + esc(m.full) + '</h2>' +
@@ -605,11 +605,12 @@
           '<span class="l">' + (HOST() && S.year !== D.settings.campaignYear ? 'נאסף ב' + esc(S.year) : 'נאסף השנה') + (m.hasTarget ? '<br><b>' + m.pct + '%</b> מתוך ' + nis(m.required) : '<br><b>ללא יעד</b>') + '</span></div>' +
           '<div class="trk" style="--p:' + Math.min(100, m.collected / scale * 100).toFixed(1) + '" role="img" aria-label="התקדמות ואבני דרך למתנות"><i></i>' +
           (m.hasTarget ? '<span class="rq" style="--x:' + (m.required / scale * 100).toFixed(1) + '" data-tip="סה״כ נדרש|₪' + num(m.required) + '"></span>' : '') + ms + '</div></div>' +
-        '<div class="m-box"><h4>איך מחושב הנדרש</h4><div class="eq">' + eq + '</div>' + wv + '</div>' +
+        '<div class="m-box"><h4>איך מחושב הנדרש</h4><div class="eq">' + eq + '</div></div>' +
       '</div><div class="m-col">' +
         deps + (depsOld.length ? fold('הפקדות משנים קודמות (' + depsOld.length + ')', ltr('₪' + num(sumOf(depsOld))), depList(depsOld)) : '') +
       '</div></div>' +
-      (hh ? '<section class="stm-panel" id="' + P + 'stm-panel"><h4>פירוט שנים קודמות · מענק חתן</h4>' + hh + '</section>' : '') + '</div>' +
+      (hh ? '<section class="stm-panel" id="' + P + 'stm-panel"><h4>פירוט שנים קודמות · מענק חתן</h4>' + hh + '</section>' : '') +
+      (wv ? '<div class="wv-bottom">' + wv + '</div>' : '') + '</div>' +
       (canEdit ? '<div class="sheet-f"><button type="button" class="btn" data-act="dep-for" data-mid="' + m.id + '">רישום הפקדה' + g('chev2') + '</button>' +
       '<button type="button" class="btn btn-o" data-act="edit">' + g('edit') + 'עריכת פרטים</button></div>' : '');
     showOv('member');
@@ -702,19 +703,19 @@
     var box = $('.wv-b', id('sheet')), out = id('wv-p');
     if (!box || !out) return;
     var raw = +box.getAttribute('data-raw') || 0, debt = +box.getAttribute('data-debt') || 0, p = wvVal(), off = Math.round(raw * p / 100);
-    out.innerHTML = p ? 'יימחקו מהקנס <b>' + nis(off) + '</b> · חוב עבר כולל יהיה <b>' + nis(debt - off) + '</b>' : 'בוחרים אחוז, או מקלידים מספר בין 1 ל-100';
+    out.innerHTML = p ? 'זיכוי של <b>' + nis(off) + '</b> מהקנס · חוב עבר כולל יהיה <b>' + nis(debt - off) + '</b>' : 'בוחרים אחוז, או מקלידים מספר בין 1 ל-100';
     $$('.wv-chip', box).forEach(function (c) { c.classList.toggle('is-on', +c.getAttribute('data-p') === p); });
   }
   function saveWaiver(m, pct) {
     if (!m) return;
     if (HOST()) {
       var res = HOST().setDebtWaiver({ memberId: m.id, year: m.debtYear || S.year, pct: pct });
-      if (!res || !res.ok) { toast((res && res.error) || 'המחיקה לא נשמרה. אפשר לנסות שוב', 'close'); return; }
+      if (!res || !res.ok) { toast((res && res.error) || 'הזיכוי לא נשמר. אפשר לנסות שוב', 'close'); return; }
     } else {
       m.waiverPct = pct; m.debt = m.debtRaw - Math.round(m.penaltyRaw * pct / 100); recompute(m);
     }
     openMember(byId(m.id) || m);
-    toast(pct ? 'נמחקו ' + pct + '% מהקנס של ' + esc(m.full) : 'המחיקה בוטלה, הקנס חזר למלואו', 'check');
+    toast(pct ? 'ניתן זיכוי של ' + pct + '% מהקנס ל' + esc(m.full) : 'הזיכוי בוטל, הקנס חזר למלואו', 'check');
   }
 
   /* ---------- deposit ---------- */
@@ -911,7 +912,7 @@
     else if (a === 'print') { if (HOST()) hdo('printMembers', filtered().map(function (m) { return m.id; }), membersSubtitle()); else toast('הרשימה נשלחה להדפסה (הדגמה)', 'check'); }
     else if (a === 'dep-edit') { HOST().editDeposit(el.getAttribute('data-did')); }
     else if (a === 'wv-pick') { var wi = id('wv-pct'); if (wi) wi.value = el.getAttribute('data-p'); wvPreview(); }
-    else if (a === 'wv-save') { var wp = wvVal(); if (!wp) { toast('צריך לבחור כמה אחוז מהקנס למחוק', 'close'); return; } saveWaiver(byId(el.getAttribute('data-mid')), wp); }
+    else if (a === 'wv-save') { var wp = wvVal(); if (!wp) { toast('צריך לבחור כמה אחוז מהקנס לזכות', 'close'); return; } saveWaiver(byId(el.getAttribute('data-mid')), wp); }
     else if (a === 'wv-clear') saveWaiver(byId(el.getAttribute('data-mid')), 0);
     else if (a === 'stm-toggle') {
       var pn = id('stm-panel'), open = pn && pn.hidden;
