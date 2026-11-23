@@ -120,6 +120,7 @@
       return { name: str(s[nameKey]).trim() || defName, threshold: s[sumKey] != null ? (Number(s[sumKey]) || 0) : defSum, enabled: s[onKey] !== false, image: str(s[imgKey]) };
     }
     X.giftsAll = [gift('gift1Name', 'targetTiyul', 'gift1Enabled', 'gift1Image', 'טיול', 700), gift('gift2Name', 'targetShayTotal', 'gift2Enabled', 'gift2Image', 'מתנה', 2000)];
+    X.giftsAll[0].above = true;   // הטיול: סכום מעל החובה של השנה
     X.pendingWrites = pendingCount();
     X.isAdmin = isAdmin();
   });

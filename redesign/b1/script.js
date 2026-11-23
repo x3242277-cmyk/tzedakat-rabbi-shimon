@@ -20,7 +20,9 @@
   function upH(v) { v = +v || 0; return '<span class="up' + (v < 0 ? ' dn' : '') + '" dir="ltr">' + (v < 0 ? '−' : '') + Math.abs(v) + '%</span>'; }
   function pc(a, b) { return b ? Math.round(a / b * 100) : 0; }
   function AE() { var r = root && root.getRootNode ? root.getRootNode() : document; return (r && r.activeElement) || document.activeElement; }
-  function giftSlot(gf, i) { return ({ 'טיול': 'tiyul', 'מתנה': 'matana' })[gf.name] || ['tiyul', 'matana'][i % 2]; }
+  function giftSlot(gf, i) { return gf.slot || ({ 'טיול': 'tiyul', 'מתנה': 'matana' })[gf.name] || ['tiyul', 'matana'][i % 2]; }
+  // טיול: סכום מעל החובה של השנה, רק לישיבה גדולה ולקיבוץ
+  function giftRule(gf) { return gf.above ? nis(gf.threshold) + ' מעל החובה' : 'מ-' + nis(gf.threshold); }
   function yearOpts() { return D.yearOptions && D.yearOptions.length ? D.yearOptions : [D.settings.campaignYear, D.settings.todayHebrewYear, (D.yearly[D.yearly.length - 2] || {}).year].filter(function (y, i, a) { return y && a.indexOf(y) === i; }); }
   function isDate(v) { return /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(v); }
 
@@ -371,15 +373,17 @@
   /* ---------- gifts path ---------- */
   function pathY(t) { return 50 + 26 * Math.sin(t * Math.PI * 2.6 + .6); }
   function renderPath() {
-    var MAX = Math.max.apply(null, [2500].concat(D.settings.gifts.map(function (gf) { return gf.threshold * 1.15; }))), d = '', i, N = 80;
+    // טיול: מוצג בגובה של יעד ישיבה גדולה + התוספת (הסף האופייני)
+    var spot = function (gf) { return gf.above ? (+D.settings.targets['ישי״ג'] || 0) + gf.threshold : gf.threshold; };
+    var MAX = Math.max.apply(null, [2500].concat(D.settings.gifts.map(function (gf) { return spot(gf) * 1.15; }))), d = '', i, N = 80;
     for (i = 0; i <= N; i++) { var t = i / N; d += (i ? 'L' : 'M') + ((1 - t) * 1000).toFixed(1) + ',' + (pathY(t) * 3.3).toFixed(1); }
     function pos(t) { return '--x:' + ((1 - t) * 100).toFixed(2) + '%;--yy:' + pathY(t).toFixed(2) + '%'; }
     var h = '<svg class="gp-svg" viewBox="0 0 1000 330" preserveAspectRatio="none" aria-hidden="true"><path class="rd" d="' + d + '"/><path class="ct" d="' + d + '"/></svg>';
     h += '<span class="gp-start a-pop" style="' + pos(.012) + ';--d:.4s"><span><b>₪0</b>יוצאים<br>לדרך</span></span>';
     D.settings.gifts.forEach(function (gf, gi) {
-      var t = gf.threshold / MAX, cnt = M.filter(function (m) { return !m.married && m.collected >= gf.threshold; }).length;
+      var t = spot(gf) / MAX, cnt = M.filter(function (m) { return !m.married && m.gifts.some(function (x) { return x.name === gf.name && x.earned; }); }).length;
       h += '<div class="gp-stop' + (pathY(t) > 50 ? ' up-side' : '') + ' a-pop" style="' + pos(t) + ';--d:' + (.55 + gi * .15) + 's">' + disc(giftSlot(gf, gi)) +
-        '<span class="gp-cap"><b>' + esc(gf.name) + '</b><i>מ-' + nis(gf.threshold) + ' · <b>' + cnt + '</b> בחורים כבר שם</i></span></div>';
+        '<span class="gp-cap"><b>' + esc(gf.name) + '</b><i>' + giftRule(gf) + ' · <b>' + cnt + '</b> בחורים כבר שם</i></span></div>';
     });
     D.leaderboard.forEach(function (l, li) {
       var m = byId(l.id), t = Math.min(.985, l.amount / MAX) - (li === 4 ? .012 : 0);
@@ -426,7 +430,10 @@
     m.required = m.base + m.debt; m.gap = Math.max(0, m.required - m.collected); m.hasTarget = m.required > 0;
     m.pct = m.hasTarget ? Math.min(100, Math.round(m.collected / m.required * 100)) : null;
     m.status = D.statusOf(m);
-    m.gifts = D.settings.gifts.map(function (gf) { return { name: gf.name, threshold: gf.threshold, earned: m.collected >= gf.threshold, missing: Math.max(0, gf.threshold - m.collected) }; });
+    m.gifts = D.settings.gifts.filter(function (gf) { return !gf.above || m.type === 'ישי״ג' || m.type === 'קיבוץ'; }).map(function (gf) {
+      var th = gf.above ? m.required + gf.threshold : gf.threshold;
+      return { name: gf.name, threshold: th, earned: m.collected >= th, missing: Math.max(0, th - m.collected), above: !!gf.above, slot: gf.slot };
+    });
   }
   function mselLabel(key, label) {
     var v = S[key], j;
@@ -528,8 +535,14 @@
     var canEdit = !HOST() || (D.can && D.can.edit);
     var tags = '<span class="tag t-' + st.tone + '">' + esc(st.label) + '</span>';
     m.gifts.forEach(function (gf) { tags += gf.earned ? '<span class="tag t-gift">זכאי ל' + esc(gf.name) + '</span>' : '<span class="tag t-idle">חסר ' + nis(gf.missing) + ' ל' + esc(gf.name) + '</span>'; });
+    // שתי מתנות קרובות על הציר (למשל טיול ₪1,800 ומתנה ₪2,000): מרחיקים את העיגולים זה מזה, הקו נשאר במקום האמיתי
+    var xs = m.gifts.map(function (gf) { return gf.threshold / scale * 100; }), dx = xs.map(function () { return 0; });
+    for (var a1 = 0; a1 < xs.length; a1++) for (var a2 = a1 + 1; a2 < xs.length; a2++) {
+      var gap = Math.abs(xs[a1] - xs[a2]), need = Math.max(0, (16 - gap) / 2);
+      if (need > 0) { var lo = xs[a1] < xs[a2] ? a1 : a2, hi = lo === a1 ? a2 : a1; dx[lo] -= need; dx[hi] += need; }
+    }
     var ms = m.gifts.map(function (gf, gi) {
-      return '<span class="ms' + (gf.earned ? ' got' : '') + '" style="--x:' + (gf.threshold / scale * 100).toFixed(1) + '">' + disc(giftSlot(gf, gi)) + '<span><b>' + esc(gf.name) + '</b>' + ltr('₪' + num(gf.threshold)) + '</span></span>';
+      return '<span class="ms' + (gf.earned ? ' got' : '') + '" style="--x:' + xs[gi].toFixed(1) + ';--dx:' + dx[gi].toFixed(1) + '">' + disc(giftSlot(gf, gi)) + '<span><b>' + esc(gf.name) + '</b>' + ltr('₪' + num(gf.threshold)) + '</span></span>';
     }).join('');
     var eq = '<span class="coin w" style="--i:0"><i>יעד בסיס</i><b>' + nis(m.base) + '</b></span><span class="op">+</span>' +
       '<span class="coin' + (m.debt ? ' r' : '') + '" style="--i:1"><i>חוב עבר (קנס)</i><b>' + nis(m.debt) + '</b>' + (m.waiverPct > 0 ? '<i class="wv-n">זיכוי ' + m.waiverPct + '% מהקנס</i>' : '') + '</span><span class="op">=</span>' +

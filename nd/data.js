@@ -221,7 +221,8 @@
     var gifts = [];
     [['gift1Name', 'targetTiyul', 'gift1Enabled', 'טיול'], ['gift2Name', 'targetShayTotal', 'gift2Enabled', 'מתנה']].forEach(function (g) {
       var threshold = num(settingsRaw[g[1]]);
-      if (settingsRaw[g[2]] !== false && threshold > 0) gifts.push({ name: trim(settingsRaw[g[0]]) || g[3], threshold: threshold });
+      // טיול (מתנה 1): הסכום הוא תוספת מעל החובה של השנה, ורק לישיבה גדולה ולקיבוץ. המתנה השנייה: סכום קבוע
+      if (settingsRaw[g[2]] !== false && threshold > 0) gifts.push({ name: trim(settingsRaw[g[0]]) || g[3], threshold: threshold, above: g[1] === 'targetTiyul', slot: g[1] === 'targetTiyul' ? 'tiyul' : 'matana' });
     });
     var targets = {};
     Object.keys(TARGET_SETTING).forEach(function (k) { targets[k] = num(settingsRaw[TARGET_SETTING[k]]); });
@@ -535,7 +536,10 @@
           status: { key: mapped.key, tone: mapped.tone, label: str(old.label) || 'טרם החל' },
           near: !r.isEligible && gap > 0 && gap <= NEAR_LIMIT,
           missingDetails: lacksDetails(r),
-          gifts: gifts.map(function (g) { return { name: g.name, threshold: g.threshold, earned: collected >= g.threshold, missing: r2(Math.max(0, g.threshold - collected)) }; }),
+          gifts: gifts.filter(function (g) { return !g.above || r.tiyulThreshold != null; }).map(function (g) {
+            var th = g.above ? r2(r.tiyulThreshold) : g.threshold;
+            return { name: g.name, threshold: th, earned: collected >= th, missing: r2(Math.max(0, th - collected)), above: !!g.above, slot: g.slot };
+          }),
           deposits: deposits
         };
       });
@@ -579,13 +583,25 @@
         if (!tKey) { tKey = typeKey(m.yeshivaType); shiur = m.shiur; }
         return frameLabel(tKey, shiurLabel(tKey, shiur));
       }
+      // סף הטיול תלוי בחובה של הבחור באותה שנה ובמסגרת שלו באותה שנה
+      function tiyulOf(y) {
+        var list = y === campaignYear ? campaignRows : safe('buildMemberSummaries ' + y, function () { return arr(window.buildMemberSummaries(y)); }, []);
+        var mp = dict();
+        list.forEach(function (r) { mp[memberKey(r.id)] = r.tiyulThreshold; });
+        return mp;
+      }
       var years = yearList.map(function (y) {
         var by = sums[y] || dict(), rows = [], counts = gifts.map(function () { return 0; }), depositors = 0;
+        var tiy = gifts.some(function (g) { return g.above; }) ? tiyulOf(y) : dict();
         allMembers.forEach(function (m) {
           if (!m) return;
           var collected = by[memberKey(m.id)] || 0;
           if (collected > 0) depositors++;
-          var got = gifts.map(function (g) { return collected >= g.threshold; });
+          var got = gifts.map(function (g) {
+            if (!g.above) return collected >= g.threshold;
+            var th = tiy[memberKey(m.id)];
+            return th != null && collected >= th;
+          });
           if (got.indexOf(true) === -1) return;
           got.forEach(function (on, i) { if (on) counts[i]++; });
           rows.push({

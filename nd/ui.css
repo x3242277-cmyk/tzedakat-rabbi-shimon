@@ -637,14 +637,14 @@ img{max-width:100%}
   .m-big .n small{font-size:.5em;vertical-align:.6em;margin-inline-end:2px}
   .m-big .l{font-size:16px;font-weight:300;line-height:1.2}
   .m-big .l b{font-weight:800}
-  .trk{position:relative;margin-top:92px;margin-bottom:34px;height:22px;border-radius:99px;background:var(--grey)}
+  .trk{position:relative;margin-top:92px;margin-bottom:34px;height:22px;border-radius:99px;background:var(--grey);container-type:inline-size}
   .trk > i{position:absolute;inset-block:0;inset-inline-start:0;width:calc(var(--p)*1%);min-width:22px;border-radius:99px;background:linear-gradient(90deg,#D1A23C,#D7B253);animation:tzb1-growx .9s var(--out) .25s backwards;transform-origin:right center}
   .trk .ms{position:absolute;inset-inline-start:calc(var(--x)*1%);top:50%;width:0;height:0}
-  .trk .ms .disc{position:absolute;bottom:22px;left:-37px;width:74px;box-shadow:var(--sh-1);animation:tzb1-pop .7s var(--spring) .45s backwards}
+  .trk .ms .disc{position:absolute;bottom:22px;left:-37px;width:74px;translate:calc(var(--dx,0) * 1cqi * -1) 0;box-shadow:var(--sh-1);animation:tzb1-pop .7s var(--spring) .45s backwards}
   .trk .ms .disc::before{inset:-5px}
   .trk .ms.got .disc{box-shadow:0 0 0 4px var(--y),var(--sh-1)}
   .trk .ms::before{content:"";position:absolute;left:-1px;top:-20px;width:2px;height:40px;background:var(--ink)}
-  .trk .ms > span:not(.disc){position:absolute;top:24px;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:12.5px;line-height:1.15;text-align:center}
+  .trk .ms > span:not(.disc){position:absolute;top:24px;left:50%;transform:translateX(-50%);translate:calc(var(--dx,0) * 1cqi * -1) 0;white-space:nowrap;font-size:12.5px;line-height:1.15;text-align:center}
   .trk .ms > span:not(.disc) b{display:block;font-weight:800;font-size:13.5px}
   .trk .rq{position:absolute;inset-inline-start:calc(var(--x)*1%);top:-7px;bottom:-7px;width:0;border-inline-start:3px dotted var(--ink)}
   .eq{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;container-type:inline-size}

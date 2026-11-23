@@ -1345,6 +1345,7 @@ button.dashboard-segment-item:hover {
 .target-edit-card.is-primary { border-color: var(--border-strong); background: var(--surface-light); }
 .target-edit-name { font-size: var(--fs-sm); font-weight: var(--fw-bold); color: var(--text-main); margin-bottom: var(--space-2); }
 .target-edit-field { position: relative; display: flex; align-items: center; }
+.gift-rule-hint { margin: 6px 0 0; font-size: 12.5px; color: var(--text-muted, #666); }
 .target-edit-input {
   width: 100%; padding: var(--space-2) var(--space-8) var(--space-2) var(--space-3); border: 1px solid var(--border-color); border-radius: var(--radius-sm);
   font-size: var(--fs-lg); font-weight: var(--fw-bold); color: var(--text-main); background: var(--surface);

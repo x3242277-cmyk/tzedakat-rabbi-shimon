@@ -1821,7 +1821,7 @@ function renderRulesScreen() {
     </div>` : '';
 
   // כרטיס מתנה: תמונה אם הוגדרה, אחרת אייקון מערכת האייקונים
-  const buildGiftCard = (name, target, image, icon) => {
+  const buildGiftCard = (name, target, image, icon, rule) => {
     const mediaHtml = image
       ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(name)}" class="takanon-prize-thumb" data-fallback="${icon}">`
       : `<div class="takanon-prize-emoji"><span class="material-icons-regular" aria-hidden="true">${icon}</span></div>`;
@@ -1829,13 +1829,13 @@ function renderRulesScreen() {
       ${mediaHtml}
       <div class="takanon-prize-body">
         <div class="takanon-prize-name">${escapeHtml(name)}</div>
-        <div class="takanon-prize-threshold">לאיסוף ${formatCurrency(target)} ומעלה</div>
+        <div class="takanon-prize-threshold">${rule ? escapeHtml(rule) : `לאיסוף ${formatCurrency(target)} ומעלה`}</div>
       </div>
     </div>`;
   };
 
   let prizesHtml = '';
-  if (gift1On && targetTiyul > 0) prizesHtml += buildGiftCard(gift1Name, targetTiyul, s.gift1Image || "", "directions_bus");
+  if (gift1On && targetTiyul > 0) prizesHtml += buildGiftCard(gift1Name, targetTiyul, s.gift1Image || "", "directions_bus", `ישיבה גדולה וקיבוץ: ${formatCurrency(targetTiyul)} מעל החובה של השנה`);
   if (gift2On && targetShay > 0)  prizesHtml += buildGiftCard(gift2Name, targetShay,  s.gift2Image || "", "card_giftcard");
 
   container.innerHTML = `
@@ -1918,7 +1918,7 @@ window.takanonShowMember = function(memberId) {
   const pct = target > 0 ? Math.min(100, Math.round((collected / target) * 100)) : 0;
   const gift1Name = s.gift1Name || "טיול";
   const gift2Name = s.gift2Name || "מתנה";
-  const tiyulTarget = Number(s.targetTiyul) || 0;
+  const tiyulTarget = member.tiyulThreshold != null ? member.tiyulThreshold : 0;   // חובה + תוספת; 0 = אין טיול במסגרת הזאת
   const shayTarget = Number(s.targetShayTotal) || 0;
 
   let badgesHtml = "";
@@ -5794,7 +5794,10 @@ function buildMemberSummaries(selectedYear = getCampaignYear()) {
     } else {
       isEligible = currentYearTarget > 0 ? (collectedThisYear >= totalRequiredThisYear) : (totalDebtFromPast === 0 || collectedThisYear >= totalDebtFromPast);
     }
-    const isEligibleTiyul = gift1On && targetTiyul > 0 && collectedThisYear >= targetTiyul;
+    // טיול: רק בישיבה גדולה ובקיבוץ. זכאי מי שאסף את כל החובה של השנה (יעד + חוב עבר) ועוד הסכום שבהגדרות
+    const tiyulApplies = currentStatusInfo.type === "ישיבה גדולה" || currentStatusInfo.type === "קיבוץ";
+    const tiyulThreshold = gift1On && targetTiyul > 0 && tiyulApplies ? totalRequiredThisYear + targetTiyul : null;
+    const isEligibleTiyul = tiyulThreshold != null && collectedThisYear >= tiyulThreshold;
     const isEligibleShay = gift2On && targetShay > 0 && collectedThisYear >= targetShay;
 
     const yearlyDataArray = Object.values(yearlyDataMap).sort((a, b) => {
@@ -5807,7 +5810,7 @@ function buildMemberSummaries(selectedYear = getCampaignYear()) {
     return {
       ...member, fullName: `${member.firstName || ""} ${member.lastName || ""}`.trim(), currentYear,
       collectedThisYear, collectedAmount, currentYearTarget, currentYearType: currentStatusInfo.type, currentYearShiur: currentStatusInfo.shiur, totalDebtFromPast, debtBeforeWaiver, penaltyBeforeWaiver, debtWaiverPct, debtWaived, openDebtNow, totalRequiredThisYear, missingAmount,
-      isEligible, isEligibleTiyul, isEligibleShay,
+      isEligible, isEligibleTiyul, isEligibleShay, tiyulThreshold,
       yearlyData: yearlyDataArray
     };
   });

@@ -12,8 +12,8 @@ window.TZ_DATA = (function () {
     user: { name: 'מנהל המערכת', role: 'הרשאת מנהל', initial: 'מ' },
     targets: { 'חיידר': 0, 'ישי״ק': 450, 'ישי״ג': 1100, 'קיבוץ': 0 },
     gifts: [
-      { name: 'טיול', threshold: 700 },
-      { name: 'מתנה', threshold: 2000 }
+      { name: 'טיול', threshold: 700, above: true, slot: 'tiyul' },   // מעל החובה של השנה, לישיבה גדולה ולקיבוץ
+      { name: 'מתנה', threshold: 2000, slot: 'matana' }
     ]
   };
 
@@ -176,7 +176,11 @@ window.TZ_DATA = (function () {
     m.hasTarget = m.required > 0;
     m.pct = m.hasTarget ? Math.min(100, Math.round((m.collected / m.required) * 100)) : null;
     m.status = statusOf(m);
-    m.gifts = settings.gifts.map(function (g) { return { name: g.name, threshold: g.threshold, earned: m.collected >= g.threshold, missing: Math.max(0, g.threshold - m.collected) }; });
+    // טיול: רק לישיבה גדולה ולקיבוץ, בסכום מעל החובה של השנה. מתנה: סכום קבוע
+    m.gifts = settings.gifts.filter(function (g) { return !g.above || m.type === 'ישי״ג' || m.type === 'קיבוץ'; }).map(function (g) {
+      var th = g.above ? m.required + g.threshold : g.threshold;
+      return { name: g.name, threshold: th, earned: m.collected >= th, missing: Math.max(0, th - m.collected), above: !!g.above, slot: g.slot };
+    });
     m.deposits = depositsOf(i, m.collected);
     return m;
   });
@@ -188,7 +192,7 @@ window.TZ_DATA = (function () {
       members.forEach(function (m, i) {
         var c = Math.round(m.collected * factor(i) / 50) * 50;
         if (c > 0) depositors++;
-        var got = settings.gifts.map(function (g) { return c >= g.threshold; });
+        var got = settings.gifts.map(function (g) { return g.above ? ((m.type === 'ישי״ג' || m.type === 'קיבוץ') && c >= m.required + g.threshold) : c >= g.threshold; });
         if (got.indexOf(true) < 0) return;
         got.forEach(function (on, k) { if (on) counts[k]++; });
         rows.push({ id: m.id, full: m.full, first: m.first, last: m.last, yeshiva: m.yeshiva, frame: m.frame, phone: m.phone, married: false, collected: c, got: got });

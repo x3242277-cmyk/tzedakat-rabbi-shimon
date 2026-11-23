@@ -456,7 +456,7 @@
     var yesh = Y.rows.map(function (r) { return r.yeshiva; }).filter(function (v, i, a) { return v && a.indexOf(v) === i; }).sort(function (a, b) { return a.localeCompare(b, 'he'); });
     if (st.yeshiva && yesh.indexOf(st.yeshiva) < 0) st.yeshiva = '';
     var shown = giftsShown();
-    var facts = gl.map(function (gf, i) { return [Y.counts[i] || 0, 'זכאים ל' + gf.name, 'אספו ₪' + num(gf.threshold) + ' ומעלה בשנת ' + Y.year]; });
+    var facts = gl.map(function (gf, i) { return [Y.counts[i] || 0, 'זכאים ל' + gf.name, gf.above ? 'אספו ₪' + num(gf.threshold) + ' מעל החובה בשנת ' + Y.year : 'אספו ₪' + num(gf.threshold) + ' ומעלה בשנת ' + Y.year]; });
     facts.push([Y.depositors, 'בחורים הפקידו', 'בשנת ' + Y.year + ' · ' + Y.total + ' מהם זכאים למתנה']);
     var rows = shown.map(function (r, i) {
       return '<button type="button" class="trow" data-mid="' + esc(r.id) + '">' + tc('מס׳', '<b class="num">' + (i + 1) + '</b>') +
@@ -485,7 +485,7 @@
         }).join(''), 'tl-gyears') + '</div>' : '';
     return bar + factsH(facts) + list + cmp +
       '<p class="scr-note">הזכאות נקבעת לפי מה שכל בחור אסף באותה שנה. סכומי המתנות הם אלה שמוגדרים היום בהגדרות (' +
-      gl.map(function (gf) { return esc(gf.name) + ' מ-' + nis(gf.threshold); }).join(', ') + '), גם כשמציגים שנה קודמת.</p>';
+      gl.map(function (gf) { return esc(gf.name) + (gf.above ? ' ב-' + nis(gf.threshold) + ' מעל החובה, לישיבה גדולה ולקיבוץ' : ' מ-' + nis(gf.threshold)); }).join(', ') + '), גם כשמציגים שנה קודמת.</p>';
   }
 
   /* ---------- תקנון ---------- */
@@ -504,7 +504,7 @@
       return '<div class="rcard a" style="--d:' + (.1 + i * .06).toFixed(2) + 's">' + disc(FWSLOT[k]) + '<b>' + esc(FW_FULL[k]) + '</b>' + (t[k] ? '<span class="rc-n">' + nis(t[k]) + '</span><i>יעד שנתי לבחור</i>' : '<span class="rc-n rc-0">ללא יעד</span><i>' + (k === 'קיבוץ' ? 'זכאים כל עוד אין חוב' : 'עדיין לא בגיל המענק') + '</i>') + '</div>';
     }).join('');
     var gifts = D.settings.gifts.map(function (gf, i) {
-      return '<div class="gcard">' + disc(GIFT_SLOT[i] || 'matana') + '<span><b>' + esc(gf.name) + '</b><i>למי שאסף ' + nis(gf.threshold) + ' ומעלה במהלך השנה</i></span></div>';
+      return '<div class="gcard">' + disc(GIFT_SLOT[i] || 'matana') + '<span><b>' + esc(gf.name) + '</b><i>' + (gf.above ? 'בישיבה גדולה ובקיבוץ, למי שאסף ' + nis(gf.threshold) + ' מעל החובה של השנה (יעד + חוב עבר)' : 'למי שאסף ' + nis(gf.threshold) + ' ומעלה במהלך השנה') + '</i></span></div>';
     }).join('');
     var found = q ? M.filter(function (m) { return !m.married && (m.full + m.last + m.first + m.yeshiva + m.phone).replace(/[-\s]/g, '').indexOf(q) > -1; }).slice(0, 6) : [];
     var sel = st.mid ? byId(st.mid) : null;
@@ -534,7 +534,7 @@
       ['חיידר', 'ישי״ק', 'ישי״ג', 'קיבוץ'].map(function (k, i) { return '<div class="fld amt"><label for="' + P + 's-t' + i + '">יעד ' + esc(FW_FULL[k]) + '</label><div class="uin" dir="ltr"><span class="pre">₪</span><input id="' + P + 's-t' + i + '" type="text" inputmode="numeric" value="' + t[k] + '" style="text-align:left"></div></div>'; }).join('') +
       '</div><h4 class="sh4">מתנות ותוספות</h4><div class="dform sgrid">' + gifts.map(function (gf, i) {
         return '<div class="gset">' + disc(GIFT_SLOT[i] || 'matana') + '<div class="gset-f">' + fldH('שם המתנה', inH('s-g' + i, gf.name), '', 's-g' + i) +
-          '<div class="fld amt"><label for="' + P + 's-gt' + i + '">מסכום של</label><div class="uin" dir="ltr"><span class="pre">₪</span><input id="' + P + 's-gt' + i + '" type="text" inputmode="numeric" value="' + gf.threshold + '" style="text-align:left"></div></div>' +
+          '<div class="fld amt"><label for="' + P + 's-gt' + i + '">' + (gf.above ? 'מעל החובה (ישיבה גדולה וקיבוץ)' : 'מסכום של') + '</label><div class="uin" dir="ltr"><span class="pre">₪</span><input id="' + P + 's-gt' + i + '" type="text" inputmode="numeric" value="' + gf.threshold + '" style="text-align:left"></div></div>' +
           (live ? '<label class="tog"><input type="checkbox" id="' + P + 's-ge' + i + '"' + (gf.enabled ? ' checked' : '') + '><span class="sw"></span>פעילה</label>' : togH('פעילה', true, 'noop')) + '</div></div>';
       }).join('') + '</div><h4 class="sh4">כללים נוספים לתקנון</h4><div class="fld w2"><div class="uin"><textarea id="' + P + 's-extra" rows="3" aria-label="כללים נוספים לתקנון">' + esc(D.rulesX.extra) + '</textarea></div></div>' +
       '<p class="err" id="' + P + 'serr" role="alert"></p><div class="sform-f"><button type="submit" class="btn btn-k">שמירת היעדים' + g('chev2') + '</button></div></form>';
