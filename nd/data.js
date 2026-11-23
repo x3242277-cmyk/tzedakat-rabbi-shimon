@@ -621,7 +621,8 @@
           } else if (isCurrent) {
             status = 'חסר ' + fmt(required - collected); tone = 'warn'; // השנה עדיין פתוחה: אין עדיין קנס
           } else {
-            status = 'חסר ' + fmt(required - collected) + (debtOut > 0 ? ' · קנס עובר הלאה ' + fmt(debtOut) : ''); tone = 'bad';
+            var newPenalty = r2(d.newPenalty);
+            status = 'חסר ' + fmt(required - collected) + (debtOut > 0 ? (newPenalty > 0 ? ' · עם קנס עובר הלאה ' : ' · חוב עובר הלאה ') + fmt(debtOut) : ''); tone = 'bad';
           }
           return { year: str(d.year), frame: frameLabel(tKey, shiurLabel(tKey, d.historicalShiur)), target: target, required: required, collected: collected, waived: r2(d.debtWaived), status: status, tone: tone };
         });

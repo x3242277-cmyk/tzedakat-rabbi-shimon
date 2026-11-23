@@ -5698,10 +5698,14 @@ function buildMemberSummaries(selectedYear = getCampaignYear()) {
     const memberWaivers = (settings.debtWaivers && settings.debtWaivers[String(member.id)]) || {};
     const waiverPctFor = (y) => Math.min(100, Math.max(0, Math.round(Number(memberWaivers[y]) || 0)));
     const waivedOf = (y, penalty) => { const p = waiverPctFor(y); return p > 0 && penalty > 0 ? Math.round(penalty * p / 100) : 0; };
-    // runningPenalty = כמה מתוך החוב הוא קנס. כשחוב ישן יורד בתשלום, הקנס יורד באותו יחס
-    const shrinkPenalty = (penalty, debtBefore, debtAfter) => debtBefore > 0 ? Math.round(penalty * debtAfter / debtBefore) : 0;
+    // החוב מורכב משלושה חלקים:
+    //   runningPenalty   = הקנס (התוספת של ההכפלה)
+    //   runningUndoubled = חוסר שעוד לא הוכפל אף פעם (למשל חוב מלפני שנות הקנס)
+    //   השאר             = חוסר שכבר הוכפל
+    // כשחוב ישן יורד בתשלום, כל חלק יורד באותו יחס
+    const shrinkPenalty = (part, debtBefore, debtAfter) => debtBefore > 0 ? Math.round(part * debtAfter / debtBefore) : 0;
 
-    let runningDebt = 0, runningPenalty = 0;
+    let runningDebt = 0, runningPenalty = 0, runningUndoubled = 0;
     pastYears.forEach(y => {
       const entry = yearlyDataMap[y];
       entry.debtWaived = waivedOf(y, runningPenalty);
@@ -5715,22 +5719,39 @@ function buildMemberSummaries(selectedYear = getCampaignYear()) {
           entry.debtOut = 0;
           runningDebt = 0;
           runningPenalty = 0;
+          runningUndoubled = 0;
         } else {
-          // הכסף של השנה נזקף קודם ליעד של אותה שנה. רק מה שחסר ליעד הזה נהיה קנס (כפול, פעם אחת).
-          // קנס ישן אינו מוכפל שוב: הוא נשאר כפי שהוא, ויורד רק ממה שהובא מעבר ליעד.
+          // הכסף של השנה נזקף קודם ליעד של אותה שנה, ומה שמעבר ליעד מוריד את החוב הישן.
+          // כל שקל של חוסר מוכפל פעם אחת בלבד: בשנת הקנס הראשונה שבה הוא נשאר פתוח.
+          // חוסר של שנת קנס מוכפל מיד; חוב שעוד לא הוכפל (מלפני שנות הקנס) מוכפל כשהוא לא נסגר בשנת קנס;
+          // חוב שכבר הוכפל אינו מוכפל שוב.
           const targetShortfall = Math.max(0, entry.target - entry.collected);
           const beyondTarget = Math.max(0, entry.collected - entry.target);
           const unpaidOldDebt = Math.max(0, runningDebt - beyondTarget);
           const yearIdx = hebrewYearsForSort.indexOf(y);
-          const penaltyMultiplier = (penaltyStartIdx !== -1 && yearIdx >= penaltyStartIdx) ? 2 : 1;
-          entry.debtOut = unpaidOldDebt + targetShortfall * penaltyMultiplier;
-          runningPenalty = shrinkPenalty(runningPenalty, runningDebt, unpaidOldDebt) + targetShortfall * (penaltyMultiplier - 1);
+          const isPenaltyYear = penaltyStartIdx !== -1 && yearIdx >= penaltyStartIdx;
+          const penaltyLeft = shrinkPenalty(runningPenalty, runningDebt, unpaidOldDebt);
+          const undoubledLeft = shrinkPenalty(runningUndoubled, runningDebt, unpaidOldDebt);
+          entry.penaltyYear = isPenaltyYear;
+          if (isPenaltyYear) {
+            entry.newPenalty = undoubledLeft + targetShortfall;
+            entry.debtOut = unpaidOldDebt + entry.newPenalty + targetShortfall;
+            runningPenalty = penaltyLeft + entry.newPenalty;
+            runningUndoubled = 0;
+          } else {
+            entry.newPenalty = 0;
+            entry.debtOut = unpaidOldDebt + targetShortfall;
+            runningPenalty = penaltyLeft;
+            runningUndoubled = undoubledLeft + targetShortfall;
+          }
           runningDebt = entry.debtOut;
         }
       } else {
+        // שנה בלי יעד: החוב ממתין, לא מוכפל, ויורד רק ממה שהובא
         entry.requiredTotal = 0;
         entry.debtOut = Math.max(0, runningDebt - entry.collected);
         runningPenalty = shrinkPenalty(runningPenalty, runningDebt, entry.debtOut);
+        runningUndoubled = shrinkPenalty(runningUndoubled, runningDebt, entry.debtOut);
         runningDebt = entry.debtOut;
       }
     });
