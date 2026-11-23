@@ -256,6 +256,25 @@
       if (res.ok) sync();
       return res;
     },
+    // מחיקת אחוז מהחוב של בחור, לשנה מסוימת. pct=0 מבטל את המחיקה. נשמר בהגדרות, בלי לדרוס שינויים של משתמש אחר
+    setDebtWaiver: function (o) {
+      if (!canEdit()) return { ok: false, error: 'אין לך הרשאת עריכה' };
+      if (!fn('saveSettingsPatch')) return { ok: false, error: 'המחיקה לא נשמרה. אפשר לנסות שוב' };
+      var mid = String(o.memberId), y = String(o.year || campaign()), pct = Math.max(0, Math.min(100, Math.round(+o.pct || 0)));
+      var p = window.saveSettingsPatch(function (s) {
+        var all = s.debtWaivers && typeof s.debtWaivers === 'object' ? Object.assign({}, s.debtWaivers) : {};
+        var mine = Object.assign({}, all[mid] || {});
+        if (pct > 0) mine[y] = pct; else delete mine[y];
+        if (Object.keys(mine).length) all[mid] = mine; else delete all[mid];
+        s.debtWaivers = all;
+      });
+      sync();
+      Promise.resolve(p).then(function (saved) {
+        if (fn('logAudit')) window.logAudit('update', 'debt-waiver', mid, y + ': ' + pct + '%');
+        if (!saved && fn('reportSave')) window.reportSave(false);
+      }, function () {});
+      return { ok: true };
+    },
     saveExpense: function (o) {
       if (!canEdit()) return { ok: false, error: 'אין לך הרשאת עריכה' };
       var st = appState(), before = (st.expenses || []).length, res;

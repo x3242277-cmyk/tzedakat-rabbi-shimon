@@ -528,6 +528,8 @@
           city: address ? trim(address.split(',').pop()) : '',
           phone: trim(r.phone), address: address, notes: str(r.notes), married: married(r),
           collected: collected, base: base, debt: debt, required: required, gap: gap,
+          // מחיקת חוב: החוב לפני המחיקה, האחוז שנמחק, והשנה שאליה המחיקה שייכת
+          debtRaw: r2(r.debtBeforeWaiver != null ? r.debtBeforeWaiver : r.totalDebtFromPast), waiverPct: num(r.debtWaiverPct), debtYear: str(r.currentYear),
           hasTarget: required > 0,
           pct: required > 0 ? Math.min(100, Math.floor(collected / required * 100)) : null,
           status: { key: mapped.key, tone: mapped.tone, label: str(old.label) || 'טרם החל' },
@@ -621,7 +623,7 @@
           } else {
             status = 'חסר ' + fmt(required - collected) + (debtOut > 0 ? ' · קנס עובר הלאה ' + fmt(debtOut) : ''); tone = 'bad';
           }
-          return { year: str(d.year), frame: frameLabel(tKey, shiurLabel(tKey, d.historicalShiur)), target: target, required: required, collected: collected, status: status, tone: tone };
+          return { year: str(d.year), frame: frameLabel(tKey, shiurLabel(tKey, d.historicalShiur)), target: target, required: required, collected: collected, waived: r2(d.debtWaived), status: status, tone: tone };
         });
       } catch (e) { return []; }
     }

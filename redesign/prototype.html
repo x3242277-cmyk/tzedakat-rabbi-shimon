@@ -653,16 +653,48 @@
   .trk .ms > span:not(.disc){position:absolute;top:24px;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:12.5px;line-height:1.15;text-align:center}
   .trk .ms > span:not(.disc) b{display:block;font-weight:800;font-size:13.5px}
   .trk .rq{position:absolute;inset-inline-start:calc(var(--x)*1%);top:-7px;bottom:-7px;width:0;border-inline-start:3px dotted var(--ink)}
-  .eq{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-  .eq .coin{width:108px;height:108px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;line-height:1.1;background:var(--grey);animation:tzb1-pop .6s var(--spring) backwards;animation-delay:calc(.2s + var(--i)*70ms)}
-  .eq .coin i{font-size:12.5px;font-weight:500;max-width:9ch}
-  .eq .coin b{font-size:21px;font-weight:900;letter-spacing:-.02em}
+  .eq{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;container-type:inline-size}
+  .eq .coin{flex:1 1 0;min-width:0;max-width:112px;aspect-ratio:1;border-radius:50%;padding:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;line-height:1.1;background:var(--grey);animation:tzb1-pop .6s var(--spring) backwards;animation-delay:calc(.2s + var(--i)*70ms)}
+  .eq .coin i{font-size:clamp(10px,2.5cqi,12.5px);font-weight:500;max-width:9ch}
+  .eq .coin b{font-size:clamp(14px,4.1cqi,21px);font-weight:900;letter-spacing:-.02em;white-space:nowrap}
+  .eq .coin .wv-n{font-size:clamp(9.5px,2.2cqi,11.5px);font-weight:700;margin-top:2px}
   .eq .coin.w{background:#fff;box-shadow:inset 0 0 0 1.5px var(--ink)}
   .eq .coin.y{background:var(--grad)}
   .eq .coin.k{background:var(--ink);color:#fff}
   .eq .coin.k b{color:var(--y)}
   .eq .coin.r{background:var(--bad-bg);color:var(--bad-ink)}
-  .eq .op{font-size:26px;font-weight:300;width:16px;text-align:center}
+  .eq .op{flex:none;font-size:clamp(18px,4.6cqi,26px);font-weight:300;width:14px;text-align:center}
+  /* קופסה מצומצמת עם חץ להרחבה */
+  .fold > summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:4px 0;border-radius:6px}
+  .fold > summary::-webkit-details-marker{display:none}
+  .fold > summary h4{margin-bottom:0}
+  .fold > summary:hover h4,.fold > summary:focus-visible h4{text-decoration:underline;text-underline-offset:4px}
+  .fold > summary:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+  .fold-a{margin-inline-start:auto;font-size:14px;color:var(--mute);font-weight:600}
+  .fold-c{flex:none;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;box-shadow:inset 0 0 0 1.5px var(--ink);transition:transform .25s var(--out),background .2s}
+  .fold-c .g{width:16px;height:16px}
+  .fold > summary:hover .fold-c{background:var(--y-mist)}
+  .fold[open] .fold-c{transform:rotate(180deg);background:var(--y)}
+  .fold-b{margin-top:8px}
+  /* מחיקת חלק מהחוב */
+  .wv{margin-top:12px}
+  .wv > summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:8px;font-size:15px;font-weight:700;padding:6px 2px;border-bottom:1.5px solid var(--ink)}
+  .wv > summary::-webkit-details-marker{display:none}
+  .wv > summary .g{width:16px;height:16px}
+  .wv > summary:hover{color:var(--bad-ink);border-color:var(--bad-ink)}
+  .wv > summary:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+  .wv-b{margin-top:12px;padding:16px 18px;border-radius:22px;background:#fff;box-shadow:inset 0 0 0 1.5px var(--grey),var(--sh-1)}
+  .wv-l{font-size:15px;font-weight:600}
+  .wv-row{margin-top:10px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .wv-chips{display:flex;gap:6px;flex-wrap:wrap}
+  .wv-chip{min-width:56px;height:38px;padding:0 12px;border-radius:99px;font-weight:800;font-size:15px;box-shadow:inset 0 0 0 1.5px var(--ink);transition:background .2s}
+  .wv-chip:hover{background:var(--y-mist)}
+  .wv-chip.is-on{background:var(--ink);color:var(--y)}
+  .wv-in{width:96px;flex:none}
+  .wv-in input{width:100%;min-width:0;font-size:20px;font-weight:800;border:0;background:none;outline:0;text-align:right}
+  .wv-p{margin-top:10px;font-size:14.5px;color:var(--mute)}
+  .wv-p b{color:var(--ink);font-weight:800}
+  .wv-f{margin-top:12px;display:flex;gap:10px;flex-wrap:wrap}
   .why{margin-top:14px;padding:14px 20px;border-radius:22px 22px 22px 60px;background:var(--y-mist);font-size:15px;line-height:1.4;box-shadow:inset 0 0 0 1.5px var(--y)}
   .why b{font-weight:800}
   .info{display:grid;gap:4px;font-size:15px}
@@ -965,11 +997,8 @@
     .mh{gap:14px;padding-inline-end:50px;align-items:flex-start}
     .mh .mg{width:66px;height:66px;font-size:20px}
     .mh p{font-size:15.5px}
-    .eq{gap:4px;justify-content:space-between}
-    .eq .coin{width:calc((100% - 3*14px - 8px)/4);height:auto;aspect-ratio:1}
-    .eq .coin i{font-size:10.5px}
-    .eq .coin b{font-size:15.5px}
-    .eq .op{width:10px;font-size:18px}
+    .eq{gap:3px}
+    .eq .op{width:10px}
     .trk .ms .disc{width:62px;left:-31px}
     .sheet-f{padding:12px 18px calc(14px + env(safe-area-inset-bottom,0px))}
     .sheet-f .btn{flex:1;padding:0 12px}
@@ -2064,7 +2093,7 @@ window.TZ_DATA = (function () {
   var members = RAW.map(function (r, i) {
     var m = {
       id: 'm' + (i + 1), first: r[0], last: r[1], father: r[2], yeshiva: r[3], type: r[4], shiur: r[5], city: r[6],
-      collected: r[7], base: r[8], debt: r[9],
+      collected: r[7], base: r[8], debt: r[9], debtRaw: r[9], waiverPct: 0,
       phone: '05' + (i % 5) + '-555-01' + String(i + 10),
       address: 'רחוב הדוגמה ' + (i + 3) + ', ' + r[6]
     };
@@ -2931,12 +2960,15 @@ window.TZ_DATA = (function () {
       return '<span class="ms' + (gf.earned ? ' got' : '') + '" style="--x:' + (gf.threshold / scale * 100).toFixed(1) + '">' + disc(giftSlot(gf, gi)) + '<span><b>' + esc(gf.name) + '</b>' + ltr('₪' + num(gf.threshold)) + '</span></span>';
     }).join('');
     var eq = '<span class="coin w" style="--i:0"><i>יעד בסיס</i><b>' + nis(m.base) + '</b></span><span class="op">+</span>' +
-      '<span class="coin' + (m.debt ? ' r' : '') + '" style="--i:1"><i>חוב עבר (קנס)</i><b>' + nis(m.debt) + '</b></span><span class="op">=</span>' +
+      '<span class="coin' + (m.debt ? ' r' : '') + '" style="--i:1"><i>חוב עבר (קנס)</i><b>' + nis(m.debt) + '</b>' + (m.waiverPct > 0 ? '<i class="wv-n">נמחקו ' + m.waiverPct + '%</i>' : '') + '</span><span class="op">=</span>' +
       '<span class="coin y" style="--i:2"><i>סה״כ נדרש</i><b>' + nis(m.required) + '</b></span><span class="op">›</span>' +
       '<span class="coin k" style="--i:3"><i>פער</i><b>' + nis(m.gap) + '</b></span>';
     var why = '';
+    var waived = m.waiverPct > 0 ? ' מתוך חוב של ' + nis(m.debtRaw) + ' נמחקו ' + m.waiverPct + '% (' + nis(m.debtRaw - m.debt) + ').' : '';
     if (m.debt > 0) {
-      why = '<p class="why"><b>למה נדרש ' + nis(m.required) + '?</b> יעד בסיס ' + nis(m.base) + ' + קנס ' + nis(m.debt) + ' = נדרש ' + nis(m.required) + '. הקנס הוא מה שחסר ליעד בשנים קודמות, כפול. הוא נקבע פעם אחת ואינו מוכפל שוב.</p>';
+      why = '<p class="why"><b>למה נדרש ' + nis(m.required) + '?</b> יעד בסיס ' + nis(m.base) + ' + קנס ' + nis(m.debt) + ' = נדרש ' + nis(m.required) + '. הקנס הוא מה שחסר ליעד בשנים קודמות, כפול. הוא נקבע פעם אחת ואינו מוכפל שוב.' + waived + '</p>';
+    } else if (m.waiverPct > 0) {
+      why = '<p class="why"><b>החוב נמחק.</b>' + waived + '</p>';
     } else if (!m.hasTarget) {
       why = '<p class="why"><b>ללא יעד שנתי.</b> ' + (m.type === 'חיידר' ? 'בחיידר עדיין לא בגיל הזכאות.' : m.type === 'קיבוץ' ? 'בקיבוץ הזכאות נשמרת למי שאין לו חוב עבר.' : m.married ? 'נשוי, אינו משתתף בקמפיין.' : 'לא הוגדר לו יעד לשנה הזאת.') + '</p>';
     } else if (m.gap === 0) {
@@ -2950,9 +2982,26 @@ window.TZ_DATA = (function () {
     }).join('') + '</div>' : '<div class="nodep">' + disc('kupa') + '<span><b>' + (HOST() ? 'עדיין אין הפקדות' : 'עדיין אין הפקדות השנה') + '</b><i>ההפקדה הראשונה תופיע כאן</i></span></div>';
     var hh = hist.length ? '<div class="hist">' + hist.map(function (h, hi) {
       return '<div class="hrow' + (hi === hist.length - 1 ? ' now' : '') + '"><span class="yr2">' + esc(h.year) + '</span><span class="tx"><b>' + esc(h.frame) + '</b>' +
-        '<i>יעד ' + nis(h.target) + (h.required !== h.target ? ' · נדרש ' + nis(h.required) : '') + ' · נאסף ' + nis(h.collected) + '</i>' +
+        '<i>יעד ' + nis(h.target) + (h.required !== h.target ? ' · נדרש ' + nis(h.required) : '') + ' · נאסף ' + nis(h.collected) + (h.waived > 0 ? ' · נמחק חוב ' + nis(h.waived) : '') + '</i>' +
         '<span class="tag t-' + h.tone + '">' + esc(h.status).replace(/₪[\d,]+/g, function (x) { return ltr(x); }) + '</span></span></div>';
     }).join('') + '</div>' : '<p class="why">' + (m.type === 'חיידר' ? 'אין היסטוריית זכאות: בחיידר עדיין לא בגיל הזכאות.' : 'אין עדיין היסטוריית זכאות.') + '</p>';
+    var depSum = m.deposits.reduce(function (t, d) { return t + (+d.amount || 0); }, 0);
+    // קופסה מצומצמת: הכותרת היא כפתור שפותח וסוגר (חץ להרחבה)
+    function fold(title, aside, inner) {
+      return '<details class="m-box fold"><summary><h4>' + title + '</h4>' + (aside ? '<span class="fold-a">' + aside + '</span>' : '') + '<span class="fold-c" aria-hidden="true">' + g('down') + '</span></summary><div class="fold-b">' + inner + '</div></details>';
+    }
+    // מחיקת חלק מהחוב (רק למי שמורשה לערוך, ורק כשיש חוב)
+    var wv = '';
+    if (canEdit && m.debtRaw > 0) {
+      var cur = m.waiverPct || 0;
+      wv = '<details class="wv"><summary>' + g('edit') + '<span>' + (cur ? 'נמחקו ' + cur + '% מהחוב · שינוי' : 'מחיקת חלק מהחוב') + '</span></summary>' +
+        '<div class="wv-b" data-raw="' + m.debtRaw + '"><p class="wv-l">כמה אחוז מהחוב (' + nis(m.debtRaw) + ') למחוק?</p>' +
+        '<div class="wv-row"><div class="wv-chips">' + [25, 50, 75, 100].map(function (p) { return '<button type="button" class="wv-chip' + (p === cur ? ' is-on' : '') + '" data-act="wv-pick" data-p="' + p + '">' + p + '%</button>'; }).join('') + '</div>' +
+        '<label class="uin wv-in" dir="ltr"><input id="' + P + 'wv-pct" type="text" inputmode="numeric" value="' + (cur || '') + '" placeholder="0" aria-label="אחוז למחיקה" autocomplete="off"><span class="pre">%</span></label></div>' +
+        '<p class="wv-p" id="' + P + 'wv-p" aria-live="polite"></p>' +
+        '<div class="wv-f"><button type="button" class="btn btn-s" data-act="wv-save" data-mid="' + m.id + '">שמירת המחיקה</button>' +
+        (cur ? '<button type="button" class="btn btn-s btn-o" data-act="wv-clear" data-mid="' + m.id + '">ביטול המחיקה</button>' : '') + '</div></div></details>';
+    }
     id('sheet').innerHTML = '<button type="button" class="x" data-close aria-label="סגירת הכרטיס">' + g('close') + '</button><div class="sheet-s">' +
       '<div class="mh"><span class="mg' + (st.tone === 'good' ? ' s-good' : '') + '">' + mono(m) + '</span><div><h2>' + esc(m.full) + '</h2>' +
       '<p>' + (m.father ? 'בן ' + esc(m.father) + ' · ' : '') + '<b>' + esc(m.yeshiva || 'ללא ישיבה') + '</b> · ' + esc(m.frame) + (m.married ? ' · נשוי' : '') + '</p><div class="mh-tags">' + tags + '</div></div></div>' +
@@ -2961,16 +3010,41 @@ window.TZ_DATA = (function () {
           '<span class="l">' + (HOST() && S.year !== D.settings.campaignYear ? 'נאסף ב' + esc(S.year) : 'נאסף השנה') + (m.hasTarget ? '<br><b>' + m.pct + '%</b> מתוך ' + nis(m.required) : '<br><b>ללא יעד</b>') + '</span></div>' +
           '<div class="trk" style="--p:' + Math.min(100, m.collected / scale * 100).toFixed(1) + '" role="img" aria-label="התקדמות ואבני דרך למתנות"><i></i>' +
           (m.hasTarget ? '<span class="rq" style="--x:' + (m.required / scale * 100).toFixed(1) + '" data-tip="סה״כ נדרש|₪' + num(m.required) + '"></span>' : '') + ms + '</div></div>' +
-        '<div class="m-box"><h4>איך מחושב הנדרש</h4><div class="eq">' + eq + '</div>' + why + '</div>' +
+        '<div class="m-box"><h4>איך מחושב הנדרש</h4><div class="eq">' + eq + '</div>' + why + wv + '</div>' +
       '</div><div class="m-col">' +
         '<div class="m-box"><h4>פרטי קשר</h4><dl class="info"><div><dt>טלפון</dt><dd dir="ltr">' + esc(m.phone || '—') + '</dd></div><div><dt>כתובת</dt><dd>' + esc(m.address || '—') + '</dd></div>' + (m.notes ? '<div><dt>הערות</dt><dd>' + esc(m.notes) + '</dd></div>' : '') + '</dl></div>' +
-        '<div class="m-box"><h4>' + (HOST() ? 'הפקדות' : 'הפקדות השנה') + ' (' + m.deposits.length + ')</h4>' + deps + '</div>' +
-        '<div class="m-box"><h4>היסטוריית זכאות</h4>' + hh + '</div>' +
+        fold((HOST() ? 'הפקדות' : 'הפקדות השנה') + ' (' + m.deposits.length + ')', m.deposits.length ? ltr('₪' + num(depSum)) : '', deps) +
+        fold('היסטוריית זכאות', hist.length ? hist.length + ' שנים' : '', hh) +
       '</div></div></div>' +
       (canEdit ? '<div class="sheet-f"><button type="button" class="btn" data-act="dep-for" data-mid="' + m.id + '">רישום הפקדה' + g('chev2') + '</button>' +
       '<button type="button" class="btn btn-o" data-act="edit">' + g('edit') + 'עריכת פרטים</button></div>' : '');
     showOv('member');
+    wvPreview();
     $$('[data-n]', id('sheet')).forEach(function (el) { animNum(el, +el.getAttribute('data-n'), 700, 0); });
+  }
+
+  /* ---------- מחיקת חלק מהחוב ---------- */
+  function wvVal() {
+    var inp = id('wv-pct');
+    return inp ? Math.min(100, parseInt(String(inp.value).replace(/[^\d]/g, ''), 10) || 0) : 0;
+  }
+  function wvPreview() {
+    var box = $('.wv-b', id('sheet')), out = id('wv-p');
+    if (!box || !out) return;
+    var raw = +box.getAttribute('data-raw') || 0, p = wvVal(), off = Math.round(raw * p / 100);
+    out.innerHTML = p ? 'יימחקו <b>' + nis(off) + '</b> · יישאר חוב <b>' + nis(raw - off) + '</b>' : 'בוחרים אחוז, או מקלידים מספר בין 1 ל-100';
+    $$('.wv-chip', box).forEach(function (c) { c.classList.toggle('is-on', +c.getAttribute('data-p') === p); });
+  }
+  function saveWaiver(m, pct) {
+    if (!m) return;
+    if (HOST()) {
+      var res = HOST().setDebtWaiver({ memberId: m.id, year: m.debtYear || S.year, pct: pct });
+      if (!res || !res.ok) { toast((res && res.error) || 'המחיקה לא נשמרה. אפשר לנסות שוב', 'close'); return; }
+    } else {
+      m.waiverPct = pct; m.debt = Math.round(m.debtRaw * (100 - pct) / 100); recompute(m);
+    }
+    openMember(byId(m.id) || m);
+    toast(pct ? 'נמחקו ' + pct + '% מהחוב של ' + esc(m.full) : 'המחיקה בוטלה, החוב חזר למלואו', 'check');
   }
 
   /* ---------- deposit ---------- */
@@ -4494,6 +4568,9 @@ window.TZ_DATA = (function () {
     else if (a === 'export') { if (HOST()) hdo('exportMembers', filtered().map(function (m) { return m.id; })); else toast('הקובץ מוכן להורדה (הדגמה)', 'check'); }
     else if (a === 'print') { if (HOST()) hdo('printMembers', filtered().map(function (m) { return m.id; }), membersSubtitle()); else toast('הרשימה נשלחה להדפסה (הדגמה)', 'check'); }
     else if (a === 'dep-edit') { HOST().editDeposit(el.getAttribute('data-did')); }
+    else if (a === 'wv-pick') { var wi = id('wv-pct'); if (wi) wi.value = el.getAttribute('data-p'); wvPreview(); }
+    else if (a === 'wv-save') { var wp = wvVal(); if (!wp) { toast('צריך לבחור כמה אחוז למחוק', 'close'); return; } saveWaiver(byId(el.getAttribute('data-mid')), wp); }
+    else if (a === 'wv-clear') saveWaiver(byId(el.getAttribute('data-mid')), 0);
     else if (a === 'classic') { closeAll(); HOST().classic(S.view === 'soon' ? S.soon : S.view, S.soon === 'settings' ? SC.settings.tab : null); }
     else if (a === 'newmember') openForm('member');
     else if (a === 'edit') openForm('member', byId(el.getAttribute('data-mid')) || byId(S.member));
@@ -4556,6 +4633,7 @@ window.TZ_DATA = (function () {
       var t = e.target;
       if (t.id === P + 'q') { S.q = t.value; renderList(false); }
       else if (t.id === P + 'f-member') { depMember = null; acRender(); }
+      else if (t.id === P + 'wv-pct') { var wd = t.value.replace(/[^\d]/g, '').slice(0, 3); t.value = wd ? String(Math.min(100, +wd)) : ''; wvPreview(); }
       else if (t.id === P + 'f-amt' || t.id === P + 'qdamt') { var d = t.value.replace(/[^\d]/g, '').slice(0, 6); t.value = d ? num(+d) : ''; if (t.id === P + 'f-amt') { id('fld-a').classList.remove('is-err'); id('err').textContent = ''; } }
     });
     root.addEventListener('change', function (e) {

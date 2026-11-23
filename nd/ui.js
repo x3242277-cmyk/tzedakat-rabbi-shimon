@@ -532,12 +532,15 @@ window.TZ_BODY="<svg width=\"0\" height=\"0\" style=\"position:absolute\" aria-h
       return '<span class="ms' + (gf.earned ? ' got' : '') + '" style="--x:' + (gf.threshold / scale * 100).toFixed(1) + '">' + disc(giftSlot(gf, gi)) + '<span><b>' + esc(gf.name) + '</b>' + ltr('₪' + num(gf.threshold)) + '</span></span>';
     }).join('');
     var eq = '<span class="coin w" style="--i:0"><i>יעד בסיס</i><b>' + nis(m.base) + '</b></span><span class="op">+</span>' +
-      '<span class="coin' + (m.debt ? ' r' : '') + '" style="--i:1"><i>חוב עבר (קנס)</i><b>' + nis(m.debt) + '</b></span><span class="op">=</span>' +
+      '<span class="coin' + (m.debt ? ' r' : '') + '" style="--i:1"><i>חוב עבר (קנס)</i><b>' + nis(m.debt) + '</b>' + (m.waiverPct > 0 ? '<i class="wv-n">נמחקו ' + m.waiverPct + '%</i>' : '') + '</span><span class="op">=</span>' +
       '<span class="coin y" style="--i:2"><i>סה״כ נדרש</i><b>' + nis(m.required) + '</b></span><span class="op">›</span>' +
       '<span class="coin k" style="--i:3"><i>פער</i><b>' + nis(m.gap) + '</b></span>';
     var why = '';
+    var waived = m.waiverPct > 0 ? ' מתוך חוב של ' + nis(m.debtRaw) + ' נמחקו ' + m.waiverPct + '% (' + nis(m.debtRaw - m.debt) + ').' : '';
     if (m.debt > 0) {
-      why = '<p class="why"><b>למה נדרש ' + nis(m.required) + '?</b> יעד בסיס ' + nis(m.base) + ' + קנס ' + nis(m.debt) + ' = נדרש ' + nis(m.required) + '. הקנס הוא מה שחסר ליעד בשנים קודמות, כפול. הוא נקבע פעם אחת ואינו מוכפל שוב.</p>';
+      why = '<p class="why"><b>למה נדרש ' + nis(m.required) + '?</b> יעד בסיס ' + nis(m.base) + ' + קנס ' + nis(m.debt) + ' = נדרש ' + nis(m.required) + '. הקנס הוא מה שחסר ליעד בשנים קודמות, כפול. הוא נקבע פעם אחת ואינו מוכפל שוב.' + waived + '</p>';
+    } else if (m.waiverPct > 0) {
+      why = '<p class="why"><b>החוב נמחק.</b>' + waived + '</p>';
     } else if (!m.hasTarget) {
       why = '<p class="why"><b>ללא יעד שנתי.</b> ' + (m.type === 'חיידר' ? 'בחיידר עדיין לא בגיל הזכאות.' : m.type === 'קיבוץ' ? 'בקיבוץ הזכאות נשמרת למי שאין לו חוב עבר.' : m.married ? 'נשוי, אינו משתתף בקמפיין.' : 'לא הוגדר לו יעד לשנה הזאת.') + '</p>';
     } else if (m.gap === 0) {
@@ -551,9 +554,26 @@ window.TZ_BODY="<svg width=\"0\" height=\"0\" style=\"position:absolute\" aria-h
     }).join('') + '</div>' : '<div class="nodep">' + disc('kupa') + '<span><b>' + (HOST() ? 'עדיין אין הפקדות' : 'עדיין אין הפקדות השנה') + '</b><i>ההפקדה הראשונה תופיע כאן</i></span></div>';
     var hh = hist.length ? '<div class="hist">' + hist.map(function (h, hi) {
       return '<div class="hrow' + (hi === hist.length - 1 ? ' now' : '') + '"><span class="yr2">' + esc(h.year) + '</span><span class="tx"><b>' + esc(h.frame) + '</b>' +
-        '<i>יעד ' + nis(h.target) + (h.required !== h.target ? ' · נדרש ' + nis(h.required) : '') + ' · נאסף ' + nis(h.collected) + '</i>' +
+        '<i>יעד ' + nis(h.target) + (h.required !== h.target ? ' · נדרש ' + nis(h.required) : '') + ' · נאסף ' + nis(h.collected) + (h.waived > 0 ? ' · נמחק חוב ' + nis(h.waived) : '') + '</i>' +
         '<span class="tag t-' + h.tone + '">' + esc(h.status).replace(/₪[\d,]+/g, function (x) { return ltr(x); }) + '</span></span></div>';
     }).join('') + '</div>' : '<p class="why">' + (m.type === 'חיידר' ? 'אין היסטוריית זכאות: בחיידר עדיין לא בגיל הזכאות.' : 'אין עדיין היסטוריית זכאות.') + '</p>';
+    var depSum = m.deposits.reduce(function (t, d) { return t + (+d.amount || 0); }, 0);
+    // קופסה מצומצמת: הכותרת היא כפתור שפותח וסוגר (חץ להרחבה)
+    function fold(title, aside, inner) {
+      return '<details class="m-box fold"><summary><h4>' + title + '</h4>' + (aside ? '<span class="fold-a">' + aside + '</span>' : '') + '<span class="fold-c" aria-hidden="true">' + g('down') + '</span></summary><div class="fold-b">' + inner + '</div></details>';
+    }
+    // מחיקת חלק מהחוב (רק למי שמורשה לערוך, ורק כשיש חוב)
+    var wv = '';
+    if (canEdit && m.debtRaw > 0) {
+      var cur = m.waiverPct || 0;
+      wv = '<details class="wv"><summary>' + g('edit') + '<span>' + (cur ? 'נמחקו ' + cur + '% מהחוב · שינוי' : 'מחיקת חלק מהחוב') + '</span></summary>' +
+        '<div class="wv-b" data-raw="' + m.debtRaw + '"><p class="wv-l">כמה אחוז מהחוב (' + nis(m.debtRaw) + ') למחוק?</p>' +
+        '<div class="wv-row"><div class="wv-chips">' + [25, 50, 75, 100].map(function (p) { return '<button type="button" class="wv-chip' + (p === cur ? ' is-on' : '') + '" data-act="wv-pick" data-p="' + p + '">' + p + '%</button>'; }).join('') + '</div>' +
+        '<label class="uin wv-in" dir="ltr"><input id="' + P + 'wv-pct" type="text" inputmode="numeric" value="' + (cur || '') + '" placeholder="0" aria-label="אחוז למחיקה" autocomplete="off"><span class="pre">%</span></label></div>' +
+        '<p class="wv-p" id="' + P + 'wv-p" aria-live="polite"></p>' +
+        '<div class="wv-f"><button type="button" class="btn btn-s" data-act="wv-save" data-mid="' + m.id + '">שמירת המחיקה</button>' +
+        (cur ? '<button type="button" class="btn btn-s btn-o" data-act="wv-clear" data-mid="' + m.id + '">ביטול המחיקה</button>' : '') + '</div></div></details>';
+    }
     id('sheet').innerHTML = '<button type="button" class="x" data-close aria-label="סגירת הכרטיס">' + g('close') + '</button><div class="sheet-s">' +
       '<div class="mh"><span class="mg' + (st.tone === 'good' ? ' s-good' : '') + '">' + mono(m) + '</span><div><h2>' + esc(m.full) + '</h2>' +
       '<p>' + (m.father ? 'בן ' + esc(m.father) + ' · ' : '') + '<b>' + esc(m.yeshiva || 'ללא ישיבה') + '</b> · ' + esc(m.frame) + (m.married ? ' · נשוי' : '') + '</p><div class="mh-tags">' + tags + '</div></div></div>' +
@@ -562,16 +582,41 @@ window.TZ_BODY="<svg width=\"0\" height=\"0\" style=\"position:absolute\" aria-h
           '<span class="l">' + (HOST() && S.year !== D.settings.campaignYear ? 'נאסף ב' + esc(S.year) : 'נאסף השנה') + (m.hasTarget ? '<br><b>' + m.pct + '%</b> מתוך ' + nis(m.required) : '<br><b>ללא יעד</b>') + '</span></div>' +
           '<div class="trk" style="--p:' + Math.min(100, m.collected / scale * 100).toFixed(1) + '" role="img" aria-label="התקדמות ואבני דרך למתנות"><i></i>' +
           (m.hasTarget ? '<span class="rq" style="--x:' + (m.required / scale * 100).toFixed(1) + '" data-tip="סה״כ נדרש|₪' + num(m.required) + '"></span>' : '') + ms + '</div></div>' +
-        '<div class="m-box"><h4>איך מחושב הנדרש</h4><div class="eq">' + eq + '</div>' + why + '</div>' +
+        '<div class="m-box"><h4>איך מחושב הנדרש</h4><div class="eq">' + eq + '</div>' + why + wv + '</div>' +
       '</div><div class="m-col">' +
         '<div class="m-box"><h4>פרטי קשר</h4><dl class="info"><div><dt>טלפון</dt><dd dir="ltr">' + esc(m.phone || '—') + '</dd></div><div><dt>כתובת</dt><dd>' + esc(m.address || '—') + '</dd></div>' + (m.notes ? '<div><dt>הערות</dt><dd>' + esc(m.notes) + '</dd></div>' : '') + '</dl></div>' +
-        '<div class="m-box"><h4>' + (HOST() ? 'הפקדות' : 'הפקדות השנה') + ' (' + m.deposits.length + ')</h4>' + deps + '</div>' +
-        '<div class="m-box"><h4>היסטוריית זכאות</h4>' + hh + '</div>' +
+        fold((HOST() ? 'הפקדות' : 'הפקדות השנה') + ' (' + m.deposits.length + ')', m.deposits.length ? ltr('₪' + num(depSum)) : '', deps) +
+        fold('היסטוריית זכאות', hist.length ? hist.length + ' שנים' : '', hh) +
       '</div></div></div>' +
       (canEdit ? '<div class="sheet-f"><button type="button" class="btn" data-act="dep-for" data-mid="' + m.id + '">רישום הפקדה' + g('chev2') + '</button>' +
       '<button type="button" class="btn btn-o" data-act="edit">' + g('edit') + 'עריכת פרטים</button></div>' : '');
     showOv('member');
+    wvPreview();
     $$('[data-n]', id('sheet')).forEach(function (el) { animNum(el, +el.getAttribute('data-n'), 700, 0); });
+  }
+
+  /* ---------- מחיקת חלק מהחוב ---------- */
+  function wvVal() {
+    var inp = id('wv-pct');
+    return inp ? Math.min(100, parseInt(String(inp.value).replace(/[^\d]/g, ''), 10) || 0) : 0;
+  }
+  function wvPreview() {
+    var box = $('.wv-b', id('sheet')), out = id('wv-p');
+    if (!box || !out) return;
+    var raw = +box.getAttribute('data-raw') || 0, p = wvVal(), off = Math.round(raw * p / 100);
+    out.innerHTML = p ? 'יימחקו <b>' + nis(off) + '</b> · יישאר חוב <b>' + nis(raw - off) + '</b>' : 'בוחרים אחוז, או מקלידים מספר בין 1 ל-100';
+    $$('.wv-chip', box).forEach(function (c) { c.classList.toggle('is-on', +c.getAttribute('data-p') === p); });
+  }
+  function saveWaiver(m, pct) {
+    if (!m) return;
+    if (HOST()) {
+      var res = HOST().setDebtWaiver({ memberId: m.id, year: m.debtYear || S.year, pct: pct });
+      if (!res || !res.ok) { toast((res && res.error) || 'המחיקה לא נשמרה. אפשר לנסות שוב', 'close'); return; }
+    } else {
+      m.waiverPct = pct; m.debt = Math.round(m.debtRaw * (100 - pct) / 100); recompute(m);
+    }
+    openMember(byId(m.id) || m);
+    toast(pct ? 'נמחקו ' + pct + '% מהחוב של ' + esc(m.full) : 'המחיקה בוטלה, החוב חזר למלואו', 'check');
   }
 
   /* ---------- deposit ---------- */
@@ -2095,6 +2140,9 @@ window.TZ_BODY="<svg width=\"0\" height=\"0\" style=\"position:absolute\" aria-h
     else if (a === 'export') { if (HOST()) hdo('exportMembers', filtered().map(function (m) { return m.id; })); else toast('הקובץ מוכן להורדה (הדגמה)', 'check'); }
     else if (a === 'print') { if (HOST()) hdo('printMembers', filtered().map(function (m) { return m.id; }), membersSubtitle()); else toast('הרשימה נשלחה להדפסה (הדגמה)', 'check'); }
     else if (a === 'dep-edit') { HOST().editDeposit(el.getAttribute('data-did')); }
+    else if (a === 'wv-pick') { var wi = id('wv-pct'); if (wi) wi.value = el.getAttribute('data-p'); wvPreview(); }
+    else if (a === 'wv-save') { var wp = wvVal(); if (!wp) { toast('צריך לבחור כמה אחוז למחוק', 'close'); return; } saveWaiver(byId(el.getAttribute('data-mid')), wp); }
+    else if (a === 'wv-clear') saveWaiver(byId(el.getAttribute('data-mid')), 0);
     else if (a === 'classic') { closeAll(); HOST().classic(S.view === 'soon' ? S.soon : S.view, S.soon === 'settings' ? SC.settings.tab : null); }
     else if (a === 'newmember') openForm('member');
     else if (a === 'edit') openForm('member', byId(el.getAttribute('data-mid')) || byId(S.member));
@@ -2157,6 +2205,7 @@ window.TZ_BODY="<svg width=\"0\" height=\"0\" style=\"position:absolute\" aria-h
       var t = e.target;
       if (t.id === P + 'q') { S.q = t.value; renderList(false); }
       else if (t.id === P + 'f-member') { depMember = null; acRender(); }
+      else if (t.id === P + 'wv-pct') { var wd = t.value.replace(/[^\d]/g, '').slice(0, 3); t.value = wd ? String(Math.min(100, +wd)) : ''; wvPreview(); }
       else if (t.id === P + 'f-amt' || t.id === P + 'qdamt') { var d = t.value.replace(/[^\d]/g, '').slice(0, 6); t.value = d ? num(+d) : ''; if (t.id === P + 'f-amt') { id('fld-a').classList.remove('is-err'); id('err').textContent = ''; } }
     });
     root.addEventListener('change', function (e) {

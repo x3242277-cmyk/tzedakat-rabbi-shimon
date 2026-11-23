@@ -5693,9 +5693,16 @@ function buildMemberSummaries(selectedYear = getCampaignYear()) {
     const penaltyStartYear = 'תשפ"ד';
     const penaltyStartIdx = hebrewYearsForSort.indexOf(penaltyStartYear);
 
+    // מחיקת חוב: אחוז מהחוב שנכנס לשנה מסוימת, נשמר בהגדרות (debtWaivers[מזהה בחור][שנה] = אחוז)
+    const memberWaivers = (settings.debtWaivers && settings.debtWaivers[String(member.id)]) || {};
+    const waiverPctFor = (y) => Math.min(100, Math.max(0, Math.round(Number(memberWaivers[y]) || 0)));
+    const waivedOf = (y, debt) => { const p = waiverPctFor(y); return p > 0 && debt > 0 ? Math.round(debt * p / 100) : 0; };
+
     let runningDebt = 0;
     pastYears.forEach(y => {
       const entry = yearlyDataMap[y];
+      entry.debtWaived = waivedOf(y, runningDebt);
+      runningDebt -= entry.debtWaived;
       entry.debtIn = runningDebt;
       if (entry.target > 0) {
         const required = entry.target + runningDebt;
@@ -5721,7 +5728,11 @@ function buildMemberSummaries(selectedYear = getCampaignYear()) {
       }
     });
 
-    const totalDebtFromPast = runningDebt;
+    const debtBeforeWaiver = runningDebt;
+    const debtWaiverPct = runningDebt > 0 ? waiverPctFor(currentYear) : 0;
+    const debtWaived = waivedOf(currentYear, runningDebt);
+    const totalDebtFromPast = runningDebt - debtWaived;
+    yearlyDataMap[currentYear].debtWaived = debtWaived;
 
     // עדכון השנה הנוכחית עם החוב
     yearlyDataMap[currentYear].debtIn = totalDebtFromPast;
@@ -5753,7 +5764,7 @@ function buildMemberSummaries(selectedYear = getCampaignYear()) {
 
     return {
       ...member, fullName: `${member.firstName || ""} ${member.lastName || ""}`.trim(), currentYear,
-      collectedThisYear, collectedAmount, currentYearTarget, currentYearType: currentStatusInfo.type, currentYearShiur: currentStatusInfo.shiur, totalDebtFromPast, openDebtNow, totalRequiredThisYear, missingAmount,
+      collectedThisYear, collectedAmount, currentYearTarget, currentYearType: currentStatusInfo.type, currentYearShiur: currentStatusInfo.shiur, totalDebtFromPast, debtBeforeWaiver, debtWaiverPct, debtWaived, openDebtNow, totalRequiredThisYear, missingAmount,
       isEligible, isEligibleTiyul, isEligibleShay,
       yearlyData: yearlyDataArray
     };
