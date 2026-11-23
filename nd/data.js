@@ -528,8 +528,8 @@
           city: address ? trim(address.split(',').pop()) : '',
           phone: trim(r.phone), address: address, notes: str(r.notes), married: married(r),
           collected: collected, base: base, debt: debt, required: required, gap: gap,
-          // מחיקת חוב: החוב לפני המחיקה, האחוז שנמחק, והשנה שאליה המחיקה שייכת
-          debtRaw: r2(r.debtBeforeWaiver != null ? r.debtBeforeWaiver : r.totalDebtFromPast), waiverPct: num(r.debtWaiverPct), debtYear: str(r.currentYear),
+          // מחיקת קנס: החוב והקנס לפני המחיקה, האחוז שנמחק מהקנס, והשנה שאליה המחיקה שייכת
+          debtRaw: r2(r.debtBeforeWaiver != null ? r.debtBeforeWaiver : r.totalDebtFromPast), penaltyRaw: r2(r.penaltyBeforeWaiver), waiverPct: num(r.debtWaiverPct), debtYear: str(r.currentYear),
           hasTarget: required > 0,
           pct: required > 0 ? Math.min(100, Math.floor(collected / required * 100)) : null,
           status: { key: mapped.key, tone: mapped.tone, label: str(old.label) || 'טרם החל' },

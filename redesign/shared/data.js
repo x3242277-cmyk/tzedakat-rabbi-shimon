@@ -165,7 +165,7 @@ window.TZ_DATA = (function () {
   var members = RAW.map(function (r, i) {
     var m = {
       id: 'm' + (i + 1), first: r[0], last: r[1], father: r[2], yeshiva: r[3], type: r[4], shiur: r[5], city: r[6],
-      collected: r[7], base: r[8], debt: r[9], debtRaw: r[9], waiverPct: 0,
+      collected: r[7], base: r[8], debt: r[9], debtRaw: r[9], penaltyRaw: Math.round(r[9] / 2), waiverPct: 0,
       phone: '05' + (i % 5) + '-555-01' + String(i + 10),
       address: 'רחוב הדוגמה ' + (i + 3) + ', ' + r[6]
     };

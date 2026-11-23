@@ -5693,16 +5693,20 @@ function buildMemberSummaries(selectedYear = getCampaignYear()) {
     const penaltyStartYear = 'תשפ"ד';
     const penaltyStartIdx = hebrewYearsForSort.indexOf(penaltyStartYear);
 
-    // מחיקת חוב: אחוז מהחוב שנכנס לשנה מסוימת, נשמר בהגדרות (debtWaivers[מזהה בחור][שנה] = אחוז)
+    // מחיקת קנס: אחוז מהקנס (החלק הכפול של החוב, לא החוסר עצמו) שנכנס לשנה מסוימת.
+    // נשמר בהגדרות: debtWaivers[מזהה בחור][שנה] = אחוז
     const memberWaivers = (settings.debtWaivers && settings.debtWaivers[String(member.id)]) || {};
     const waiverPctFor = (y) => Math.min(100, Math.max(0, Math.round(Number(memberWaivers[y]) || 0)));
-    const waivedOf = (y, debt) => { const p = waiverPctFor(y); return p > 0 && debt > 0 ? Math.round(debt * p / 100) : 0; };
+    const waivedOf = (y, penalty) => { const p = waiverPctFor(y); return p > 0 && penalty > 0 ? Math.round(penalty * p / 100) : 0; };
+    // runningPenalty = כמה מתוך החוב הוא קנס. כשחוב ישן יורד בתשלום, הקנס יורד באותו יחס
+    const shrinkPenalty = (penalty, debtBefore, debtAfter) => debtBefore > 0 ? Math.round(penalty * debtAfter / debtBefore) : 0;
 
-    let runningDebt = 0;
+    let runningDebt = 0, runningPenalty = 0;
     pastYears.forEach(y => {
       const entry = yearlyDataMap[y];
-      entry.debtWaived = waivedOf(y, runningDebt);
+      entry.debtWaived = waivedOf(y, runningPenalty);
       runningDebt -= entry.debtWaived;
+      runningPenalty -= entry.debtWaived;
       entry.debtIn = runningDebt;
       if (entry.target > 0) {
         const required = entry.target + runningDebt;
@@ -5710,6 +5714,7 @@ function buildMemberSummaries(selectedYear = getCampaignYear()) {
         if (entry.collected >= required) {
           entry.debtOut = 0;
           runningDebt = 0;
+          runningPenalty = 0;
         } else {
           // הכסף של השנה נזקף קודם ליעד של אותה שנה. רק מה שחסר ליעד הזה נהיה קנס (כפול, פעם אחת).
           // קנס ישן אינו מוכפל שוב: הוא נשאר כפי שהוא, ויורד רק ממה שהובא מעבר ליעד.
@@ -5719,18 +5724,21 @@ function buildMemberSummaries(selectedYear = getCampaignYear()) {
           const yearIdx = hebrewYearsForSort.indexOf(y);
           const penaltyMultiplier = (penaltyStartIdx !== -1 && yearIdx >= penaltyStartIdx) ? 2 : 1;
           entry.debtOut = unpaidOldDebt + targetShortfall * penaltyMultiplier;
+          runningPenalty = shrinkPenalty(runningPenalty, runningDebt, unpaidOldDebt) + targetShortfall * (penaltyMultiplier - 1);
           runningDebt = entry.debtOut;
         }
       } else {
         entry.requiredTotal = 0;
         entry.debtOut = Math.max(0, runningDebt - entry.collected);
+        runningPenalty = shrinkPenalty(runningPenalty, runningDebt, entry.debtOut);
         runningDebt = entry.debtOut;
       }
     });
 
     const debtBeforeWaiver = runningDebt;
-    const debtWaiverPct = runningDebt > 0 ? waiverPctFor(currentYear) : 0;
-    const debtWaived = waivedOf(currentYear, runningDebt);
+    const penaltyBeforeWaiver = Math.min(runningPenalty, runningDebt);
+    const debtWaiverPct = penaltyBeforeWaiver > 0 ? waiverPctFor(currentYear) : 0;
+    const debtWaived = waivedOf(currentYear, penaltyBeforeWaiver);
     const totalDebtFromPast = runningDebt - debtWaived;
     yearlyDataMap[currentYear].debtWaived = debtWaived;
 
@@ -5764,7 +5772,7 @@ function buildMemberSummaries(selectedYear = getCampaignYear()) {
 
     return {
       ...member, fullName: `${member.firstName || ""} ${member.lastName || ""}`.trim(), currentYear,
-      collectedThisYear, collectedAmount, currentYearTarget, currentYearType: currentStatusInfo.type, currentYearShiur: currentStatusInfo.shiur, totalDebtFromPast, debtBeforeWaiver, debtWaiverPct, debtWaived, openDebtNow, totalRequiredThisYear, missingAmount,
+      collectedThisYear, collectedAmount, currentYearTarget, currentYearType: currentStatusInfo.type, currentYearShiur: currentStatusInfo.shiur, totalDebtFromPast, debtBeforeWaiver, penaltyBeforeWaiver, debtWaiverPct, debtWaived, openDebtNow, totalRequiredThisYear, missingAmount,
       isEligible, isEligibleTiyul, isEligibleShay,
       yearlyData: yearlyDataArray
     };
