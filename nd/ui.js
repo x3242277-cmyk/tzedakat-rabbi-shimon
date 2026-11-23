@@ -570,7 +570,7 @@ window.TZ_BODY="<svg width=\"0\" height=\"0\" style=\"position:absolute\" aria-h
       stm.rows.map(function (r) {
         var miss = r.lost > 0 ? '<td class="miss">' + nis(r.lost) + '</td>' : r.repay > 0 ? '<td class="fix">השלמת חוסר ' + nis(r.repay) + '</td>' : '<td><span class="dash">—</span></td>';
         return '<tr' + (r.current ? ' class="now"' : '') + '><td class="sy">' + esc(r.year) + '</td><td>' + esc(r.frame) + '</td><td>' + mc(r.target) + '</td><td class="sdep">' + nis(r.collected) + '</td><td>' + mc(r.own) + '</td><td>' + mc(r.add) + '</td><td class="tot">' + mc(r.total) + '</td>' + miss + '</tr>';
-      }).join('') + '</tbody><tfoot><tr><td colspan="3">סה״כ</td><td class="sdep"></td><td>' + nis(stm.totals.own) + '</td><td>' + nis(stm.totals.add) + '</td><td>' + nis(stm.totals.total) + '</td><td>' + mc(stm.totals.missing) + '</td></tr></tfoot></table></div>' +
+      }).join('') + '</tbody><tfoot><tr><td colspan="3"></td><td class="sdep"></td><td></td><td class="flbl">סה״כ</td><td>' + nis(stm.totals.total) + '</td><td>' + mc(stm.totals.missing) + '</td></tr></tfoot></table></div>' +
       (stm.notes.length ? '<ul class="stm-notes">' + stm.notes.map(function (l) { return '<li>' + esc(l) + '</li>'; }).join('') + '</ul>' : '') +
       (stm.creditLine ? '<p class="stm-credit">' + esc(stm.creditLine) + '</p>' : '') +
       '<div class="stm-boxes"><div class="sb full"><i>' + (stm.grant.complete ? 'מענק מלא' : 'סכום אפשרי עד כה') + '</i><b>' + nis(stm.totals.full) + '</b></div>' +
@@ -698,7 +698,7 @@ window.TZ_BODY="<svg width=\"0\" height=\"0\" style=\"position:absolute\" aria-h
       L.push(r.year + ' · ' + r.frame + ': יעד ' + fmtN(r.target) + ' · הופקד ' + fmtN(r.collected) + ' · נחשב למענק ' + fmtN(r.own) +
         ' · תוספת הארגון ' + fmtN(r.add) + ' · סה"כ למענק ' + fmtN(r.total) + (r.missText ? ' · ' + (r.lost > 0 ? 'חוסר ' : '') + r.missText : ''));
     });
-    L.push('סה"כ: נחשב למענק ' + fmtN(t.own) + ' · תוספת הארגון ' + fmtN(t.add) + ' · סה"כ למענק ' + fmtN(t.total) + ' · חוסר ' + fmtN(t.missing), '');
+    L.push('סה"כ למענק ' + fmtN(t.total) + ' · חוסר ' + fmtN(t.missing), '');
     L = L.concat(s.notes, '', s.creditLine ? [s.summary[0], s.creditLine].concat(s.summary.slice(1)) : s.summary, '', 'צדקת רבי שמעון · עזרת חתנים');
     var href = 'mailto:?subject=' + encodeURIComponent('דף חשבון · מענק חתן · ' + stmTitle(m)) + '&body=' + encodeURIComponent(L.join('\r\n'));
     try { window.location.href = href; } catch (e) { toast('לא הצלחנו לפתוח את תוכנת הדואר', 'close'); }

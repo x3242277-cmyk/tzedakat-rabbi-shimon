@@ -752,6 +752,7 @@ img{max-width:100%}
   .stm-t td.fix{font-weight:800;color:var(--good-ink)}
   .stm-t .dash{color:#9a9a9a}
   .stm-t tfoot td{background:var(--y-pale);font-weight:900;border-top:2px solid var(--y)}
+  .stm-t tfoot td.flbl{text-align:end}
   /* הופקד: העמודה המרכזית */
   .stm-t th.sdep{background:var(--grad);color:var(--ink);font-size:14px;font-weight:900}
   .stm-t td.sdep,.stm-t tbody tr:nth-child(even) td.sdep,.stm-t tr.now td.sdep{background:#F6EBCB;font-weight:900;font-size:16px;color:var(--ink);box-shadow:inset 2px 0 0 var(--y),inset -2px 0 0 var(--y)}

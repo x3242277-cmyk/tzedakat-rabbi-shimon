@@ -507,6 +507,7 @@
     '.box.miss b { color: #E3C46E; }',
     '.box.ok { background: #E2F5E7; color: #116A2B; }',
     '.credit { margin-top: 16px; padding: 12px 18px; border-radius: 14px; background: #E2F5E7; color: #116A2B; border: 1.5px solid #9FD3AE; font-size: 14px; font-weight: 700; text-align: center; }',
+    'tfoot td.flbl { text-align: left; }',
     '.cta { margin-top: 12px; padding: 12px 18px; border-radius: 14px 14px 14px 40px; background: #F9F4E5; border: 1.5px solid #CEA130; font-size: 14px; font-weight: 700; text-align: center; }',
     '.ft { margin-top: 18px; padding-top: 8px; border-top: 1px solid #E2E2E2; display: flex; justify-content: space-between; color: #8a8a8a; font-size: 10.5px; }'
   ].join('\n');
@@ -532,8 +533,7 @@
         var miss = r.lost > 0 ? '<td class="n miss">' + esc(money(r.lost)) + '</td>' : r.repay > 0 ? '<td class="fix">' + esc('השלמת חוסר ' + money(r.repay)) + '</td>' : '<td class="n dash">—</td>';
         return '<tr><td class="yr">' + esc(r.year) + '</td><td>' + esc(r.frame) + '</td>' + cell(r.target, 'n') + '<td class="n dep">' + esc(money(r.collected)) + '</td>' +
           cell(r.own, 'n') + cell(r.add, 'n') + cell(r.total, 'n tot') + miss + '</tr>';
-      }).join('') + '</tbody><tfoot><tr><td colspan="3">סה"כ</td><td class="n dep"></td><td class="n">' + esc(money(t.own)) + '</td><td class="n">' +
-      esc(money(t.add)) + '</td><td class="n">' + esc(money(t.total)) + '</td><td class="n">' + esc(m(t.missing)) + '</td></tr></tfoot></table>';
+      }).join('') + '</tbody><tfoot><tr><td colspan="3"></td><td class="n dep"></td><td></td><td class="flbl">סה"כ</td><td class="n">' + esc(money(t.total)) + '</td><td class="n">' + esc(m(t.missing)) + '</td></tr></tfoot></table>';
     if (notes.length) html += '<ul class="notes">' + notes.map(function (l) { return '<li>' + esc(l) + '</li>'; }).join('') + '</ul>';
     if (p.creditLine) html += '<div class="credit">' + esc(p.creditLine) + '</div>';
     html += '<div class="sum"><div class="box full"><i>' + (gr.complete ? 'מענק מלא' : 'סכום אפשרי עד כה') + '</i><b>' + esc(money(t.full != null ? t.full : gr.full)) + '</b></div>' +
