@@ -556,19 +556,22 @@ window.TZ_BODY="<svg width=\"0\" height=\"0\" style=\"position:absolute\" aria-h
       return HOST() && canEdit && d.id != null ? '<button type="button" class="drow drow-b" data-act="dep-edit" data-did="' + esc(d.id) + '" aria-label="עריכת ההפקדה">' + inner + '</button>' : '<div class="drow">' + inner + '</div>';
     }).join('') + '</div>' : '<div class="nodep">' + disc('kupa') + '<span><b>' + (HOST() ? 'עדיין אין הפקדות' : 'עדיין אין הפקדות השנה') + '</b><i>ההפקדה הראשונה תופיע כאן</i></span></div>';
     var stm = statementOf(m, hist);
-    var hh = stm.rows.length ? '<div class="hist">' + stm.rows.map(function (r) {
-      function ln(label, val, cls) { return '<span class="sl' + (cls ? ' ' + cls : '') + '"><span>' + label + '</span><b>' + val + '</b></span>'; }
-      var lines = ln('יעד שנתי', nis(r.target)) + ln('הופקד', nis(r.collected)) + ln('נחשב למענק', nis(r.own)) +
-        ln('תוספת הארגון', r.add ? nis(r.add) : '—') + ln('סה״כ למענק', nis(r.total), 'sl-s sl-c') +
-        (r.lost > 0 ? ln('חוסר', nis(r.lost), 'sl-b') : r.repay > 0 ? ln('השלמת חוסר', nis(r.repay), 'sl-c') : '');
-      return '<div class="hrow' + (r.current ? ' now' : '') + '"><span class="yr2">' + esc(r.year) + '</span><span class="tx"><b>' + esc(r.frame) + '</b>' +
-        '<span class="sls">' + lines + '</span></span></div>';
-    }).join('') + '</div>' +
-      '<div class="stm-sum">' + stm.summary.map(function (l, i) { return '<p>' + (i ? esc(l) : '<b>' + esc(l) + '</b>') + '</p>'; }).join('') +
-      stm.notes.map(function (l) { return '<p class="stm-n">' + esc(l) + '</p>'; }).join('') + '</div>' +
+    // פירוט שנים קודמות: טבלה ברוחב מלא מתחת לכרטיס, נפתחת מהכפתור שמתחת לעיגולים
+    var mc = function (v) { return v ? nis(v) : '<span class="dash">—</span>'; };
+    var hh = stm.rows.length ? '<div class="stm-tw"><table class="stm-t"><thead><tr><th>שנה</th><th>מסגרת</th><th>יעד שנתי</th><th>הופקד</th><th>נחשב למענק</th><th>תוספת הארגון</th><th>סה״כ למענק</th><th>חוסר</th></tr></thead><tbody>' +
+      stm.rows.map(function (r) {
+        var miss = r.lost > 0 ? '<td class="miss">' + nis(r.lost) + '</td>' : r.repay > 0 ? '<td class="fix">השלמת חוסר ' + nis(r.repay) + '</td>' : '<td><span class="dash">—</span></td>';
+        return '<tr' + (r.current ? ' class="now"' : '') + '><td class="sy">' + esc(r.year) + '</td><td>' + esc(r.frame) + '</td><td>' + mc(r.target) + '</td><td>' + nis(r.collected) + '</td><td>' + mc(r.own) + '</td><td>' + mc(r.add) + '</td><td class="tot">' + mc(r.total) + '</td>' + miss + '</tr>';
+      }).join('') + '</tbody><tfoot><tr><td colspan="3">סה״כ</td><td>' + nis(stm.totals.collected) + '</td><td>' + nis(stm.totals.own) + '</td><td>' + nis(stm.totals.add) + '</td><td>' + nis(stm.totals.total) + '</td><td>' + mc(stm.totals.missing) + '</td></tr></tfoot></table></div>' +
+      (stm.notes.length ? '<ul class="stm-notes">' + stm.notes.map(function (l) { return '<li>' + esc(l) + '</li>'; }).join('') + '</ul>' : '') +
+      '<div class="stm-boxes"><div class="sb full"><i>' + (stm.grant.complete ? 'מענק מלא' : 'סכום אפשרי עד כה') + '</i><b>' + nis(stm.totals.full) + '</b></div>' +
+      '<div class="sb got"><i>נצבר עד כה</i><b>' + nis(stm.totals.total) + '</b></div>' +
+      '<div class="sb ' + (stm.totals.missing > 0 ? 'miss' : 'ok') + '"><i>יתרה להשלמה</i><b>' + nis(stm.totals.missing) + '</b></div></div>' +
+      (stm.summary.length > 1 ? '<p class="stm-cta">' + esc(stm.summary[1]) + '</p>' : '') +
       '<div class="stm-act"><button type="button" class="btn btn-s btn-o" data-act="stm-print" data-mid="' + m.id + '">' + g('print') + 'הדפסה</button>' +
       '<button type="button" class="btn btn-s btn-o" data-act="stm-mail" data-mid="' + m.id + '">' + g('mail') + 'שליחה במייל</button></div>'
-      : '<p class="why">' + (m.type === 'חיידר' ? 'אין חשבון: בחיידר עדיין לא בגיל הזכאות.' : 'אין עדיין חשבון לפי שנים.') + '</p>';
+      : '';
+    var stmBtn = hh ? '<button type="button" class="stm-open" data-act="stm-toggle" aria-expanded="false" aria-controls="' + P + 'stm-panel">' + g('list') + '<span>פירוט שנים קודמות</span>' + g('down') + '</button>' : '';
     var depSum = m.deposits.reduce(function (t, d) { return t + (+d.amount || 0); }, 0);
     // קופסה מצומצמת: הכותרת היא כפתור שפותח וסוגר (חץ להרחבה)
     function fold(title, aside, inner) {
@@ -597,11 +600,11 @@ window.TZ_BODY="<svg width=\"0\" height=\"0\" style=\"position:absolute\" aria-h
           '<span class="l">' + (HOST() && S.year !== D.settings.campaignYear ? 'נאסף ב' + esc(S.year) : 'נאסף השנה') + (m.hasTarget ? '<br><b>' + m.pct + '%</b> מתוך ' + nis(m.required) : '<br><b>ללא יעד</b>') + '</span></div>' +
           '<div class="trk" style="--p:' + Math.min(100, m.collected / scale * 100).toFixed(1) + '" role="img" aria-label="התקדמות ואבני דרך למתנות"><i></i>' +
           (m.hasTarget ? '<span class="rq" style="--x:' + (m.required / scale * 100).toFixed(1) + '" data-tip="סה״כ נדרש|₪' + num(m.required) + '"></span>' : '') + ms + '</div></div>' +
-        '<div class="m-box"><h4>איך מחושב הנדרש</h4><div class="eq">' + eq + '</div>' + why + wv + '</div>' +
+        '<div class="m-box"><h4>איך מחושב הנדרש</h4><div class="eq">' + eq + '</div>' + stmBtn + why + wv + '</div>' +
       '</div><div class="m-col">' +
         fold((HOST() ? 'הפקדות' : 'הפקדות השנה') + ' (' + m.deposits.length + ')', m.deposits.length ? ltr('₪' + num(depSum)) : '', deps) +
-        fold('דף חשבון · מענק חתן', stm.rows.length ? 'נצבר ' + ltr(fmtN(stm.totals.total)) : '', hh) +
-      '</div></div></div>' +
+      '</div></div>' +
+      (hh ? '<section class="stm-panel" id="' + P + 'stm-panel" hidden><h4>פירוט שנים קודמות · מענק חתן</h4>' + hh + '</section>' : '') + '</div>' +
       (canEdit ? '<div class="sheet-f"><button type="button" class="btn" data-act="dep-for" data-mid="' + m.id + '">רישום הפקדה' + g('chev2') + '</button>' +
       '<button type="button" class="btn btn-o" data-act="edit">' + g('edit') + 'עריכת פרטים</button></div>' : '');
     showOv('member');
@@ -2234,6 +2237,12 @@ window.TZ_BODY="<svg width=\"0\" height=\"0\" style=\"position:absolute\" aria-h
     else if (a === 'wv-pick') { var wi = id('wv-pct'); if (wi) wi.value = el.getAttribute('data-p'); wvPreview(); }
     else if (a === 'wv-save') { var wp = wvVal(); if (!wp) { toast('צריך לבחור כמה אחוז מהקנס למחוק', 'close'); return; } saveWaiver(byId(el.getAttribute('data-mid')), wp); }
     else if (a === 'wv-clear') saveWaiver(byId(el.getAttribute('data-mid')), 0);
+    else if (a === 'stm-toggle') {
+      var pn = id('stm-panel'), open = pn && pn.hidden;
+      if (!pn) return;
+      pn.hidden = !open; el.setAttribute('aria-expanded', open ? 'true' : 'false'); el.classList.toggle('is-open', open);
+      if (open) later(function () { try { pn.scrollIntoView({ behavior: RM ? 'auto' : 'smooth', block: 'start' }); } catch (e) { pn.scrollIntoView(); } }, 30);
+    }
     else if (a === 'stm-print') printStatement(byId(el.getAttribute('data-mid')));
     else if (a === 'stm-mail') mailStatement(byId(el.getAttribute('data-mid')));
     else if (a === 'classic') { closeAll(); HOST().classic(S.view === 'soon' ? S.soon : S.view, S.soon === 'settings' ? SC.settings.tab : null); }
