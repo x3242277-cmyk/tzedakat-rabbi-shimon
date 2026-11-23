@@ -513,27 +513,27 @@
     var cell = function (v, cls) { return '<td class="' + (v ? cls : cls + ' dash') + '">' + esc(m(v)) + '</td>'; };
     var logo = '';
     try { logo = new URL('assets/img/nd/logo.png', document.baseURI).href; } catch (e) {}
-    var html = '<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8"><title>' + esc('החשבון לקראת מענק החתן · ' + (p.name || '')) + '</title><style>' + STMT_CSS + '</style></head><body><div class="pg">';
+    var html = '<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8"><title>' + esc('דף חשבון · מענק חתן · ' + (p.name || '')) + '</title><style>' + STMT_CSS + '</style></head><body><div class="pg">';
     html += '<div class="hd"><div class="org">' + (logo ? '<img src="' + esc(logo) + '" alt="">' : '') + esc(ORG) + ' <span>· עזרת חתנים</span></div>' +
       '<div class="stamp">' + esc(printStamp()) + '</div>' +
-      '<h1>החשבון לקראת מענק החתן</h1><div class="who">' + esc(p.name || '') + (p.sub ? ' <i>· ' + esc(p.sub) + '</i>' : '') + '</div></div>';
+      '<h1>דף חשבון · מענק חתן</h1><div class="who">' + esc(p.name || '') + (p.sub ? ' <i>· ' + esc(p.sub) + '</i>' : '') + '</div></div>';
     if (gr.full) {
-      html += '<h2>איך בנוי המענק</h2><p class="lead">' + esc('מענק החתן המלא הוא ' + money(gr.full) + '. בכל שנה בישיבה מביאים את היעד, והארגון מוסיף סכום שווה:') + '</p>' +
-        '<div class="how"><div><b>ישיבה קטנה · א׳ עד ג׳</b><span>מביאים ' + esc(money(gr.k)) + ' בשנה<br>הארגון מוסיף <em>' + esc(money(gr.k)) + '</em></span></div>' +
-        '<div><b>ישיבה גדולה · א׳ וב׳</b><span>מביאים ' + esc(money(gr.gd)) + ' בשנה<br>הארגון מוסיף <em>' + esc(money(gr.gd)) + '</em></span></div>' +
-        '<div><b>ישיבה גדולה · ג׳</b><span>מביאים ' + esc(money(gr.gd)) + '<br>בלי תוספת</span></div></div>';
+      html += '<h2>מבנה המענק</h2><p class="lead">' + esc('מענק החתן המלא עומד על ' + money(gr.full) + '. בכל שנת לימוד מפקיד הבחור את היעד השנתי, והארגון מוסיף סכום זהה.') + '</p>' +
+        '<div class="how"><div><b>ישיבה קטנה · שיעורים א׳–ג׳</b><span>הפקדה שנתית ' + esc(money(gr.k)) + '<br>תוספת הארגון <em>' + esc(money(gr.k)) + '</em></span></div>' +
+        '<div><b>ישיבה גדולה · שיעורים א׳–ב׳</b><span>הפקדה שנתית ' + esc(money(gr.gd)) + '<br>תוספת הארגון <em>' + esc(money(gr.gd)) + '</em></span></div>' +
+        '<div><b>ישיבה גדולה · שיעור ג׳</b><span>הפקדה שנתית ' + esc(money(gr.gd)) + '<br>ללא תוספת</span></div></div>';
     }
-    html += '<h2>השנים שלך</h2><table><thead><tr><th>שנה</th><th>מסגרת</th><th class="n">היעד</th><th class="n">הבאת</th><th class="n">נכנס למענק</th><th class="n">הארגון הוסיף</th><th class="n">סה"כ למענק</th><th class="n">חסר</th></tr></thead><tbody>' +
+    html += '<h2>פירוט לפי שנים</h2><table><thead><tr><th>שנה</th><th>מסגרת</th><th class="n">יעד שנתי</th><th class="n">הופקד</th><th class="n">נחשב למענק</th><th class="n">תוספת הארגון</th><th class="n">סה"כ למענק</th><th class="n">חוסר</th></tr></thead><tbody>' +
       rows.map(function (r) {
-        var miss = r.lost > 0 ? '<td class="n miss">' + esc(money(r.lost)) + '</td>' : r.repay > 0 ? '<td class="fix">' + esc('השלים ' + money(r.repay)) + '</td>' : '<td class="n dash">—</td>';
+        var miss = r.lost > 0 ? '<td class="n miss">' + esc(money(r.lost)) + '</td>' : r.repay > 0 ? '<td class="fix">' + esc('השלמת חוסר ' + money(r.repay)) + '</td>' : '<td class="n dash">—</td>';
         return '<tr><td class="yr">' + esc(r.year) + '</td><td>' + esc(r.frame) + '</td>' + cell(r.target, 'n') + '<td class="n">' + esc(money(r.collected)) + '</td>' +
           cell(r.own, 'n') + cell(r.add, 'n') + cell(r.total, 'n tot') + miss + '</tr>';
       }).join('') + '</tbody><tfoot><tr><td colspan="3">סה"כ</td><td class="n">' + esc(money(t.collected)) + '</td><td class="n">' + esc(money(t.own)) + '</td><td class="n">' +
       esc(money(t.add)) + '</td><td class="n">' + esc(money(t.total)) + '</td><td class="n">' + esc(m(t.missing)) + '</td></tr></tfoot></table>';
     if (notes.length) html += '<ul class="notes">' + notes.map(function (l) { return '<li>' + esc(l) + '</li>'; }).join('') + '</ul>';
-    html += '<div class="sum"><div class="box full"><i>' + (gr.complete ? 'המענק המלא' : 'אפשר היה לצבור') + '</i><b>' + esc(money(t.full != null ? t.full : gr.full)) + '</b></div>' +
-      '<div class="box got"><i>נצבר</i><b>' + esc(money(t.total)) + '</b></div>' +
-      (t.missing > 0 ? '<div class="box miss"><i>חסר להשלמה</i><b>' + esc(money(t.missing)) + '</b></div>' : '<div class="box ok"><i>חסר להשלמה</i><b>₪0</b></div>') + '</div>';
+    html += '<div class="sum"><div class="box full"><i>' + (gr.complete ? 'מענק מלא' : 'סכום אפשרי עד כה') + '</i><b>' + esc(money(t.full != null ? t.full : gr.full)) + '</b></div>' +
+      '<div class="box got"><i>נצבר עד כה</i><b>' + esc(money(t.total)) + '</b></div>' +
+      (t.missing > 0 ? '<div class="box miss"><i>יתרה להשלמה</i><b>' + esc(money(t.missing)) + '</b></div>' : '<div class="box ok"><i>יתרה להשלמה</i><b>₪0</b></div>') + '</div>';
     if (sm.length > 1) html += '<div class="cta">' + esc(sm[1]) + '</div>';
     html += '<div class="ft"><span>' + esc(ORG) + ' · עזרת חתנים</span><span>' + esc(p.name || '') + '</span></div>';
     return html + '</div></body></html>';

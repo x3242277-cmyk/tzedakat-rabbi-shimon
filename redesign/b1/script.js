@@ -556,9 +556,9 @@
     var stm = statementOf(m, hist);
     var hh = stm.rows.length ? '<div class="hist">' + stm.rows.map(function (r) {
       function ln(label, val, cls) { return '<span class="sl' + (cls ? ' ' + cls : '') + '"><span>' + label + '</span><b>' + val + '</b></span>'; }
-      var lines = ln('היעד', nis(r.target)) + ln('הבאת', nis(r.collected)) + ln('נכנס למענק', nis(r.own)) +
-        ln('הארגון הוסיף', r.add ? nis(r.add) : '—') + ln('סה״כ למענק', nis(r.total), 'sl-s sl-c') +
-        (r.lost > 0 ? ln('חסר', nis(r.lost), 'sl-b') : r.repay > 0 ? ln('השלים', nis(r.repay), 'sl-c') : '');
+      var lines = ln('יעד שנתי', nis(r.target)) + ln('הופקד', nis(r.collected)) + ln('נחשב למענק', nis(r.own)) +
+        ln('תוספת הארגון', r.add ? nis(r.add) : '—') + ln('סה״כ למענק', nis(r.total), 'sl-s sl-c') +
+        (r.lost > 0 ? ln('חוסר', nis(r.lost), 'sl-b') : r.repay > 0 ? ln('השלמת חוסר', nis(r.repay), 'sl-c') : '');
       return '<div class="hrow' + (r.current ? ' now' : '') + '"><span class="yr2">' + esc(r.year) + '</span><span class="tx"><b>' + esc(r.frame) + '</b>' +
         '<span class="sls">' + lines + '</span></span></div>';
     }).join('') + '</div>' +
@@ -598,7 +598,7 @@
         '<div class="m-box"><h4>איך מחושב הנדרש</h4><div class="eq">' + eq + '</div>' + why + wv + '</div>' +
       '</div><div class="m-col">' +
         fold((HOST() ? 'הפקדות' : 'הפקדות השנה') + ' (' + m.deposits.length + ')', m.deposits.length ? ltr('₪' + num(depSum)) : '', deps) +
-        fold('החשבון לקראת המענק', stm.rows.length ? 'נצבר ' + ltr(fmtN(stm.totals.total)) : '', hh) +
+        fold('דף חשבון · מענק חתן', stm.rows.length ? 'נצבר ' + ltr(fmtN(stm.totals.total)) : '', hh) +
       '</div></div></div>' +
       (canEdit ? '<div class="sheet-f"><button type="button" class="btn" data-act="dep-for" data-mid="' + m.id + '">רישום הפקדה' + g('chev2') + '</button>' +
       '<button type="button" class="btn btn-o" data-act="edit">' + g('edit') + 'עריכת פרטים</button></div>' : '');
@@ -627,7 +627,7 @@
       var full = T * (mt ? 2 : 1), lost = Math.max(0, full - toT - add);
       return { year: h.year, frame: h.frame, target: T, collected: B, own: own, add: add, total: own + add, full: full, lost: lost, repay: repay,
         extra: Math.max(0, B - own), matched: mt, current: !!h.current,
-        missText: lost > 0 ? fmtN(lost) : repay > 0 ? 'השלים ' + fmtN(repay) : '' };
+        missText: lost > 0 ? fmtN(lost) : repay > 0 ? 'השלמת חוסר ' + fmtN(repay) : '' };
     });
     // שנים אחרונות בלי יעד ובלי הפקדות (למשל קיבוץ אחרי ישי״ג ג׳) לא מקבלות שורה: רק הערה אחת
     var tail = [];
@@ -643,21 +643,21 @@
     // סיים את שנות הישיבה: יש שורה של ישי״ג ג׳ (או אחריה), או שנים בלי יעד אחרי הישיבה
     var done = rows.some(function (r) { return /(ישי״ג|ישי"ג)\s*[^אב\s]/.test(r.frame || '') || (/קיבוץ/.test(r.frame || '')); }) || tail.length > 0;
 
-    var intro = ['איך בנוי המענק',
-      'מענק החתן המלא הוא ' + fmtN(FULL) + '. בכל שנה בישיבה מביאים את היעד, והארגון מוסיף סכום שווה:',
-      'ישיבה קטנה, שיעורים א׳ עד ג׳: מביאים ' + fmtN(D.settings.targets['ישי״ק']) + ', והארגון מוסיף ' + fmtN(D.settings.targets['ישי״ק']) + '.',
-      'ישיבה גדולה, שיעורים א׳ וב׳: מביאים ' + fmtN(D.settings.targets['ישי״ג']) + ', והארגון מוסיף ' + fmtN(D.settings.targets['ישי״ג']) + '.',
-      'ישיבה גדולה, שיעור ג׳: מביאים ' + fmtN(D.settings.targets['ישי״ג']) + ', בלי תוספת.'];
+    var intro = ['מבנה המענק',
+      'מענק החתן המלא עומד על ' + fmtN(FULL) + '. בכל שנת לימוד מפקיד הבחור את היעד השנתי, והארגון מוסיף סכום זהה.',
+      'ישיבה קטנה, שיעורים א׳–ג׳: הפקדה שנתית ' + fmtN(D.settings.targets['ישי״ק']) + ', תוספת הארגון ' + fmtN(D.settings.targets['ישי״ק']) + '.',
+      'ישיבה גדולה, שיעורים א׳–ב׳: הפקדה שנתית ' + fmtN(D.settings.targets['ישי״ג']) + ', תוספת הארגון ' + fmtN(D.settings.targets['ישי״ג']) + '.',
+      'ישיבה גדולה, שיעור ג׳: הפקדה שנתית ' + fmtN(D.settings.targets['ישי״ג']) + ', ללא תוספת.'];
     var notes = [];
-    if (tail.length) notes.push('מ' + tail[0].year + ' ואילך לא היו עוד הפקדות.');
-    if (t.lostM) notes.push('בשנים שהארגון מוסיף סכום שווה, כל שקל שחסר חסר פעמיים: פעם שלך ופעם של הארגון. בישיבה גדולה ג׳ אין תוספת, ולכן שם החסר נספר פעם אחת.');
-    if (t.repay) notes.push('"השלים": כסף שהובא מעבר ליעד של אותה שנה ונכנס למענק במקום מה שחסר בשנים קודמות.');
-    if (cur && cur.lost > 0) notes.push('שנת ' + cur.year + ' עדיין פתוחה, ואפשר להשלים בה.');
+    if (tail.length) notes.push('החל משנת ' + tail[0].year + ' לא נרשמו הפקדות נוספות.');
+    if (t.lostM) notes.push('בשנים שבהן ניתנת תוספת הארגון, חוסר בהפקדה מפחית מהמענק גם את התוספת המקבילה, ולכן החוסר בהן כפול. בישיבה גדולה ג׳ לא ניתנת תוספת, והחוסר בה אינו כפול.');
+    if (t.repay) notes.push('השלמת חוסר: הפקדה מעבר ליעד השנתי, שהופנתה להשלמת חוסר משנים קודמות.');
+    if (cur && cur.lost > 0) notes.push('שנת ' + cur.year + ' טרם הסתיימה, וניתן להשלים בה את ההפקדות.');
 
-    var head = done && t.full === FULL ? 'המענק המלא ' + fmtN(FULL) : done ? 'אפשר היה לצבור בשנים שבחשבון ' + fmtN(t.full) : 'עד עכשיו אפשר היה לצבור ' + fmtN(t.full);
-    var summary = [head + ' · נצבר ' + fmtN(t.total) + (t.missing > 0 ? ' · חסר להשלמה ' + fmtN(t.missing) : '')];
-    if (t.missing > 0 && done && t.missing === m.gap) summary.push('אם תשלים ' + fmtN(t.missing) + ', תקבל את המענק המלא של ' + fmtN(t.full) + '.');
-    else if (t.missing === 0 && t.full) summary.push(done ? 'נצבר המענק המלא.' : 'עד עכשיו נצבר כל מה שאפשר היה לצבור.');
+    var head = done && t.full === FULL ? 'מענק מלא ' + fmtN(FULL) : done ? 'סכום אפשרי בשנים המפורטות ' + fmtN(t.full) : 'סכום אפשרי עד כה ' + fmtN(t.full);
+    var summary = [head + ' · נצבר עד כה ' + fmtN(t.total) + (t.missing > 0 ? ' · יתרה להשלמה ' + fmtN(t.missing) : '')];
+    if (t.missing > 0 && done && t.missing === m.gap) summary.push('עם השלמת היתרה בסך ' + fmtN(t.missing) + ' יינתן המענק המלא בסך ' + fmtN(t.full) + '.');
+    else if (t.missing === 0 && t.full) summary.push(done ? 'המענק נצבר במלואו.' : 'עד כה נצבר מלוא הסכום האפשרי.');
     return { rows: rows, totals: t, intro: intro, notes: notes, summary: summary,
       grant: { full: FULL, k: +D.settings.targets['ישי״ק'] || 0, gd: +D.settings.targets['ישי״ג'] || 0, complete: done && t.full === FULL } };
   }
@@ -667,20 +667,20 @@
   function printStatement(m) {
     var s = statementOf(m);
     if (HOST()) { hdo('printReport', 'statement', { name: stmTitle(m), sub: stmSub(m), rows: s.rows, totals: s.totals, intro: s.intro, notes: s.notes, summary: s.summary, grant: s.grant }); return; }
-    toast('החשבון נשלח להדפסה (הדגמה)', 'check');
+    toast('דף החשבון נשלח להדפסה (הדגמה)', 'check');
   }
   // מייל: נפתחת תוכנת הדואר עם החשבון כטקסט, מוכן לשליחה
   function mailStatement(m) {
     var s = statementOf(m), t = s.totals, L = [];
-    L.push('החשבון לקראת מענק החתן · ' + stmTitle(m), stmSub(m), '');
-    L = L.concat(s.intro, '', 'השנים שלך');
+    L.push('דף חשבון · מענק חתן', stmTitle(m) + ' · ' + stmSub(m), '');
+    L = L.concat(s.intro, '', 'פירוט לפי שנים');
     s.rows.forEach(function (r) {
-      L.push(r.year + ' · ' + r.frame + ': היעד ' + fmtN(r.target) + ' · הבאת ' + fmtN(r.collected) + ' · נכנס למענק ' + fmtN(r.own) +
-        ' · הארגון הוסיף ' + fmtN(r.add) + ' · סה"כ למענק ' + fmtN(r.total) + (r.missText ? ' · ' + (r.lost > 0 ? 'חסר ' : '') + r.missText : ''));
+      L.push(r.year + ' · ' + r.frame + ': יעד ' + fmtN(r.target) + ' · הופקד ' + fmtN(r.collected) + ' · נחשב למענק ' + fmtN(r.own) +
+        ' · תוספת הארגון ' + fmtN(r.add) + ' · סה"כ למענק ' + fmtN(r.total) + (r.missText ? ' · ' + (r.lost > 0 ? 'חוסר ' : '') + r.missText : ''));
     });
-    L.push('סה"כ: הבאת ' + fmtN(t.collected) + ' · נכנס למענק ' + fmtN(t.own) + ' · הארגון הוסיף ' + fmtN(t.add) + ' · סה"כ למענק ' + fmtN(t.total) + ' · חסר ' + fmtN(t.missing), '');
+    L.push('סה"כ: הופקד ' + fmtN(t.collected) + ' · נחשב למענק ' + fmtN(t.own) + ' · תוספת הארגון ' + fmtN(t.add) + ' · סה"כ למענק ' + fmtN(t.total) + ' · חוסר ' + fmtN(t.missing), '');
     L = L.concat(s.notes, '', s.summary, '', 'צדקת רבי שמעון · עזרת חתנים');
-    var href = 'mailto:?subject=' + encodeURIComponent('החשבון לקראת מענק החתן · ' + stmTitle(m)) + '&body=' + encodeURIComponent(L.join('\r\n'));
+    var href = 'mailto:?subject=' + encodeURIComponent('דף חשבון · מענק חתן · ' + stmTitle(m)) + '&body=' + encodeURIComponent(L.join('\r\n'));
     try { window.location.href = href; } catch (e) { toast('לא הצלחנו לפתוח את תוכנת הדואר', 'close'); }
   }
 
