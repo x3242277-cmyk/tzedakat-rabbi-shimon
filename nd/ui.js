@@ -576,7 +576,10 @@ window.TZ_BODY="<svg width=\"0\" height=\"0\" style=\"position:absolute\" aria-h
     }
     id('sheet').innerHTML = '<button type="button" class="x" data-close aria-label="סגירת הכרטיס">' + g('close') + '</button><div class="sheet-s">' +
       '<div class="mh"><span class="mg' + (st.tone === 'good' ? ' s-good' : '') + '">' + mono(m) + '</span><div><h2>' + esc(m.full) + '</h2>' +
-      '<p>' + (m.father ? 'בן ' + esc(m.father) + ' · ' : '') + '<b>' + esc(m.yeshiva || 'ללא ישיבה') + '</b> · ' + esc(m.frame) + (m.married ? ' · נשוי' : '') + '</p><div class="mh-tags">' + tags + '</div></div></div>' +
+      '<p>' + (m.father ? 'בן ' + esc(m.father) + ' · ' : '') + '<b>' + esc(m.yeshiva || 'ללא ישיבה') + '</b> · ' + esc(m.frame) + (m.married ? ' · נשוי' : '') + '</p>' +
+      // פרטי קשר בראש הכרטיס, בלי קופסה נפרדת. מה שחסר פשוט לא מוצג
+      (m.phone || m.address || m.notes ? '<p class="mh-c">' + (m.phone ? '<span><bdi dir="ltr">' + esc(m.phone) + '</bdi></span>' : '') + (m.address ? '<span>' + esc(m.address) + '</span>' : '') + (m.notes ? '<span class="mh-n">' + esc(m.notes) + '</span>' : '') + '</p>' : '') +
+      '<div class="mh-tags">' + tags + '</div></div></div>' +
       '<div class="m-grid"><div class="m-col">' +
         '<div class="m-box"><div class="m-big"><span class="n" dir="ltr"><small>₪</small><span data-n="' + m.collected + '">' + num(m.collected) + '</span></span>' +
           '<span class="l">' + (HOST() && S.year !== D.settings.campaignYear ? 'נאסף ב' + esc(S.year) : 'נאסף השנה') + (m.hasTarget ? '<br><b>' + m.pct + '%</b> מתוך ' + nis(m.required) : '<br><b>ללא יעד</b>') + '</span></div>' +
@@ -584,7 +587,6 @@ window.TZ_BODY="<svg width=\"0\" height=\"0\" style=\"position:absolute\" aria-h
           (m.hasTarget ? '<span class="rq" style="--x:' + (m.required / scale * 100).toFixed(1) + '" data-tip="סה״כ נדרש|₪' + num(m.required) + '"></span>' : '') + ms + '</div></div>' +
         '<div class="m-box"><h4>איך מחושב הנדרש</h4><div class="eq">' + eq + '</div>' + why + wv + '</div>' +
       '</div><div class="m-col">' +
-        '<div class="m-box"><h4>פרטי קשר</h4><dl class="info"><div><dt>טלפון</dt><dd dir="ltr">' + esc(m.phone || '—') + '</dd></div><div><dt>כתובת</dt><dd>' + esc(m.address || '—') + '</dd></div>' + (m.notes ? '<div><dt>הערות</dt><dd>' + esc(m.notes) + '</dd></div>' : '') + '</dl></div>' +
         fold((HOST() ? 'הפקדות' : 'הפקדות השנה') + ' (' + m.deposits.length + ')', m.deposits.length ? ltr('₪' + num(depSum)) : '', deps) +
         fold('היסטוריית זכאות', hist.length ? hist.length + ' שנים' : '', hh) +
       '</div></div></div>' +
