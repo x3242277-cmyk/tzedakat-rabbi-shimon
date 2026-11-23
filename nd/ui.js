@@ -572,10 +572,10 @@ window.TZ_BODY="<svg width=\"0\" height=\"0\" style=\"position:absolute\" aria-h
         return '<tr' + (r.current ? ' class="now"' : '') + '><td class="sy">' + esc(r.year) + '</td><td>' + esc(r.frame) + '</td><td>' + mc(r.target) + '</td><td class="sdep">' + nis(r.collected) + '</td><td>' + mc(r.own) + '</td><td>' + mc(r.add) + '</td><td class="tot">' + mc(r.total) + '</td>' + miss + '</tr>';
       }).join('') + '</tbody><tfoot><tr><td colspan="3">סה״כ</td><td class="sdep"></td><td>' + nis(stm.totals.own) + '</td><td>' + nis(stm.totals.add) + '</td><td>' + nis(stm.totals.total) + '</td><td>' + mc(stm.totals.missing) + '</td></tr></tfoot></table></div>' +
       (stm.notes.length ? '<ul class="stm-notes">' + stm.notes.map(function (l) { return '<li>' + esc(l) + '</li>'; }).join('') + '</ul>' : '') +
+      (stm.creditLine ? '<p class="stm-credit">' + esc(stm.creditLine) + '</p>' : '') +
       '<div class="stm-boxes"><div class="sb full"><i>' + (stm.grant.complete ? 'מענק מלא' : 'סכום אפשרי עד כה') + '</i><b>' + nis(stm.totals.full) + '</b></div>' +
       '<div class="sb got"><i>נצבר עד כה</i><b>' + nis(stm.totals.total) + '</b></div>' +
       '<div class="sb ' + (stm.totals.due > 0 ? 'miss' : 'ok') + '"><i>' + (stm.totals.credit > 0 ? 'יתרה להשלמה (לאחר זיכוי)' : 'יתרה להשלמה') + '</i><b>' + nis(stm.totals.due) + '</b></div></div>' +
-      (stm.creditLine ? '<p class="stm-credit">' + esc(stm.creditLine) + '</p>' : '') +
       (stm.summary.length > 1 ? '<p class="stm-cta">' + esc(stm.summary[1]) + '</p>' : '') +
       '<div class="stm-act"><button type="button" class="btn btn-s btn-o" data-act="stm-print" data-mid="' + m.id + '">' + g('print') + 'הדפסה</button>' +
       '<button type="button" class="btn btn-s btn-o" data-act="stm-mail" data-mid="' + m.id + '">' + g('mail') + 'שליחה במייל</button></div>'
